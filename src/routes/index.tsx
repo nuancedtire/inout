@@ -67,7 +67,7 @@ function HomePage() {
     if (staffId) {
       getStatus({ data: { rosterEntryId: staffId } })
         .then((s) =>
-          setStatus({ ...s, checkInAt: null }),
+          setStatus({ ...s }),
         )
         .catch((e) => {
           showMessage(e instanceof Error ? e.message : 'Failed to load status', 'error')

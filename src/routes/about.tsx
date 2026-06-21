@@ -55,7 +55,7 @@ function About() {
 
       <section className="pt-4 border-t border-neutral-200 space-y-3">
         <a
-          href="https://github.com/nuancedtire/inout"
+          href="https://github.com/nuancedtire/attendance-qr-cf"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 transition-colors"

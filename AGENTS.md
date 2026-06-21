@@ -50,7 +50,11 @@ src/
     client.ts        # D1 access helper
   hooks/
     useLoading.ts    # Loading-state tracker for async operations
+  types/
+    env.d.ts         # Cloudflare Workers env type declarations
+    html5-qrcode.d.ts # html5-qrcode library type declarations
   routes/
+    -hooks.ts        # Shared staff identity hook (useStaffIdentity)
     __root.tsx       # Root layout (error boundaries, theme)
     index.tsx        # Staff check-in page
     qr.tsx           # Public QR display page

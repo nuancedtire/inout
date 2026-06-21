@@ -128,3 +128,15 @@ Issues #1–#6 filed with `auto-fix`; #7–#11 filed as `needs-triage` only.
 - **PR #17 — Error handling + accessibility (#6, #7, #8, #9):** Added `.catch()` handlers to getStatus (index.tsx) and getStaffHistory (history.tsx) with user-visible error messages. Added loadError state and error banner to history page. Added `aria-label` to 8 unlabelled inputs across admin.tsx, index.tsx, print-qr.tsx, RotaStaffSection.tsx. Added `role="dialog"`, `aria-modal="true"`, `aria-labelledby` to 4 modal dialogs (identity picker and PIN entry in index.tsx and history.tsx). Added `role="alertdialog"` to ConfirmDialog. Added `aria-label="Close"` to modal close buttons and `aria-label="Dismiss"` to message toast button. Added keyboard navigation (ArrowLeft/Right, Home/End) and ARIA slider attributes (role, valuenow, valuemin, valuemax, valuetext) to SlideButton component. 7 files changed, 132 insertions. Build ✅.
 
 **Summary:** 11 of 11 auto-fix issues processed across 3 PRs. Issue #1 resolved by human merge. All builds passing.
+
+## 2026-06-21 (cron run 4 — self-upgrading Phase A+B)
+
+**Phase A — Discovery:** Scanned all 8 categories across the codebase. Verified all 17 AUDIT.md items as genuinely resolved. Discovered 1 new issue:
+- #24: Bug — PR #23's checkInAt fix was incomplete. Two more call sites in `handleSlideComplete` and `handleUndo` still override `checkInAt: null`, preventing the relative-time badge from rendering after slide actions. Filed `needs-triage,auto-fix`.
+
+**Phase B — Implementation (#24):**
+- PR #25: 1 file changed (`src/routes/index.tsx`), 2 insertions, 2 deletions.
+  - Removed `checkInAt: null` overrides from both `handleSlideComplete` (line 107) and `handleUndo` (line 122), matching the fix pattern from PR #23.
+- Build ✅.
+
+**Remaining:** #21 (identity picker duplication) and #22 (PIN input aria-label) are `needs-triage` — waiting for human to add `auto-fix` label. PR #23 (#18, #19, #20) still OPEN awaiting human merge.

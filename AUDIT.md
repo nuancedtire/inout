@@ -122,3 +122,24 @@ Items #1–#6 are labeled `auto-fix` (clear-cut, well-scoped). Items #7–#11 ar
 | #17 | #6, #7, #8, #9 | `agent/issue-group-6-error-handling-accessibility` | Error handling + accessibility |
 
 All 3 PRs built successfully. #1 already resolved by human merge.
+
+---
+
+## 2026-06-21 — Phase A+B (cron run 4)
+
+**Phase A — Discovery:**
+- All 17 original backlog items verified as genuinely done ✅
+- Issues #1–#20 tracked correctly ✅
+- PR #23 still OPEN (awaiting merge) — covers #18, #19, #20
+- Issues #21 (identity picker duplication) and #22 (PIN input aria-label) still `needs-triage`
+
+**New issue discovered:**
+- #24: Bug — PR #23's checkInAt fix was incomplete. Two more call sites in `handleSlideComplete` (line 107) and `handleUndo` (line 122) still override `checkInAt: null`, preventing the relative-time badge from rendering after slide actions. Filed `needs-triage,auto-fix`.
+
+**Phase B — Implementation (1 PR):**
+
+| PR | Issue | Branch | Title |
+|---|---|---|---|
+| #25 | #24 | `agent/issue-24-checkinat-override-fix` | Fix remaining checkInAt: null overrides |
+
+Build ✅.

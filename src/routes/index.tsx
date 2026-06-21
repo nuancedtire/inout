@@ -104,7 +104,7 @@ function HomePage() {
     }
 
     const newStatus = await getStatus({ data: { rosterEntryId: staffId } })
-    setStatus({ ...newStatus, checkInAt: null })
+    setStatus({ ...newStatus })
   }
 
   // ── Undo ──────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ function HomePage() {
         'info',
       )
       const newStatus = await getStatus({ data: { rosterEntryId: staffId } })
-      setStatus({ ...newStatus, checkInAt: null })
+      setStatus({ ...newStatus })
     } catch (e) {
       showMessage(e instanceof Error ? e.message : 'Failed', 'error')
     } finally {

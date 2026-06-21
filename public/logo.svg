@@ -1,43 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 790 200" width="790" height="200" role="img" aria-label="IN & OUT">
-  <!-- Wordmark: geometric letterforms drawn as strokes (no font dependency) -->
-  <g fill="none" stroke="#111827" stroke-width="28" stroke-linecap="square" stroke-linejoin="miter">
-    <!-- I -->
-    <path d="M34 64 V136" />
-    <!-- N -->
-    <path d="M88 136 V64 L152 136 V64" />
-    <!-- O -->
-    <ellipse cx="462" cy="100" rx="44" ry="36" />
-    <!-- U -->
-    <path d="M560 64 V102 a34 34 0 0 0 68 0 V64" />
-    <!-- T -->
-    <path d="M682 64 H750" />
-    <path d="M716 64 V136" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 220" width="900" height="220" role="img" aria-label="In and Out">
+  <!-- "IN" + "OUT" solid letterforms -->
+  <g fill="#111827">
+    <rect x="40" y="55" width="34" height="130" rx="4"/>
+    <rect x="104" y="55" width="34" height="130" rx="4"/>
+    <rect x="196" y="55" width="34" height="130" rx="4"/>
+    <path d="M104 55 L138 55 L230 185 L196 185 Z"/>
+    <rect x="752" y="55" width="116" height="34" rx="4"/>
+    <rect x="793" y="55" width="34" height="130" rx="4"/>
   </g>
 
-  <!-- Runner: chunky limbs with rounded joints -->
-  <g fill="none" stroke="#111827" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
-    <!-- torso (gentle curve, ampersand spirit) -->
-    <path d="M320 116 Q320 88 346 70" />
-    <!-- neck -->
-    <path d="M346 70 L356 58" />
-    <!-- front arm (reaching forward) -->
-    <path d="M346 70 L376 84 L372 106" />
-    <!-- back arm (swung back) -->
-    <path d="M346 70 L318 82 L302 98" />
-    <!-- front leg (lifted, bent knee) -->
-    <path d="M320 116 L354 138 L346 162" />
-    <!-- back leg (extended, pushing off) -->
-    <path d="M320 116 L292 140 L264 160" />
-  </g>
+  <!-- O ring -->
+  <path fill="#111827" fill-rule="evenodd" d="M548 55 a65 65 0 1 0 0.1 0 Z M548 89 a31 31 0 1 1 -0.1 0 Z"/>
 
-  <!-- Speed lines -->
-  <g fill="none" stroke="#111827" stroke-width="11" stroke-linecap="round">
-    <path d="M216 74 H244" />
-    <path d="M204 98 H246" />
-    <path d="M216 122 H242" />
+  <!-- U -->
+  <path d="M636 55 L636 128 A44 44 0 0 0 724 128 L724 55" fill="none" stroke="#111827" stroke-width="34" stroke-linecap="round"/>
+
+  <!-- Running figure (the "&") -->
+  <g fill="none" stroke="#111827" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" transform="translate(16,0)">
+    <path d="M372 158 C372 122 330 120 334 92 C336 66 376 66 376 94 C378 120 340 126 360 158"/>
+    <path d="M368 112 L404 100 L418 124"/>
+    <path d="M346 108 L318 118 L300 138"/>
+    <path d="M360 158 L396 176 L390 206"/>
+    <path d="M360 158 L322 178 L296 168"/>
+    <path d="M252 96 L288 96" stroke-width="14"/>
+    <path d="M240 124 L288 124" stroke-width="14"/>
+    <path d="M252 152 L288 152" stroke-width="14"/>
   </g>
 
   <!-- Head + cap -->
-  <circle cx="358" cy="46" r="17" fill="#111827" />
-  <rect x="341" y="20" width="48" height="15" rx="6" fill="#111827" transform="rotate(-16 365 27)" />
+  <g fill="#111827" transform="translate(16,0)">
+    <circle cx="356" cy="60" r="26"/>
+    <path d="M330 50 q4 -22 30 -22 q26 0 26 18 l0 6 q-28 -6 -56 -2 Z"/>
+    <rect x="380" y="42" width="34" height="12" rx="6"/>
+  </g>
 </svg>

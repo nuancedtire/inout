@@ -46,6 +46,8 @@ CREATE INDEX IF NOT EXISTS idx_sessions_checkin ON sessions(check_in_at);
 -- Composite index for "who is in" / get-status queries
 CREATE INDEX IF NOT EXISTS idx_sessions_entry_out
   ON sessions(roster_entry_id, check_out_at);
+-- Index for audit log pruning and sorting
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
 `;
 
 export interface Rota {

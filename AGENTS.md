@@ -59,7 +59,7 @@ src/
     about.tsx        # About page
     admin.tsx        # Admin dashboard (~464 lines orchestration)
     admin/
-      -components/   # Section components (AdminHeader, AttendanceSummary,
+      -components/   # Section components (AdminHeader, DailySummary,
                      #   AuditEvent, AuditLogSection, MessageBanner,
                      #   QrSection, RefreshError, RosterSection,
                      #   RotaStaffSection, SectionNav, SessionEditForm,

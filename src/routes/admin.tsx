@@ -45,6 +45,7 @@ import {
   UserCheck,
   Clock,
 } from 'lucide-react'
+import Papa from 'papaparse'
 
 export const Route = createFileRoute('/admin')({
   component: AdminPage,
@@ -295,7 +296,7 @@ const [confirmDialog, setConfirmDialog] = useState<{
         data: { startDate: viewDate, endDate: viewDate, authToken },
       })
 
-      const csv = [
+      const csvRows = [
         ['Name', 'Role', 'Check in', 'Check out', 'Hours'],
         ...rows.map((r) => [
           r.name,
@@ -305,8 +306,8 @@ const [confirmDialog, setConfirmDialog] = useState<{
           r.hours?.toFixed(2) || '',
         ]),
       ]
-        .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
-        .join('\n')
+
+      const csv = Papa.unparse(csvRows)
 
       const blob = new Blob([csv], { type: 'text/csv' })
       const url = URL.createObjectURL(blob)

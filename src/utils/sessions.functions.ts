@@ -186,6 +186,7 @@ export const undoLastAction = createServerFn({ method: 'POST' })
 export const getStatus = createServerFn({ method: 'GET' })
   .validator((data: { rosterEntryId: number }) => data)
   .handler(async ({ data }) => {
+    checkRateLimit(`status:${data.rosterEntryId}`)
     const session = await getCurrentSessionForEntry(data.rosterEntryId)
     return {
       checkedIn: !!session,

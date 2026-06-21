@@ -100,3 +100,31 @@
 - **Item #17** — Self-upgrading cron: cron job `cd2592bf56f1` rewritten with two-phase prompt (discovery + implementation via GitHub issues/PRs). GitHub repo `nuancedtire/attendance-qr-cf` created with 6 control labels (`needs-triage`, `auto-fix`, `wont-fix`, `in-progress`, `ready-to-merge`, `question`). ADR-006 added to `docs/adr/`. CONTEXT.md updated with label taxonomy. `AUDIT.md` updated with corrected counters and all changes.
 - `.gitignore` updated with `.dev.vars` and `.cta.json`.
 - Build healthy.
+
+## 2026-06-21 (cron run — self-upgrading Phase A+B)
+
+**Phase A — Discovery:** Scanned all 8 categories across the codebase. Verified all 17 AUDIT.md items as genuinely done. Discovered 11 new issues:
+- #1–#3: doc-code drift (about.tsx scaffold, CSV naive escape, NotFoundPage tokens)
+- #4–#5: dead code (Header/Footer/ThemeToggle, getRecentAudit + individual admin endpoints)
+- #6: error handling (missing .catch on staff fetches)
+- #7–#9: accessibility (form labels, ARIA modals, SlideButton keyboard)
+- #10: security (getStatus rate limiting)
+- #11: performance (missing audit_log.created_at index)
+
+Issues #1–#6 filed with `auto-fix`; #7–#11 filed as `needs-triage` only.
+
+**Phase B — Implementation (#1):** Replaced `about.tsx` TanStack scaffold starter text with Attendance QR-specific content: project description, how-it-works steps, stack info, GitHub link. Uses design-system tokens from `theme.css` and Lucide icons. Build healthy. PR #12 opened.
+
+## 2026-06-21 (cron run 2 — self-upgrading Phase A+B)
+
+**Phase A — Verification:** Reopened #1 (about.tsx scaffold content) then discovered it was already fixed by a commit on main — closed again. Verified #2–#11 all valid. Scanned for new issues across all 8 categories — found 2: #13 (AGENTS.md doc-code drift) and #14 (dead CSS animations). Human had added `auto-fix` to #7–#11.
+
+**Phase B — Implementation (3 PRs):**
+
+- **PR #15 — Dead code cleanup (#4, #5, #13, #14):** Deleted Header.tsx, Footer.tsx, ThemeToggle.tsx (dead scaffold components). Removed `getRecentAudit` from audit.ts and 4 unused individual admin query endpoints from sessions.functions.ts. Updated AGENTS.md to list only existing components (removed non-existent AddStaffSection/UploadRotaSection, removed deleted Header/Footer/ThemeToggle). Removed ~100 lines of dead CSS slide animation classes from styles.css. 7 files changed, 340 lines deleted. Build ✅.
+
+- **PR #16 — Client fixes + infra (#2, #3, #10, #11):** Replaced naive `replace(/"/g, '""')` CSV escaping in admin.tsx with `Papa.unparse`. Replaced hardcoded Tailwind classes (gray-*, blue-*) in NotFoundPage and body with design tokens (neutral-*, primary-*). Added `checkRateLimit` to getStatus endpoint (3s window, matching existing pattern). Added `idx_audit_created` index on audit_log.created_at in both schema.ts and migration file. 5 files changed. Build ✅.
+
+- **PR #17 — Error handling + accessibility (#6, #7, #8, #9):** Added `.catch()` handlers to getStatus (index.tsx) and getStaffHistory (history.tsx) with user-visible error messages. Added loadError state and error banner to history page. Added `aria-label` to 8 unlabelled inputs across admin.tsx, index.tsx, print-qr.tsx, RotaStaffSection.tsx. Added `role="dialog"`, `aria-modal="true"`, `aria-labelledby` to 4 modal dialogs (identity picker and PIN entry in index.tsx and history.tsx). Added `role="alertdialog"` to ConfirmDialog. Added `aria-label="Close"` to modal close buttons and `aria-label="Dismiss"` to message toast button. Added keyboard navigation (ArrowLeft/Right, Home/End) and ARIA slider attributes (role, valuenow, valuemin, valuemax, valuetext) to SlideButton component. 7 files changed, 132 insertions. Build ✅.
+
+**Summary:** 11 of 11 auto-fix issues processed across 3 PRs. Issue #1 resolved by human merge. All builds passing.

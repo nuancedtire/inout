@@ -75,3 +75,50 @@ The consolidated cron (`attendance-qr-consolidated`, every 3h) is now a self-upg
 4. **If nothing to do:** `[SILENT]` — no delivery.
 5. If item needs DB change: update `src/db/schema.ts` AND `migrations/0001_init.sql`.
 6. Append to `POLISH_LOG.md` with date, issue #, what changed, build status.
+
+---
+
+## 2026-06-21 — Phase A discovery (cron run)
+
+All 17 original backlog items verified as genuinely done against the codebase.
+
+**New issues discovered and filed as GitHub issues:**
+
+| # | Category | Title | Labels |
+|---|---|---|---|
+| #1 | doc-code drift | about.tsx still has TanStack scaffold starter content | needs-triage, auto-fix |
+| #2 | doc-code drift | Client-side CSV export uses naive escaping (incomplete fix for AUDIT.md #14) | needs-triage, auto-fix |
+| #3 | doc-code drift | __root.tsx NotFoundPage uses hardcoded Tailwind classes instead of design tokens | needs-triage, auto-fix |
+| #4 | dead code | Dead components (Header, Footer, ThemeToggle) use non-existent CSS variables and are never rendered | needs-triage, auto-fix |
+| #5 | dead code | getRecentAudit and individual admin query endpoints are unused dead code | needs-triage, auto-fix |
+| #6 | error handling | Missing .catch() on staff-facing fetch calls (getStaffHistory, getStatus) | needs-triage, auto-fix |
+| #7 | accessibility | Missing form labels on admin inputs (PIN, date picker, manual entry fields) | needs-triage |
+| #8 | accessibility | Missing ARIA roles on modal dialogs and close buttons | needs-triage |
+| #9 | accessibility | SlideButton component lacks keyboard and ARIA support | needs-triage |
+| #10 | security | getStatus endpoint has no rate limiting | needs-triage |
+| #11 | performance | Missing index on audit_log.created_at for pruning and sorting | needs-triage |
+
+Items #1–#6 are labeled `auto-fix` (clear-cut, well-scoped). Items #7–#11 are `needs-triage` only — human must add `auto-fix` to authorize.
+
+---
+
+## 2026-06-21 — Phase A+B (cron run 2)
+
+**Phase A — Verification:**
+- #1: CLOSED (fixed by commit on main — about.tsx now has real content)
+- #2–#11: All valid. Human added `auto-fix` to #7–#11.
+
+**New issues discovered:**
+- #12: (none — issue numbering skips to #13)
+- #13: Doc-code drift — AGENTS.md lists non-existent AddStaffSection/UploadRotaSection. Filed `needs-triage,auto-fix`.
+- #14: Dead CSS — ~100 lines of unused slide animation classes in styles.css. Filed `needs-triage,auto-fix`.
+
+**Phase B — Implementation (3 PRs):**
+
+| PR | Issues | Branch | Title |
+|---|---|---|---|
+| #15 | #4, #5, #13, #14 | `agent/issue-group-4-dead-code-cleanup` | Remove dead code and fix docs |
+| #16 | #2, #3, #10, #11 | `agent/issue-group-2-client-fixes` | Client-side fixes + infra hardening |
+| #17 | #6, #7, #8, #9 | `agent/issue-group-6-error-handling-accessibility` | Error handling + accessibility |
+
+All 3 PRs built successfully. #1 already resolved by human merge.

@@ -35,92 +35,10 @@ textarea {
 }
 
 /* =============================================
-   Slide Component Animations
+   Modal Animation
    ============================================= */
 
-/* 1. Shimmer — subtle glow that moves across the track */
-@keyframes slideShimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-
-.slide-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
-  background-size: 200% 100%;
-  animation: slideShimmer 2.5s ease-in-out infinite;
-}
-
-/* 2. Pulse — subtle attention-drawing pulse on the thumb */
-@keyframes slidePulse {
-  0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
-  50% { box-shadow: 0 2px 16px rgba(0,0,0,0.2); }
-}
-
-.slide-pulse {
-  animation: slidePulse 2s ease-in-out infinite;
-}
-
-/* 3. Complete — spring bounce when slide completes (overshoots then settles) */
-@keyframes slideComplete {
-  0% { transform: translateX(0); }
-  60% { transform: translateX(calc(var(--slide-distance) + 6px)); }  /* overshoot */
-  80% { transform: translateX(calc(var(--slide-distance) - 2px)); }  /* undershoot */
-  100% { transform: translateX(var(--slide-distance)); }              /* settle */
-}
-
-.slide-complete {
-  animation: slideComplete 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-/* 4. SnapBack — snap back to start when released before threshold */
-@keyframes slideSnapBack {
-  0% { transform: translateX(var(--current-x)); }
-  100% { transform: translateX(0); }
-}
-
-.slide-snap-back {
-  animation: slideSnapBack 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-/* 5. Checkmark pop — scale animation after completion */
-@keyframes checkmarkPop {
-  0% { transform: scale(0); opacity: 0; }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.checkmark-pop {
-  animation: checkmarkPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-/* 6. Idle shine — track shine effect when interaction is possible */
-.slide-track-idle {
-  position: relative;
-  overflow: hidden;
-}
-
-.slide-track-idle::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 40%, rgba(255,255,255,0.3) 60%, transparent 100%);
-  transform: translateX(-100%);
-  animation: trackShine 3s ease-in-out infinite;
-}
-
-@keyframes trackShine {
-  0% { transform: translateX(-100%); }
-  80%, 100% { transform: translateX(100%); }
-}
-
-/* 7. No-select — disable text selection on the slide area */
-.slide-no-select {
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: none;
-}
-
-/* 8. Modal sheet slide-up animation */
+/* Modal sheet slide-up animation */
 @keyframes slideUp {
   0% { transform: translateY(100%); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }

@@ -301,43 +301,6 @@ export const adminGetDashboard = createServerFn({ method: 'POST' })
     return { entries: roster, present: whoIsIn, sessions, audit }
   })
 
-// ── Individual admin endpoints (kept for targeted operations) ────
-
-export const adminGetRosterWithStatus = createServerFn({ method: 'POST' })
-  .validator((data: { date: string; authToken: string }) => data)
-  .handler(async ({ data }) => {
-    await requireAdmin({ token: data.authToken })
-    const db = await getDb()
-    const rota = await getRotaForDate(data.date)
-    return { entries: await getRosterWithStatusImpl(db, rota?.id) }
-  })
-
-export const adminGetWhoIsIn = createServerFn({ method: 'POST' })
-  .validator((data: { date: string; authToken: string }) => data)
-  .handler(async ({ data }) => {
-    await requireAdmin({ token: data.authToken })
-    const db = await getDb()
-    const rota = await getRotaForDate(data.date)
-    return { staff: await getWhoIsInImpl(db, rota?.id) }
-  })
-
-export const adminGetSessionHistory = createServerFn({ method: 'POST' })
-  .validator((data: { date: string; authToken: string }) => data)
-  .handler(async ({ data }) => {
-    await requireAdmin({ token: data.authToken })
-    const db = await getDb()
-    const rota = await getRotaForDate(data.date)
-    return { sessions: await getSessionHistoryImpl(db, rota?.id) }
-  })
-
-export const adminGetAuditLog = createServerFn({ method: 'POST' })
-  .validator((data: { limit?: number; authToken: string }) => data)
-  .handler(async ({ data }) => {
-    await requireAdmin({ token: data.authToken })
-    const db = await getDb()
-    return { events: await getAuditLogImpl(db, data.limit) }
-  })
-
 // ═══════════════════════════════════════════════════════════════════
 // Admin mutation endpoints
 // ═══════════════════════════════════════════════════════════════════

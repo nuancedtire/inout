@@ -44,8 +44,7 @@ npx @tanstack/intent@latest load @tanstack/start-client-core#start-core/server-f
 ```
 src/
   components/        # Shared UI components (Button, Card, Badge, ConfirmDialog,
-                     #   EmptyState, ErrorFallback, Footer, Header, IdentityBar,
-                     #   SlideButton, ThemeToggle)
+                     #   EmptyState, ErrorFallback, IdentityBar, SlideButton)
   db/
     schema.ts        # SQL schema and migration helpers
     client.ts        # D1 access helper
@@ -60,12 +59,12 @@ src/
     about.tsx        # About page
     admin.tsx        # Admin dashboard (~464 lines orchestration)
     admin/
-      -components/   # Section components (AdminHeader, AddStaffSection,
-                     #   AttendanceSummary, AuditEvent, AuditLogSection,
-                     #   MessageBanner, QrSection, RefreshError,
-                     #   RosterSection, RotaStaffSection, SectionNav,
-                     #   SessionEditForm, SessionSection, UploadRotaSection,
-                     #   WeeklyRollupSection, WhoIsInSection)
+      -components/   # Section components (AdminHeader, AttendanceSummary,
+                     #   AuditEvent, AuditLogSection, MessageBanner,
+                     #   QrSection, RefreshError, RosterSection,
+                     #   RotaStaffSection, SectionNav, SessionEditForm,
+                     #   SessionSection, WeeklyRollupSection,
+                     #   WhoIsInSection)
       -hooks.ts      # Admin page shared hooks
       -types.ts      # Admin page shared types
     api/

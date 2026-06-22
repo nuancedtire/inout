@@ -134,8 +134,6 @@ function AdminDashboard() {
       )
     : []
 
-  const allGood = entries.filter((e) => e.checkInAt && e.checkOutAt)
-
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -167,7 +165,6 @@ function AdminDashboard() {
       <DailySummary
         missingCheckIn={missingCheckIn}
         missingCheckOut={missingCheckOut}
-        allGood={allGood}
         entries={entries}
         viewDate={viewDate}
       />

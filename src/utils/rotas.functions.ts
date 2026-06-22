@@ -71,14 +71,7 @@ export const getQrTokenOrSeed = createServerFn({ method: 'GET' })
   .validator((data: { date: string }) => data)
   .handler(async ({ data }) => {
     const db = await getDb()
-    const rota = await db
-      .select({ token: rotas.token })
-      .from(rotas)
-      .where(eq(rotas.date, data.date))
-      .get()
-
-    // Only return a token if a rota already exists for this date
-    if (!rota) return { token: null }
+    const rota = await ensureRotaForDate(db, data.date)
     return { token: rota.token }
   })
 

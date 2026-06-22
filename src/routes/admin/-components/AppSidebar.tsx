@@ -11,7 +11,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from '#/components/ui/sidebar'
-import { LayoutDashboard, ClipboardList, Users, ScrollText } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Users, ScrollText, PanelLeftClose } from 'lucide-react'
 import { Logo } from '#/components/Logo'
 
 const navItems = [
@@ -38,11 +38,19 @@ export function AppSidebar() {
         >
           <Logo size={48} variant="rausch" />
         </button>
-        {/* Expanded: In + Logo + Out */}
+        {/* Expanded: In + Logo + Out + collapse button */}
         <div className="group-data-[collapsible=icon]:hidden flex items-center gap-0 px-5 py-5">
           <span className="text-3xl font-bold text-ink tracking-tight leading-none">In</span>
           <Logo size={56} variant="rausch" className="-mx-1.5" />
           <span className="text-3xl font-bold text-ink tracking-tight leading-none">Out</span>
+          <div className="flex-1" />
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="Collapse sidebar"
+            className="p-1.5 rounded-full text-muted hover:text-ink hover:bg-surface-soft transition-colors"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
         </div>
       </SidebarHeader>
       <SidebarContent>

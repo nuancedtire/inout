@@ -1,6 +1,6 @@
 import type { RosterEntryWithStatus } from '#/routes/admin/-types'
 import { formatTime, parseShiftTime } from '#/utils/dateTime'
-import { AlertCircle, CheckCircle2, Clock, UserX, Timer } from 'lucide-react'
+import { AlertCircle, Clock, UserX, Timer } from 'lucide-react'
 
 const LATE_THRESHOLD_MS = 15 * 60 * 1000
 
@@ -49,13 +49,11 @@ function StatusCell({ icon: Icon, title, count, emptyMsg, items, accentColor, bg
 export function DailySummary({
   missingCheckIn,
   missingCheckOut,
-  allGood,
   entries,
   viewDate,
 }: {
   missingCheckIn: RosterEntryWithStatus[]
   missingCheckOut: RosterEntryWithStatus[]
-  allGood: RosterEntryWithStatus[]
   entries: RosterEntryWithStatus[]
   viewDate: string
 }) {
@@ -81,7 +79,7 @@ export function DailySummary({
       <div className="flex items-center gap-2 mb-4">
         <h2 className="font-semibold text-ink">Daily summary</h2>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <StatusCell
           icon={AlertCircle}
           title="Missing check-in"
@@ -109,15 +107,6 @@ export function DailySummary({
           }))}
           accentColor="#d97706"
           bgColor="#fffbeb"
-        />
-        <StatusCell
-          icon={CheckCircle2}
-          title="All good"
-          count={allGood.length}
-          emptyMsg="No completed sessions yet."
-          items={allGood.slice(0, 3).map((p) => ({ id: p.id, name: p.name, role: p.role }))}
-          accentColor="#16a34a"
-          bgColor="#f0fdf4"
         />
         <StatusCell
           icon={Timer}

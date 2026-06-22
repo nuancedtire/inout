@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, Outlet, useRouterState } from '@tanstack/react-router'
-import { SidebarProvider, SidebarTrigger } from '#/components/ui/sidebar'
+import { SidebarProvider } from '#/components/ui/sidebar'
 import { AppSidebar } from '#/routes/admin/-components/AppSidebar'
 import { AdminContext, type AdminContextValue } from '#/routes/admin/-context'
 import { usePersistentAdminAuth, useAutoDismiss } from '#/routes/admin/-hooks'
@@ -151,8 +151,6 @@ function TopBar({ viewDate, isToday, onPrev, onNext, onDateChange, onToday, onLo
 
   return (
     <header className="flex items-center gap-3 px-5 h-16 border-b border-hairline bg-canvas sticky top-0 z-20 shrink-0">
-      <SidebarTrigger className="text-muted hover:text-ink" />
-      <div className="w-px h-5 bg-hairline" />
       <h1 className="text-sm font-semibold text-ink">{pageTitle}</h1>
 
       <div className="flex-1" />

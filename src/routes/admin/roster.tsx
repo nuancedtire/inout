@@ -31,7 +31,7 @@ export const Route = createFileRoute('/admin/roster')({
 })
 
 function AdminRoster() {
-  const { authToken, viewDate } = useAdminContext()
+  const { authToken, viewDate, setViewDate } = useAdminContext()
   const { loading, withLoading } = useLoading()
   const { message, show, clear } = useAutoDismiss()
   const [entries, setEntries] = useState<RosterEntryWithStatus[]>([])
@@ -214,7 +214,6 @@ function AdminRoster() {
   const handleQrGenerate = async (qrDate: string) => {
     const { default: QRCode } = await import('qrcode')
     const { token } = await getQrTokenOrSeed({ data: { date: qrDate } })
-    if (!token) throw new Error('No rota for this date. Upload a rota first.')
     const url = `${window.location.origin}/?token=${token}`
     return QRCode.toDataURL(url, { width: 360 })
   }
@@ -243,7 +242,7 @@ function AdminRoster() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <QrSection today={viewDate} onGenerate={handleQrGenerate} />
+        <QrSection viewDate={viewDate} onDateChange={setViewDate} onGenerate={handleQrGenerate} />
         <RotaStaffSection
           onUpload={handleUpload}
           onAdd={handleAddStaff}

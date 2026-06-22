@@ -128,3 +128,19 @@ Issues #1–#6 filed with `auto-fix`; #7–#11 filed as `needs-triage` only.
 - **PR #17 — Error handling + accessibility (#6, #7, #8, #9):** Added `.catch()` handlers to getStatus (index.tsx) and getStaffHistory (history.tsx) with user-visible error messages. Added loadError state and error banner to history page. Added `aria-label` to 8 unlabelled inputs across admin.tsx, index.tsx, print-qr.tsx, RotaStaffSection.tsx. Added `role="dialog"`, `aria-modal="true"`, `aria-labelledby` to 4 modal dialogs (identity picker and PIN entry in index.tsx and history.tsx). Added `role="alertdialog"` to ConfirmDialog. Added `aria-label="Close"` to modal close buttons and `aria-label="Dismiss"` to message toast button. Added keyboard navigation (ArrowLeft/Right, Home/End) and ARIA slider attributes (role, valuenow, valuemin, valuemax, valuetext) to SlideButton component. 7 files changed, 132 insertions. Build ✅.
 
 **Summary:** 11 of 11 auto-fix issues processed across 3 PRs. Issue #1 resolved by human merge. All builds passing.
+
+## 2026-06-22 (cron run — self-upgrading Phase A+B)
+
+**Phase A — Discovery & housekeeping:**
+- Verified AUDIT.md items 1–17 still resolved.
+- Fixed 15 label inconsistencies (needs-triage + ready-to-merge → ready-to-merge only).
+- 8 open PRs from prior runs pending human merge: #23, #25, #29, #32, #36, #38, #44, #45.
+
+**New issues filed:**
+- #46 — about.tsx stack description missing Drizzle ORM (doc-code drift, auto-fix)
+- #47 — manualCheckIn has no rate limiting (security, needs-triage)
+
+**Phase B — Implementation:**
+- **#46** — about.tsx: Added "Drizzle ORM" to Stack section. 1 line changed. Build ✅. PR #48 opened.
+
+**Summary:** 2 new issues filed, 1 auto-fix implemented, 15 labels fixed.

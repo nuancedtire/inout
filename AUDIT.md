@@ -122,3 +122,28 @@ Items #1–#6 are labeled `auto-fix` (clear-cut, well-scoped). Items #7–#11 ar
 | #17 | #6, #7, #8, #9 | `agent/issue-group-6-error-handling-accessibility` | Error handling + accessibility |
 
 All 3 PRs built successfully. #1 already resolved by human merge.
+
+---
+
+## 2026-06-22 — Phase A+B (cron run)
+
+**Phase A — Discovery & housekeeping:**
+
+- Verified AUDIT.md items 1–17 remain genuinely resolved.
+- **Fixed labeling:** 15 open issues had both `needs-triage` AND `ready-to-merge` labels. Per ADR-006, `ready-to-merge` should replace `needs-triage`. Removed `needs-triage` from all 15. Affected: #18, #20, #24, #27, #28, #31, #33, #34, #35, #37, #39, #40, #41, #42, #43.
+- **8 open PRs** from prior runs remain unmerged (PR #23, #25, #29, #32, #36, #38, #44, #45).
+
+**New issues discovered and filed:**
+
+| # | Category | Title | Labels |
+|---|---|---|---|
+| #46 | doc-code drift | about.tsx stack description missing Drizzle ORM | needs-triage, auto-fix |
+| #47 | security | manualCheckIn has no rate limiting | needs-triage |
+
+Issue #46 filed with `auto-fix` (clear-cut, one-line change). Issue #47 is `needs-triage` only (security — human review required).
+
+**Phase B — Implementation:**
+
+- **#46** — about.tsx stack description missing Drizzle ORM: Updated Stack section from "TanStack Start, React 19, TypeScript, Tailwind CSS v4" → "TanStack Start, React 19, TypeScript, Tailwind CSS v4, Drizzle ORM". 1 file changed. Build ✅. PR #48 opened.
+
+**Summary:** 2 new issues filed, 1 auto-fix implemented, 15 label inconsistencies resolved. 8 PRs from prior runs still awaiting human merge.

@@ -88,7 +88,12 @@ export const uploadRota = createServerFn({ method: 'POST' })
     await requireAdmin({ token: data.authToken })
 
     const db = await getDb()
-    const buffer = Uint8Array.from(atob(data.fileBase64), (c) => c.charCodeAt(0))
+    let buffer: Uint8Array
+    try {
+      buffer = Uint8Array.from(atob(data.fileBase64), (c) => c.charCodeAt(0))
+    } catch {
+      throw new Error('Invalid file data. The file appears to be corrupt or in an unsupported format.')
+    }
 
     const fileNameLower = data.fileName.toLowerCase()
     const fileType: 'csv' | 'xlsx' | undefined = fileNameLower.endsWith('.csv')

@@ -418,7 +418,7 @@ const [confirmDialog, setConfirmDialog] = useState<{
       </div>
 
       <MessageBanner message={message} onClose={clear} />
-      <RefreshError error={refreshError} onRetry={() => refresh().catch(() => {})} />
+      <RefreshError error={refreshError} onRetry={() => refresh().catch((e) => show(e instanceof Error ? e.message : 'Retry failed'))} />
 
       <DailySummary
         missingCheckIn={missingCheckIn}

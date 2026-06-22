@@ -33,8 +33,12 @@ npx @tanstack/intent@latest load @tanstack/start-client-core#start-core/server-f
 
 - **Framework:** TanStack Start + React 19 + TypeScript
 - **Styling:** Tailwind CSS v4
+- **UI library:** shadcn/ui components (button, card, sidebar, calendar, popover, tooltip, etc.)
+- **Icons:** lucide-react
+- **ORM:** Drizzle ORM (SQLite via D1)
 - **Deployment:** Cloudflare Workers via `@cloudflare/vite-plugin`
 - **Database:** Cloudflare D1 (SQLite)
+- **Package manager:** pnpm
 - **QR scanning:** html5-qrcode (CDN)
 - **Excel parsing:** xlsx (SheetJS)
 - **QR generation:** qrcode
@@ -43,42 +47,74 @@ npx @tanstack/intent@latest load @tanstack/start-client-core#start-core/server-f
 
 ```
 src/
-  components/        # Shared UI components (Button, Card, Badge, ConfirmDialog,
-                     #   EmptyState, ErrorFallback, IdentityBar, SlideButton)
+  components/        # Shared UI components
+    Button.tsx       # Custom Button (fullWidth, loading, variants)
+    Badge.tsx        # Status badges (success, danger, warning, info, neutral)
+    Card.tsx         # Card wrapper with Airbnb shadow
+    ConfirmDialog.tsx # Modal confirmation dialog (danger/warning variants)
+    DatePicker.tsx   # Calendar date picker (shadcn/ui popover + calendar)
+    EmptyState.tsx   # Empty state placeholder
+    ErrorFallback.tsx # Error boundary fallback
+    IdentityBar.tsx  # Staff identity display bar
+    Logo.tsx         # InOut logo (Rausch variant)
+    SlideButton.tsx  # Slide-to-confirm button with ARIA support
+    ui/              # shadcn/ui primitives (button, card, badge, sidebar,
+                    #   calendar, popover, tooltip, dropdown-menu, avatar,
+                    #   breadcrumb, collapsible, input, skeleton, scroll-area,
+                    #   tabs, separator, sheet)
   db/
-    schema.ts        # SQL schema and migration helpers
-    client.ts        # D1 access helper
+    schema.ts        # Drizzle ORM schema (rotas, roster_entries, sessions, audit_log)
+    client.ts        # D1 access helper (lazy dynamic import)
   hooks/
     useLoading.ts    # Loading-state tracker for async operations
+    use-mobile.ts    # Mobile viewport detection (sidebar)
+  lib/
+    utils.ts         # cn() utility (clsx + tailwind-merge)
+  types/
+    env.d.ts         # Cloudflare env type declarations
+    html5-qrcode.d.ts # html5-qrcode type declarations
   routes/
-    __root.tsx       # Root layout (error boundaries, theme)
-    index.tsx        # Staff check-in page
+    __root.tsx       # Root layout (error boundaries, theme, SW registration)
+    index.tsx        # Staff check-in/out page (slide button, identity picker)
     qr.tsx           # Public QR display page
     history.tsx      # Staff personal check-in history
     print-qr.tsx     # Print-friendly QR page (standalone route)
     about.tsx        # About page
-    admin.tsx        # Admin dashboard (~464 lines orchestration)
+    -hooks.ts        # Shared staff identity hook (useStaffIdentity)
+    admin.tsx        # Admin layout wrapper (~200 lines — sidebar, PIN gate, TopBar)
     admin/
-      -components/   # Section components (AdminHeader, DailySummary,
-                     #   AuditEvent, AuditLogSection, MessageBanner,
-                     #   QrSection, RefreshError, RosterSection,
-                     #   RotaStaffSection, SectionNav, SessionEditForm,
-                     #   SessionSection, WeeklyRollupSection,
-                     #   WhoIsInSection)
-      -hooks.ts      # Admin page shared hooks
-      -types.ts      # Admin page shared types
+      index.tsx      # Admin dashboard page (stat cards, DailySummary, WhoIsIn)
+      roster.tsx     # Roster management (upload, add staff, QR, export, auto-checkout)
+      sessions.tsx   # Session history page (edit/delete sessions)
+      audit.tsx      # Audit log page
+      -context.tsx   # AdminContext (authToken, viewDate, logout)
+      -hooks.ts      # Admin hooks (usePersistentAdminAuth, useAutoDismiss)
+      -types.ts      # Admin shared types (RosterEntryWithStatus, SessionRow, etc.)
+      -components/   # Section components
+        AppSidebar.tsx       # Sidebar navigation (shadcn/ui)
+        DailySummary.tsx     # Check-in/out summary grid
+        AuditEvent.tsx       # Single audit event display
+        AuditLogSection.tsx  # Full audit log section
+        MessageBanner.tsx    # Auto-dismiss banner messages
+        QrSection.tsx        # QR code generation section
+        RosterSection.tsx    # Roster table with status badges
+        RotaStaffSection.tsx # Rota upload + ad-hoc staff form
+        SessionEditForm.tsx  # Inline session edit form
+        SessionSection.tsx   # Session history table (desktop + mobile)
+        WeeklyRollupSection.tsx # Weekly hours pivot table
+        WhoIsInSection.tsx   # Currently checked-in staff list
     api/
       export[.]csv.ts  # CSV export endpoint (uses papaparse)
   utils/
-    auth.ts          # Admin PIN check, HMAC tokens, rate limiting
+    auth.ts          # Admin PIN check, HMAC session tokens, QR token derivation
     audit.ts         # Audit log writer
     dateTime.ts      # UK timezone dates, relative time, shift parsing
-    rotaParser.ts    # Excel/CSV rota parsing
-    rotas.functions.ts     # Server functions for rotas
+    rotaParser.ts    # Excel/CSV rota parsing with role detection
+    rotas.functions.ts     # Server functions: rota upload, ad-hoc staff, QR tokens
     sessions.functions.ts  # Server functions: check-in/out, admin dashboard,
-                           #   rate limiting, audit pruning, CSV export
-  theme.css          # Tailwind v4 design tokens
-  styles.css         # Global styles importing theme.css
+                           #   rate limiting, audit pruning, CSV export, auto-checkout
+  theme.css          # Tailwind v4 design tokens (Airbnb Rausch palette)
+  styles.css         # Global styles, modal animation, shadcn/ui CSS vars
   router.tsx         # TanStack Router config
   routeTree.gen.ts   # Auto-generated route tree
 ```
@@ -115,18 +151,18 @@ Schema is managed in `src/db/schema.ts` and mirrored in `migrations/0001_init.sq
 ## Local dev
 
 ```bash
-npm run build
+pnpm build
 npx wrangler dev --local
 ```
 
 Then open http://localhost:8787.
 
-Note: `npm run dev` may fail on Node 24 with a `registerHooks` error in `@cloudflare/vite-plugin`. Use `npx wrangler dev --local` after building instead.
+Note: `pnpm dev` may fail on Node 24 with a `registerHooks` error in `@cloudflare/vite-plugin`. Use `npx wrangler dev --local` after building instead.
 
 ## Deploy
 
 ```bash
-npm run deploy
+pnpm deploy
 ```
 
 ## Key architectural decisions

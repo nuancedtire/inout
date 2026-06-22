@@ -128,3 +128,35 @@ Issues #1–#6 filed with `auto-fix`; #7–#11 filed as `needs-triage` only.
 - **PR #17 — Error handling + accessibility (#6, #7, #8, #9):** Added `.catch()` handlers to getStatus (index.tsx) and getStaffHistory (history.tsx) with user-visible error messages. Added loadError state and error banner to history page. Added `aria-label` to 8 unlabelled inputs across admin.tsx, index.tsx, print-qr.tsx, RotaStaffSection.tsx. Added `role="dialog"`, `aria-modal="true"`, `aria-labelledby` to 4 modal dialogs (identity picker and PIN entry in index.tsx and history.tsx). Added `role="alertdialog"` to ConfirmDialog. Added `aria-label="Close"` to modal close buttons and `aria-label="Dismiss"` to message toast button. Added keyboard navigation (ArrowLeft/Right, Home/End) and ARIA slider attributes (role, valuenow, valuemin, valuemax, valuetext) to SlideButton component. 7 files changed, 132 insertions. Build ✅.
 
 **Summary:** 11 of 11 auto-fix issues processed across 3 PRs. Issue #1 resolved by human merge. All builds passing.
+
+---
+
+## 2026-06-22 — Cron run 4 (Phase A+B)
+
+**Phase A findings:**
+- Closed #22 (PIN aria-labels verified fixed), #26 (stale — staff pages use QR tokens), #30 (CONTEXT.md already correct)
+- Filed #33 (dead AdminHeader/SectionNav/RefreshError), #34 (AGENTS.md stale after Drizzle/shadcn refactor), #35 (missing date-fns dep)
+- Remaining open issues (#18, #20, #21, #24, #27, #28, #31) are either `ready-to-merge` (PRs open) or `needs-triage` (no auto-fix)
+
+**Phase B — PR #36 — Post-refactor cleanup (#33, #34, #35):**
+- Deleted 3 orphaned component files (AdminHeader, SectionNav, RefreshError) — zero import references
+- Rewrote AGENTS.md project structure to reflect Drizzle ORM + shadcn/ui + pnpm + admin sub-routes
+- Added missing `date-fns` dependency required by DatePicker.tsx (was breaking build on fresh install)
+- 4 files changed, 60 insertions, 100 deletions. Build ✅.
+
+---
+
+## 2026-06-22 — Cron run 5 (Phase A+B)
+
+**Phase A — Discovery:** Scanned all 8 categories across the codebase. Verified current state:
+- 5 open PRs covering all `auto-fix` issues (#18-#20, #24, #27-#28, #30-#31, #33-#35)
+- #21 (identity picker duplication) is `needs-triage` only — no auto-fix
+- One new discovery: #37 — AGENTS.md D1 setup section references stale migration path `migrations/0001_init.sql` instead of `drizzle/migrations/0000_mature_quicksilver.sql`
+
+**Phase B — Implementation (1 PR):**
+
+| PR | Issues | Branch | Title |
+|---|---|---|---|
+| #38 | #37 | `agent/issue-37-migration-path-fix` | Fix stale migration file path in AGENTS.md |
+
+Build ✅. Fixed `migrations/0001_init.sql` → `drizzle/migrations/0000_mature_quicksilver.sql` in AGENTS.md D1 setup section. 1 file changed, 1 insertion, 1 deletion.

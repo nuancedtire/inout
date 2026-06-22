@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { getTodayRoster } from '#/utils/rotas.functions'
 import { checkIn, checkOut, getStatus, undoLastAction, manualCheckIn } from '#/utils/sessions.functions'
@@ -6,12 +6,12 @@ import { formatDateTime, relativeTime } from '#/utils/dateTime'
 import { ErrorFallback } from '#/components/ErrorFallback'
 import { EmptyState } from '#/components/EmptyState'
 import { Button } from '#/components/Button'
-import { Card } from '#/components/Card'
 import { Badge } from '#/components/Badge'
 import { IdentityBar } from '#/components/IdentityBar'
 import SlideButton from '#/components/SlideButton'
 import { useStaffIdentity } from '#/routes/-hooks'
-import { Undo2, UserPlus, Users, Clock, X, User } from 'lucide-react'
+import { Logo } from '#/components/Logo'
+import { Undo2, UserPlus, X, User, Clock, Building2, LogOut, ChevronRight } from 'lucide-react'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -37,6 +37,117 @@ function NotFound() {
 
 type Message = { text: string; type: 'success' | 'error' | 'info' }
 
+// ── Swipe-out card shown when checked in ──────────────────────────────────────
+function SwipeOutCard({
+  checkInAt,
+  onCheckout,
+  loading,
+}: {
+  checkInAt: string | null
+  onCheckout: () => Promise<void>
+  loading: boolean
+}) {
+  const [offset, setOffset] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const startXRef = useRef<number | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  const THRESHOLD = 0.45
+
+  const progress = cardRef.current
+    ? Math.min(1, offset / (cardRef.current.offsetWidth * THRESHOLD))
+    : 0
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (loading) return
+    startXRef.current = e.clientX
+    setIsDragging(true)
+    setIsAnimating(false)
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging || startXRef.current === null) return
+    const dx = Math.max(0, e.clientX - startXRef.current)
+    setOffset(dx)
+  }
+
+  const handlePointerUp = async () => {
+    if (!isDragging || startXRef.current === null) return
+    setIsDragging(false)
+    startXRef.current = null
+
+    const cardWidth = cardRef.current?.offsetWidth ?? 340
+    if (offset >= cardWidth * THRESHOLD) {
+      setIsAnimating(true)
+      setOffset(cardWidth * 1.5)
+      await new Promise((r) => setTimeout(r, 350))
+      await onCheckout()
+    } else {
+      setIsAnimating(true)
+      setOffset(0)
+      setTimeout(() => setIsAnimating(false), 400)
+    }
+  }
+
+  return (
+    <div className="relative rounded-2xl overflow-hidden">
+      {/* Reveal layer — checkout CTA exposed as card slides away */}
+      <div
+        className="absolute inset-0 rounded-2xl flex items-center justify-end pr-8"
+        style={{ background: '#ff385c14' }}
+      >
+        <div className="flex flex-col items-center gap-1.5" style={{ color: '#ff385c', opacity: 0.4 + progress * 0.6 }}>
+          <LogOut className="w-7 h-7" />
+          <span className="text-xs font-bold tracking-wide uppercase">Check out</span>
+        </div>
+      </div>
+
+      {/* Draggable card */}
+      <div
+        ref={cardRef}
+        className="relative rounded-2xl bg-canvas cursor-grab active:cursor-grabbing select-none touch-none"
+        style={{
+          transform: `translateX(${offset}px)`,
+          transition: isAnimating ? 'transform 0.35s cubic-bezier(0.2,0,0,1)' : 'none',
+          boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0, rgba(0,0,0,0.08) 0 4px 8px 0',
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
+        <div className="flex items-stretch overflow-hidden rounded-2xl">
+          <div className="flex-1 px-6 py-5 min-w-0">
+            <p className="text-xs font-semibold text-muted uppercase tracking-wider">Status</p>
+            <p className="text-2xl font-bold text-ink mt-1">You're inside</p>
+            {checkInAt && (
+              <p className="text-sm text-muted mt-1 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span title={formatDateTime(checkInAt)}>Since {relativeTime(checkInAt)}</span>
+              </p>
+            )}
+            <p className="text-xs text-muted mt-3 flex items-center gap-1 opacity-50">
+              Swipe right to check out
+              <ChevronRight className="w-3 h-3" />
+            </p>
+          </div>
+          <div className="w-20 flex items-center justify-center shrink-0" style={{ background: '#16a34a18' }}>
+            {loading ? (
+              <span className="w-6 h-6 rounded-full border-2 border-success-400 border-t-transparent animate-spin" />
+            ) : (
+              <Building2 className="w-8 h-8 text-success-600" />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 function HomePage() {
   const { rota, entries } = Route.useLoaderData()
   const { token } = Route.useSearch()
@@ -59,62 +170,51 @@ function HomePage() {
 
   const currentStaff = entries.find((e: { id: number; name: string; role: string | null }) => e.id === staffId) ?? null
 
-  // Load status when staffId or token changes
   useEffect(() => {
     if (staffId) {
       getStatus({ data: { rosterEntryId: staffId } })
-        .then((s) =>
-          setStatus({ ...s, checkInAt: null }),
-        )
-        .catch((e) => {
-          showMessage(e instanceof Error ? e.message : 'Failed to load status', 'error')
-        })
+        .then((s) => setStatus({ ...s, checkInAt: null }))
+        .catch((e) => showMessage(e instanceof Error ? e.message : 'Failed to load status', 'error'))
     } else {
       setStatus({ checkedIn: false, sessionId: null, checkInAt: null })
     }
   }, [staffId])
 
-  // Auto-dismiss messages
   useEffect(() => {
     if (!message) return
     const t = setTimeout(() => setMessage(null), 5000)
     return () => clearTimeout(t)
   }, [message])
 
-  const showMessage = (text: string, type: Message['type'] = 'info') => {
-    setMessage({ text, type })
-  }
+  const showMessage = (text: string, type: Message['type'] = 'info') => setMessage({ text, type })
 
-  // ── Slide action ──────────────────────────────────────────────
-
-  const handleSlideComplete = async () => {
-    if (!staffId || !token) {
-      throw new Error('Missing identity or QR code')
-    }
-
-    if (status.checkedIn) {
-      await checkOut({ data: { rosterEntryId: staffId, token } })
-      showMessage('Checked out ✓', 'success')
-    } else {
-      await checkIn({ data: { rosterEntryId: staffId, token } })
-      showMessage('Checked in ✓', 'success')
-    }
-
+  const handleCheckIn = async () => {
+    if (!staffId || !token) throw new Error('Missing identity or QR code')
+    await checkIn({ data: { rosterEntryId: staffId, token } })
+    showMessage('Checked in ✓', 'success')
     const newStatus = await getStatus({ data: { rosterEntryId: staffId } })
     setStatus({ ...newStatus, checkInAt: null })
   }
 
-  // ── Undo ──────────────────────────────────────────────────────
+  const handleCheckOut = async () => {
+    if (!staffId || !token) throw new Error('Missing identity or QR code')
+    setSlideLoading(true)
+    try {
+      await checkOut({ data: { rosterEntryId: staffId, token } })
+      showMessage('Checked out ✓', 'success')
+      const newStatus = await getStatus({ data: { rosterEntryId: staffId } })
+      setStatus({ ...newStatus, checkInAt: null })
+    } finally {
+      setSlideLoading(false)
+    }
+  }
 
   const handleUndo = async () => {
     if (!staffId || !token) return
     setUndoLoading(true)
     try {
       const result = await undoLastAction({ data: { rosterEntryId: staffId, token } })
-      showMessage(
-        result.action === 'checkin_undone' ? 'Check-in undone' : 'Check-out undone',
-        'info',
-      )
+      showMessage(result.action === 'checkin_undone' ? 'Check-in undone' : 'Check-out undone', 'info')
       const newStatus = await getStatus({ data: { rosterEntryId: staffId } })
       setStatus({ ...newStatus, checkInAt: null })
     } catch (e) {
@@ -124,16 +224,12 @@ function HomePage() {
     }
   }
 
-  // ── Manual / locum check-in ───────────────────────────────────
-
   const handleManualCheckIn = async () => {
     if (!token) { showMessage('Scan the QR code first', 'error'); return }
     if (!manualName.trim()) { showMessage('Enter your name', 'error'); return }
     setSlideLoading(true)
     try {
-      await manualCheckIn({
-        data: { name: manualName.trim(), role: manualRole.trim() || undefined, token },
-      })
+      await manualCheckIn({ data: { name: manualName.trim(), role: manualRole.trim() || undefined, token } })
       showMessage('Checked in (manual entry)', 'success')
       setManualName('')
       setManualRole('')
@@ -145,42 +241,30 @@ function HomePage() {
     }
   }
 
-  // ── No rota state ─────────────────────────────────────────────
-
   if (!rota) {
     return (
-      <main className="max-w-md mx-auto p-6">
-        <EmptyState
-          title="No rota for today"
-          description="Ask an admin to upload today's rota before you can check in."
-          icon="calendar"
-        />
+      <main className="max-w-sm mx-auto p-6">
+        <EmptyState title="No rota for today" description="Ask an admin to upload today's rota before you can check in." icon="calendar" />
       </main>
     )
   }
-
-  // ── No token state ────────────────────────────────────────────
 
   if (!token) {
     return (
-      <main className="max-w-md mx-auto p-6">
-        <EmptyState
-          title="Scan the QR code"
-          description="Point your device at the QR code on the notice board to check in or out."
-          icon="scan"
-        />
+      <main className="max-w-sm mx-auto p-6">
+        <EmptyState title="Scan the QR code" description="Point your device at the QR code on the notice board to check in or out." icon="scan" />
       </main>
     )
   }
 
-  // ── Main UI ───────────────────────────────────────────────────
-
   return (
-    <main className="max-w-md mx-auto p-4 sm:p-6 flex flex-col gap-5 min-h-screen">
+    <main className="max-w-sm mx-auto px-4 pt-8 pb-10 flex flex-col gap-5 min-h-screen">
+
       {/* Header */}
-      <div className="flex items-center gap-2 pt-4">
-        <Users className="w-6 h-6 text-primary-600" />
-        <h1 className="text-2xl font-bold text-neutral-900">In &amp; Out</h1>
+      <div className="flex items-center gap-0 mb-2">
+        <span className="text-2xl font-bold text-ink tracking-tight leading-none">In</span>
+        <Logo size={38} variant="rausch" className="-mx-1" />
+        <span className="text-2xl font-bold text-ink tracking-tight leading-none">Out</span>
       </div>
 
       {/* Identity bar */}
@@ -192,153 +276,118 @@ function HomePage() {
         onClear={() => { clearIdentity(); showMessage('Identity cleared', 'info') }}
       />
 
-      {/* ── Slide action area ─────────────────────────────────── */}
+      {/* Action area */}
       {staffId && (
-        <Card className="overflow-visible">
-          {/* Status */}
-          <div className="flex items-center justify-center mb-4">
-            {status.checkedIn ? (
-              <div className="flex flex-col items-center gap-1">
-                <Badge variant="success">Currently checked in</Badge>
-                {status.checkInAt && (
-                  <div
-                    className="flex items-center gap-1 text-sm text-neutral-500"
-                    title={formatDateTime(status.checkInAt)}
-                  >
-                    <Clock className="w-4 h-4" />
-                    {relativeTime(status.checkInAt)}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Badge variant="neutral">Not checked in</Badge>
-            )}
-          </div>
-
-          {/* Slide button */}
-          <div className="mb-3">
-            <SlideButton
-              variant={status.checkedIn ? 'danger' : 'success'}
-              label={status.checkedIn ? 'slide to check out' : 'slide to check in'}
+        <div className="flex flex-col gap-3">
+          {status.checkedIn ? (
+            /* ── Checked in: swipe-out card ── */
+            <SwipeOutCard
+              checkInAt={status.checkInAt}
+              onCheckout={handleCheckOut}
               loading={slideLoading}
-              disabled={!token}
-              onComplete={async () => {
-                setSlideLoading(true)
-                try {
-                  await handleSlideComplete()
-                } finally {
-                  setSlideLoading(false)
-                }
-              }}
             />
-          </div>
+          ) : (
+            /* ── Not checked in: slide-in button ── */
+            <div
+              className="bg-canvas rounded-2xl px-6 py-5"
+              style={{ boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0, rgba(0,0,0,0.08) 0 4px 8px 0' }}
+            >
+              <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Status</p>
+              <p className="text-2xl font-bold text-ink mb-4">You're outside</p>
+              <SlideButton
+                variant="success"
+                label="slide to check in"
+                loading={slideLoading}
+                disabled={!token}
+                onComplete={async () => {
+                  setSlideLoading(true)
+                  try { await handleCheckIn() } finally { setSlideLoading(false) }
+                }}
+              />
+            </div>
+          )}
 
           {/* Undo */}
           <button
             type="button"
             onClick={handleUndo}
             disabled={undoLoading}
-            className="w-full flex items-center justify-center gap-1.5 py-2 text-sm
-              text-neutral-500 hover:text-neutral-700
-              disabled:opacity-40 disabled:cursor-not-allowed
-              transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 py-2 text-sm text-muted hover:text-ink disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            {undoLoading ? (
-              <span className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Undo2 className="w-4 h-4" />
-            )}
+            {undoLoading
+              ? <span className="w-4 h-4 border-2 border-hairline border-t-muted rounded-full animate-spin" />
+              : <Undo2 className="w-4 h-4" />}
             Undo last action
           </button>
-        </Card>
+        </div>
       )}
 
       {/* Locum / manual entry */}
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowManual(!showManual)}
-          className="w-full flex items-center justify-center gap-2 py-2 text-sm
-            text-primary-600 hover:text-primary-700 transition-colors"
-        >
-          <UserPlus className="w-4 h-4" />
-          Not on the rota? (locum / bank)
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => setShowManual(!showManual)}
+        className="w-full flex items-center justify-center gap-2 py-2 text-sm text-primary-500 hover:text-primary-600 transition-colors"
+      >
+        <UserPlus className="w-4 h-4" />
+        Not on the rota? (locum / bank)
+      </button>
 
       {showManual && (
-        <Card className="bg-warning-50 border-warning-200">
-          <p className="text-sm text-warning-800 mb-3">
-            For locums, bank staff, or anyone not on today's uploaded rota.
-            Your entry will be flagged as manual.
+        <div
+          className="bg-canvas rounded-2xl px-6 py-5 border border-warning-200"
+          style={{ boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0, rgba(0,0,0,0.08) 0 4px 8px 0' }}
+        >
+          <p className="text-sm text-warning-700 mb-3">
+            For locums, bank staff, or anyone not on today's rota. Your entry will be flagged as manual.
           </p>
           <input
-            className="w-full p-3 border border-warning-300 rounded-lg mb-2 bg-white
-              focus:border-warning-500 focus:ring-2 focus:ring-warning-200
-              placeholder:text-neutral-400 text-sm"
+            className="w-full px-4 py-3 border border-hairline rounded-xl mb-2 bg-canvas focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none text-sm transition-all"
             placeholder="Your name"
             aria-label="Your name"
             value={manualName}
             onChange={(e) => setManualName(e.target.value)}
           />
           <input
-            className="w-full p-3 border border-warning-300 rounded-lg mb-3 bg-white
-              focus:border-warning-500 focus:ring-2 focus:ring-warning-200
-              placeholder:text-neutral-400 text-sm"
+            className="w-full px-4 py-3 border border-hairline rounded-xl mb-4 bg-canvas focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none text-sm transition-all"
             placeholder="Role (optional)"
             aria-label="Role (optional)"
             value={manualRole}
             onChange={(e) => setManualRole(e.target.value)}
           />
-          <Button
-            variant="warning"
-            fullWidth
-            loading={slideLoading}
-            onClick={handleManualCheckIn}
-          >
+          <Button variant="warning" fullWidth loading={slideLoading} onClick={handleManualCheckIn}>
             Request check-in
           </Button>
-        </Card>
-      )}
-
-      {/* View history link */}
-      <div>
-        <Link
-          to="/history"
-          search={{ token }}
-          className="w-full flex items-center justify-center gap-2 py-2 text-sm
-            text-primary-600 hover:text-primary-700 transition-colors"
-        >
-          View my history &rarr;
-        </Link>
-      </div>
-
-      {/* Message toast */}
-      {message && (
-        <div
-          className={`p-3 rounded-lg text-sm ${
-            message.type === 'success'
-              ? 'bg-success-100 text-success-800 border border-success-200'
-              : message.type === 'error'
-                ? 'bg-danger-100 text-danger-800 border border-danger-200'
-                : 'bg-warning-100 text-warning-800 border border-warning-200'
-          }`}
-        >
-          <div className="flex justify-between items-start gap-2">
-            <span>{message.text}</span>
-            <button
-              type="button"
-              className="font-bold opacity-60 hover:opacity-100 shrink-0"
-              aria-label="Dismiss"
-              onClick={() => setMessage(null)}
-            >
-              ×
-            </button>
-          </div>
         </div>
       )}
 
-      {/* ── Identity picker modal ─────────────────────────────── */}
+      {/* History link */}
+      <Link
+        to="/history"
+        search={{ token }}
+        className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted hover:text-ink transition-colors"
+      >
+        View my history →
+      </Link>
+
+      {/* Toast */}
+      {message && (
+        <div
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm rounded-2xl px-4 py-3 text-sm flex items-center justify-between gap-3 shadow-lg z-50 ${
+            message.type === 'success'
+              ? 'bg-success-600 text-white'
+              : message.type === 'error'
+                ? 'bg-danger-600 text-white'
+                : 'bg-ink text-white'
+          }`}
+        >
+          <span>{message.text}</span>
+          <button type="button" onClick={() => setMessage(null)} aria-label="Dismiss" className="opacity-70 hover:opacity-100 shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Identity picker modal */}
       {showIdentityPicker && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
@@ -347,90 +396,61 @@ function HomePage() {
           aria-labelledby="identity-picker-title"
           onClick={() => setShowIdentityPicker(false)}
         >
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-
-          {/* Sheet */}
           <div
-            className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm
-              max-h-[70vh] overflow-hidden shadow-xl animate-slide-up"
+            className="relative bg-canvas rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm max-h-[75vh] overflow-hidden shadow-xl animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Handle */}
             <div className="flex justify-center pt-3 pb-1 sm:hidden">
-              <div className="w-10 h-1 rounded-full bg-neutral-300" />
+              <div className="w-10 h-1 rounded-full bg-hairline" />
             </div>
-
-            <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
-              <h2 id="identity-picker-title" className="text-lg font-semibold text-neutral-900">Who are you?</h2>
+            <div className="px-5 py-4 border-b border-hairline flex items-center justify-between">
+              <h2 id="identity-picker-title" className="text-base font-semibold text-ink">Who are you?</h2>
               <button
                 type="button"
                 aria-label="Close"
                 onClick={() => setShowIdentityPicker(false)}
-                className="p-1 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600"
+                className="p-1.5 rounded-full hover:bg-surface-soft text-muted hover:text-ink transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            <div className="overflow-y-auto max-h-[50vh]">
+            <div className="overflow-y-auto max-h-[55vh]">
               {entries.map((entry: { id: number; name: string; role: string | null }) => (
                 <button
                   key={entry.id}
                   type="button"
                   onClick={() => { selectIdentity(entry.id); setShowIdentityPicker(false) }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left
-                    hover:bg-neutral-50 transition-colors border-b border-neutral-50
-                    ${entry.id === staffId ? 'bg-primary-50' : ''}`}
+                  className={`w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-surface-soft transition-colors border-b border-hairline-soft last:border-0 ${entry.id === staffId ? 'bg-primary-50' : ''}`}
                 >
-                  <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-600
-                    flex items-center justify-center shrink-0">
-                    <User className="w-4 h-4" />
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-sm font-semibold"
+                    style={{ background: '#ff385c18', color: '#ff385c' }}
+                  >
+                    {entry.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-neutral-900 truncate">
-                      {entry.name}
-                    </p>
-                    {entry.role && (
-                      <p className="text-xs text-neutral-500">{entry.role}</p>
-                    )}
+                    <p className="text-sm font-medium text-ink truncate">{entry.name}</p>
+                    {entry.role && <p className="text-xs text-muted">{entry.role}</p>}
                   </div>
-                  {entry.id === staffId && (
-                    <Badge variant="info">You</Badge>
-                  )}
+                  {entry.id === staffId && <Badge variant="info">You</Badge>}
                 </button>
               ))}
             </div>
-
             {staffId && (
-              <div className="px-4 py-3 border-t border-neutral-100 space-y-2">
+              <div className="px-5 py-4 border-t border-hairline space-y-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowIdentityPicker(false)
-                    clearIdentity()
-                    showMessage('Identity cleared', 'info')
-                  }}
-                  className="w-full text-sm text-neutral-500 hover:text-danger-600 py-1.5 transition-colors"
+                  onClick={() => { setShowIdentityPicker(false); clearIdentity(); showMessage('Identity cleared', 'info') }}
+                  className="w-full text-sm text-muted hover:text-danger-600 py-1.5 transition-colors"
                 >
                   Clear my identity
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    localStorage.clear()
-                    window.location.reload()
-                  }}
-                  className="w-full text-xs text-neutral-400 hover:text-neutral-600 py-1 transition-colors"
-                >
-                  Reset everything
                 </button>
               </div>
             )}
           </div>
         </div>
       )}
-
     </main>
   )
 }

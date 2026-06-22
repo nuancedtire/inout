@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { QrCode, Github } from 'lucide-react'
+import { QrCode, ExternalLink } from 'lucide-react'
 
 export const Route = createFileRoute('/about')({
   component: About,
@@ -60,7 +60,7 @@ function About() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 transition-colors"
         >
-          <Github className="w-4 h-4" />
+          <ExternalLink className="w-4 h-4" />
           github.com/nuancedtire/inout
         </a>
         <p className="text-sm text-neutral-400">

@@ -122,3 +122,28 @@ Items #1–#6 are labeled `auto-fix` (clear-cut, well-scoped). Items #7–#11 ar
 | #17 | #6, #7, #8, #9 | `agent/issue-group-6-error-handling-accessibility` | Error handling + accessibility |
 
 All 3 PRs built successfully. #1 already resolved by human merge.
+
+---
+
+## 2026-06-22 — Phase A+B (cron run 4)
+
+**Phase A — Discovery:** Verified existing issues against codebase (Drizzle + shadcn/ui refactor on main). Closed 3 stale issues, filed 3 new:
+
+| # | Category | Title | Labels |
+|---|---|---|---|
+| #33 | dead code | AdminHeader.tsx, SectionNav.tsx, RefreshError.tsx are orphaned | needs-triage, auto-fix |
+| #34 | doc-code drift | AGENTS.md massively outdated after Drizzle/shadcn refactor | needs-triage, auto-fix |
+| #35 | missing dep | date-fns not installed but required by DatePicker.tsx | needs-triage, auto-fix |
+
+**Closed (verified fixed/stale):**
+- #22 — PIN input aria-labels verified fixed on main
+- #26 — PIN modal duplication stale (staff pages use QR tokens, not PIN)
+- #30 — CONTEXT.md ADR-004 correctly references /print-qr
+
+**Phase B — Implementation (1 PR):**
+
+| PR | Issues | Branch | Title |
+|---|---|---|---|
+| #36 | #33, #34, #35 | `agent/issue-group-33-post-refactor-cleanup` | Post-refactor cleanup |
+
+Build ✅. Deleted 3 orphaned components, updated AGENTS.md with full current structure + pnpm references, added missing date-fns dependency.

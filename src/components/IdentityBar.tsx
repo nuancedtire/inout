@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { Fingerprint } from 'lucide-react'
 
 type IdentityBarProps = {
   staffId: number | null
@@ -21,7 +21,7 @@ export function IdentityBar({ staffId, staffName, staffRole, onSelectClick, onCl
           <span className="text-base text-muted">?</span>
         </div>
         <span className="text-sm font-medium text-muted flex-1 text-left">Tap to identify yourself</span>
-        <ChevronRight className="w-4 h-4 text-muted shrink-0" />
+        <Fingerprint className="w-4 h-4 text-muted shrink-0" />
       </button>
     )
   }

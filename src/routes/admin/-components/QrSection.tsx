@@ -2,22 +2,24 @@ import { Link } from '@tanstack/react-router'
 import { Printer } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '#/components/Button'
+import { DatePicker } from '#/components/DatePicker'
 
 export function QrSection({
-  today,
+  viewDate,
+  onDateChange,
   onGenerate,
 }: {
-  today: string
+  viewDate: string
+  onDateChange: (date: string) => void
   onGenerate: (date: string) => Promise<string>
 }) {
-  const [qrDate, setQrDate] = useState(today)
   const [qrUrl, setQrUrl] = useState('')
   const [loading, setLoading] = useState(false)
 
   const generate = async () => {
     setLoading(true)
     try {
-      const dataUrl = await onGenerate(qrDate)
+      const dataUrl = await onGenerate(viewDate)
       setQrUrl(dataUrl)
     } finally {
       setLoading(false)
@@ -38,13 +40,8 @@ export function QrSection({
       </div>
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
         <div className="w-full sm:w-auto">
-          <label className="text-xs block text-neutral-500 mb-1">Date</label>
-          <input
-            type="date"
-            className="w-full p-2 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            value={qrDate}
-            onChange={(e) => setQrDate(e.target.value)}
-          />
+          <label className="text-xs block text-muted mb-1">Date</label>
+          <DatePicker value={viewDate} onChange={onDateChange} />
         </div>
         <Button onClick={generate} loading={loading} variant="secondary">
           Generate / refresh QR

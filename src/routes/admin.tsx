@@ -66,7 +66,7 @@ function AdminLayout() {
           </div>
           <div
             className="bg-canvas rounded-2xl p-6"
-            style={{ boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0, rgba(0,0,0,0.08) 0 4px 8px 0' }}
+            style={{ boxShadow: 'var(--shadow-card)' }}
           >
             <label className="block text-sm font-medium text-body mb-2" htmlFor="pin-input">
               Admin PIN

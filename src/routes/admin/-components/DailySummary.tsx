@@ -76,7 +76,7 @@ export function DailySummary({
   return (
     <div
       className="bg-canvas rounded-2xl p-5"
-      style={{ boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0, rgba(0,0,0,0.08) 0 4px 8px 0' }}
+      style={{ boxShadow: 'var(--shadow-card)' }}
     >
       <div className="flex items-center gap-2 mb-4">
         <h2 className="font-semibold text-ink">Daily summary</h2>
@@ -130,8 +130,8 @@ export function DailySummary({
             role: p.role,
             detail: p.checkInAt ? `in at ${formatTime(p.checkInAt)}` : undefined,
           }))}
-          accentColor="#2563eb"
-          bgColor="#eff6ff"
+          accentColor="#d97706"
+          bgColor="#fffbeb"
         />
         <StatusCell
           icon={UserX}

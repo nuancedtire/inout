@@ -34,7 +34,7 @@ export function WhoIsInSection({ present }: { present: PresentStaff[] }) {
   return (
     <div
       className="bg-canvas rounded-2xl overflow-hidden"
-      style={{ boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0, rgba(0,0,0,0.08) 0 4px 8px 0' }}
+      style={{ boxShadow: 'var(--shadow-card)' }}
     >
       <div className="flex items-center justify-between px-5 py-4 border-b border-hairline-soft">
         <div className="flex items-center gap-2">

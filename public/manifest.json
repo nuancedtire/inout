@@ -1,6 +1,6 @@
 {
-  "short_name": "Attendance",
-  "name": "Attendance QR",
+  "short_name": "InOut",
+  "name": "InOut",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +20,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#2563eb",
+  "theme_color": "#ff385c",
   "background_color": "#ffffff"
 }

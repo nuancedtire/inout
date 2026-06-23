@@ -38,7 +38,7 @@ function StatCard({
   return (
     <div
       className="bg-canvas rounded-2xl overflow-hidden flex items-stretch"
-      style={{ boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0, rgba(0,0,0,0.08) 0 4px 8px 0' }}
+      style={{ boxShadow: 'var(--shadow-card)' }}
     >
       <div className="flex-1 px-6 py-5 min-w-0">
         <p className="text-xs font-semibold text-muted uppercase tracking-wider">{label}</p>

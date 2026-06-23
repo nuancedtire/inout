@@ -111,7 +111,7 @@ function SwipeOutCard({
         style={{
           transform: `translateX(${offset}px)`,
           transition: isAnimating ? 'transform 0.35s cubic-bezier(0.2,0,0,1)' : 'none',
-          boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0, rgba(0,0,0,0.08) 0 4px 8px 0',
+          boxShadow: 'var(--shadow-card)',
         }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -290,7 +290,7 @@ function HomePage() {
             /* ── Not checked in: slide-in button ── */
             <div
               className="bg-canvas rounded-2xl px-6 py-5"
-              style={{ boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0, rgba(0,0,0,0.08) 0 4px 8px 0' }}
+              style={{ boxShadow: 'var(--shadow-card)' }}
             >
               <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Status</p>
               <p className="text-2xl font-bold text-ink mb-4">You're outside</p>
@@ -335,7 +335,7 @@ function HomePage() {
       {showManual && (
         <div
           className="bg-canvas rounded-2xl px-6 py-5 border border-warning-200"
-          style={{ boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0, rgba(0,0,0,0.08) 0 4px 8px 0' }}
+          style={{ boxShadow: 'var(--shadow-card)' }}
         >
           <p className="text-sm text-warning-700 mb-3">
             For locums, bank staff, or anyone not on today's rota. Your entry will be flagged as manual.

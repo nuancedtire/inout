@@ -19,11 +19,11 @@ export const Route = createRootRoute({
 
 function NotFoundPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-neutral-50">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-md p-6 text-center">
-        <h1 className="text-4xl font-bold text-neutral-300 mb-2">404</h1>
-        <p className="text-lg font-medium text-neutral-900 mb-2">Page not found</p>
-        <p className="text-neutral-600 mb-6">The page you are looking for does not exist.</p>
+    <main className="min-h-screen flex items-center justify-center p-6 bg-surface-soft">
+      <div className="max-w-md w-full bg-canvas rounded-xl shadow-md p-6 text-center">
+        <h1 className="text-4xl font-bold text-muted-soft mb-2">404</h1>
+        <p className="text-lg font-medium text-ink mb-2">Page not found</p>
+        <p className="text-muted mb-6">The page you are looking for does not exist.</p>
         <Link
           to="/"
           search={{ token: '' }}
@@ -42,7 +42,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body className="bg-neutral-50 text-neutral-900">
+      <body className="bg-surface-soft text-ink">
         {children}
         <Scripts />
         <script

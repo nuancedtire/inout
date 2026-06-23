@@ -47,7 +47,6 @@ function AdminSessions() {
     let cancelled = false
     setDataLoading(true)
     refresh()
-      .catch(() => {})
       .finally(() => {
         if (!cancelled) setDataLoading(false)
       })

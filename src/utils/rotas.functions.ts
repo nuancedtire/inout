@@ -1,8 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getDb } from '#/db/client'
 import type { Rota } from '#/db/schema'
-import { rotas, rosterEntries } from '#/db/schema'
-import { eq, asc } from 'drizzle-orm'
+import { rotas, rosterEntries, sessions } from '#/db/schema'
+import { eq, asc, desc, inArray, isNotNull } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import * as schema from '#/db/schema'
 import { parseRota } from './rotaParser'
@@ -46,10 +46,13 @@ export const getTodayRoster = createServerFn({ method: 'GET' }).handler(async ()
     .get()
 
   if (!rota) {
-    return { rota: null, entries: [] as { id: number; name: string; role: string | null; shiftStart: string | null; shiftEnd: string | null; source: string }[] }
+    return {
+      rota: null,
+      entries: [] as { id: number; name: string; role: string | null; shiftStart: string | null; shiftEnd: string | null; source: string }[],
+      statusByEntryId: {} as Record<number, { checkedIn: boolean; sessionId: number | null; checkInAt: string | null; hasUndoableAction: boolean }>,
+    }
   }
 
-  // Return only name/role/shift fields — no status data
   const entries = await db
     .select({
       id: rosterEntries.id,
@@ -64,7 +67,42 @@ export const getTodayRoster = createServerFn({ method: 'GET' }).handler(async ()
     .orderBy(asc(rosterEntries.name))
     .all()
 
-  return { rota, entries }
+  const sessionsResult = entries.length > 0
+    ? await db
+        .select({
+          rosterEntryId: sessions.rosterEntryId,
+          id: sessions.id,
+          checkInAt: sessions.checkInAt,
+          checkOutAt: sessions.checkOutAt,
+        })
+        .from(sessions)
+        .where(inArray(
+          sessions.rosterEntryId,
+          db.select({ id: rosterEntries.id }).from(rosterEntries).where(eq(rosterEntries.rotaId, rota.id)),
+        ))
+        .orderBy(desc(sessions.id))
+        .all()
+    : []
+
+  const latestByEntry = new Map<number, { id: number; checkInAt: string; checkOutAt: string | null }>()
+  for (const s of sessionsResult) {
+    if (!latestByEntry.has(s.rosterEntryId)) {
+      latestByEntry.set(s.rosterEntryId, { id: s.id, checkInAt: s.checkInAt, checkOutAt: s.checkOutAt })
+    }
+  }
+
+  const statusByEntryId: Record<number, { checkedIn: boolean; sessionId: number | null; checkInAt: string | null; hasUndoableAction: boolean }> = {}
+  for (const entry of entries) {
+    const latest = latestByEntry.get(entry.id)
+    statusByEntryId[entry.id] = {
+      checkedIn: latest ? latest.checkOutAt === null : false,
+      sessionId: latest && latest.checkOutAt === null ? latest.id : null,
+      checkInAt: latest && latest.checkOutAt === null ? latest.checkInAt : null,
+      hasUndoableAction: latest !== undefined,
+    }
+  }
+
+  return { rota, entries, statusByEntryId }
 })
 
 export const getQrTokenOrSeed = createServerFn({ method: 'GET' })

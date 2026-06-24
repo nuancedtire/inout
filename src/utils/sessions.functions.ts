@@ -199,10 +199,23 @@ export const getStatus = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     checkRateLimit(`status:${data.rosterEntryId}`)
     const session = await getCurrentSessionForEntry(data.rosterEntryId)
+    let hasUndoableAction = !!session
+    if (!session) {
+      const db = await getDb()
+      const lastClosed = await db
+        .select({ id: sessions.id })
+        .from(sessions)
+        .where(and(eq(sessions.rosterEntryId, data.rosterEntryId), isNotNull(sessions.checkOutAt)))
+        .orderBy(desc(sessions.id))
+        .limit(1)
+        .get()
+      hasUndoableAction = !!lastClosed
+    }
     return {
       checkedIn: !!session,
       sessionId: session?.id ?? null,
       checkInAt: session?.checkInAt ?? null,
+      hasUndoableAction,
     }
   })
 
@@ -331,7 +344,24 @@ export const adminGetDashboard = createServerFn({ method: 'POST' })
       getAuditLogImpl(db),
     ])
 
-    return { entries: roster, present: whoIsIn, sessions: sessRows, audit }
+    const isToday = data.date === todayDate()
+    const now = new Date()
+    const timeParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(now)
+    const ukNow =
+      (timeParts.find((p) => p.type === 'hour')?.value.padStart(2, '0') ?? '00') + ':' +
+      (timeParts.find((p) => p.type === 'minute')?.value.padStart(2, '0') ?? '00')
+
+    const missingCheckIn = isToday
+      ? roster.filter((e) => !e.checkInAt && (!e.shift_start || e.shift_start.slice(0, 5) <= ukNow))
+      : []
+
+    const missingCheckOut = isToday
+      ? roster.filter((e) => e.checkInAt && !e.checkOutAt && e.shift_end && e.shift_end.slice(0, 5) <= ukNow)
+      : []
+
+    return { entries: roster, present: whoIsIn, sessions: sessRows, audit, missingCheckIn, missingCheckOut }
   })
 
 // ═══════════════════════════════════════════════════════════════════

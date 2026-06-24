@@ -9,7 +9,8 @@ import { Card } from '#/components/Card'
 import { Badge } from '#/components/Badge'
 import { IdentityBar } from '#/components/IdentityBar'
 import { useStaffIdentity } from '#/routes/-hooks'
-import { Clock, X, User, ArrowLeft } from 'lucide-react'
+import { Clock, User, ArrowLeft } from 'lucide-react'
+import { IdentityPickerModal } from '#/components/IdentityPickerModal'
 type SessionRow = {
   date: string
   shift_start: string | null
@@ -194,83 +195,15 @@ function HistoryPage() {
         </>
       )}
 
-      {/* ── Identity picker modal ─────────────────────────────── */}
       {showIdentityPicker && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="identity-picker-title"
-          onClick={() => setShowIdentityPicker(false)}
-        >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div
-            className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm
-              max-h-[70vh] overflow-hidden shadow-xl animate-slide-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pt-3 pb-1 sm:hidden">
-              <div className="w-10 h-1 rounded-full bg-neutral-300" />
-            </div>
-            <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
-              <h2 id="identity-picker-title" className="text-lg font-semibold text-neutral-900">Who are you?</h2>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setShowIdentityPicker(false)}
-                className="p-1 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="overflow-y-auto max-h-[50vh]">
-              {entries.map((entry: { id: number; name: string; role: string | null }) => (
-                <button
-                  key={entry.id}
-                  type="button"
-                  onClick={() => { selectIdentity(entry.id); setShowIdentityPicker(false) }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left
-                    hover:bg-neutral-50 transition-colors border-b border-neutral-50
-                    ${entry.id === staffId ? 'bg-primary-50' : ''}`}
-                >
-                  <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-600
-                    flex items-center justify-center shrink-0">
-                    <User className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-neutral-900 truncate">{entry.name}</p>
-                    {entry.role && <p className="text-xs text-neutral-500">{entry.role}</p>}
-                  </div>
-                  {entry.id === staffId && <Badge variant="info">You</Badge>}
-                </button>
-              ))}
-            </div>
-            {staffId && (
-              <div className="px-4 py-3 border-t border-neutral-100 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowIdentityPicker(false)
-                    clearIdentity()
-                  }}
-                  className="w-full text-sm text-neutral-500 hover:text-danger-600 py-1.5 transition-colors"
-                >
-                  Clear my identity
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    localStorage.clear()
-                    window.location.reload()
-                  }}
-                  className="w-full text-xs text-neutral-400 hover:text-neutral-600 py-1 transition-colors"
-                >
-                  Reset everything
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        <IdentityPickerModal
+          entries={entries}
+          staffId={staffId}
+          onClose={() => setShowIdentityPicker(false)}
+          onSelect={selectIdentity}
+          onClear={clearIdentity}
+          onReset={() => { localStorage.clear(); window.location.reload() }}
+        />
       )}
 
     </main>

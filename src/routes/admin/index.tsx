@@ -7,13 +7,14 @@ import { WhoIsInSection, type PresentStaff } from '#/routes/admin/-components/Wh
 import type { RosterEntryWithStatus, SessionRow } from '#/routes/admin/-types'
 import type { AuditEventItem } from '#/routes/admin/-components/AuditEvent'
 import { CalendarDays, LogIn, Building2 } from 'lucide-react'
-import { parseShiftTime } from '#/utils/dateTime'
 
 type DashboardData = {
   entries: RosterEntryWithStatus[]
   present: PresentStaff[]
   sessions: SessionRow[]
   audit: AuditEventItem[]
+  missingCheckIn: RosterEntryWithStatus[]
+  missingCheckOut: RosterEntryWithStatus[]
 }
 
 export const Route = createFileRoute('/admin/')({
@@ -67,6 +68,8 @@ function AdminDashboard() {
   const { authToken, viewDate, today } = useAdminContext()
   const [entries, setEntries] = useState<RosterEntryWithStatus[]>([])
   const [present, setPresent] = useState<PresentStaff[]>([])
+  const [missingCheckIn, setMissingCheckIn] = useState<RosterEntryWithStatus[]>([])
+  const [missingCheckOut, setMissingCheckOut] = useState<RosterEntryWithStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -80,6 +83,8 @@ function AdminDashboard() {
           const data = d as DashboardData
           setEntries(data.entries ?? [])
           setPresent(data.present ?? [])
+          setMissingCheckIn(data.missingCheckIn ?? [])
+          setMissingCheckOut(data.missingCheckOut ?? [])
         }
       })
       .catch((e) => {
@@ -118,21 +123,6 @@ function AdminDashboard() {
   const stillInCount = present.length
   const checkedInPct = entries.length > 0 ? Math.round((checkedInCount / entries.length) * 100) : 0
   const stillInPct = entries.length > 0 ? Math.round((stillInCount / entries.length) * 100) : 0
-
-  const now = new Date()
-  const isToday = viewDate === today
-
-  const missingCheckIn = isToday
-    ? entries.filter(
-        (e) => !e.checkInAt && (!e.shift_start || (parseShiftTime(viewDate, e.shift_start)?.getTime() ?? 0) < now.getTime()),
-      )
-    : []
-
-  const missingCheckOut = isToday
-    ? entries.filter(
-        (e) => e.checkInAt && !e.checkOutAt && e.shift_end && (parseShiftTime(viewDate, e.shift_end)?.getTime() ?? Infinity) < now.getTime(),
-      )
-    : []
 
   return (
     <div className="space-y-6">

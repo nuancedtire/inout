@@ -33,6 +33,8 @@ export const rosterEntries = sqliteTable(
       foreignColumns: [rotas.id],
     }).onDelete('cascade'),
     rotaIdx: index('idx_roster_rota').on(table.rotaId),
+    // Composite covers ORDER BY name after rota_id filter — avoids filesort
+    rotaNameIdx: index('idx_roster_rota_name').on(table.rotaId, table.name),
   }),
 )
 
@@ -58,6 +60,8 @@ export const sessions = sqliteTable(
       table.rosterEntryId,
       table.checkOutAt,
     ),
+    // Covers getStaffHistory: WHERE roster_entry_id = ? ORDER BY check_in_at DESC
+    entryCheckinIdx: index('idx_sessions_entry_checkin').on(table.rosterEntryId, table.checkInAt),
     oneOpenUnique: uniqueIndex('idx_sessions_one_open')
       .on(table.rosterEntryId)
       .where(sql`check_out_at IS NULL`),

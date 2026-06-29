@@ -74,7 +74,6 @@ function AdminLayout() {
             <input
               id="pin-input"
               type="password"
-              inputMode="numeric"
               placeholder="••••"
               aria-label="Admin PIN"
               className="w-full px-4 py-3 text-lg tracking-widest border border-hairline rounded-xl mb-4 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none text-center transition-all"

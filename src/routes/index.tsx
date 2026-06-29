@@ -1,17 +1,16 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { getTodayRoster } from '#/utils/rotas.functions'
 import { checkIn, checkOut, getStatus, undoLastAction, manualCheckIn } from '#/utils/sessions.functions'
-import { formatDateTime, relativeTime } from '#/utils/dateTime'
 import { ErrorFallback } from '#/components/ErrorFallback'
 import { EmptyState } from '#/components/EmptyState'
 import { Button } from '#/components/Button'
 import { IdentityBar } from '#/components/IdentityBar'
-import SlideButton from '#/components/SlideButton'
+import { SlideToAction } from '#/components/SlideToAction'
 import { useStaffIdentity } from '#/routes/-hooks'
 import { Logo } from '#/components/Logo'
 import { IdentityPickerModal } from '#/components/IdentityPickerModal'
-import { Undo2, UserPlus, X, ArrowRight, Clock, Building2, LogOut, ChevronRight } from 'lucide-react'
+import { Undo2, UserPlus, X, ArrowRight } from 'lucide-react'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -36,115 +35,6 @@ function NotFound() {
 }
 
 type Message = { text: string; type: 'success' | 'error' | 'info' }
-
-// ── Swipe-out card shown when checked in ──────────────────────────────────────
-function SwipeOutCard({
-  checkInAt,
-  onCheckout,
-  loading,
-}: {
-  checkInAt: string | null
-  onCheckout: () => Promise<void>
-  loading: boolean
-}) {
-  const [offset, setOffset] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const startXRef = useRef<number | null>(null)
-  const cardRef = useRef<HTMLDivElement>(null)
-
-  const THRESHOLD = 0.45
-
-  const progress = cardRef.current
-    ? Math.min(1, offset / (cardRef.current.offsetWidth * THRESHOLD))
-    : 0
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (loading) return
-    startXRef.current = e.clientX
-    setIsDragging(true)
-    setIsAnimating(false)
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  }
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging || startXRef.current === null) return
-    const dx = Math.max(0, e.clientX - startXRef.current)
-    setOffset(dx)
-  }
-
-  const handlePointerUp = async () => {
-    if (!isDragging || startXRef.current === null) return
-    setIsDragging(false)
-    startXRef.current = null
-
-    const cardWidth = cardRef.current?.offsetWidth ?? 340
-    if (offset >= cardWidth * THRESHOLD) {
-      setIsAnimating(true)
-      setOffset(cardWidth * 1.5)
-      await new Promise((r) => setTimeout(r, 350))
-      await onCheckout()
-    } else {
-      setIsAnimating(true)
-      setOffset(0)
-      setTimeout(() => setIsAnimating(false), 400)
-    }
-  }
-
-  return (
-    <div className="relative rounded-2xl overflow-hidden">
-      {/* Reveal layer — checkout CTA exposed as card slides away */}
-      <div
-        className="absolute inset-0 rounded-2xl flex items-center justify-end pr-8"
-        style={{ background: '#ff385c14' }}
-      >
-        <div className="flex flex-col items-center gap-1.5" style={{ color: '#ff385c', opacity: 0.4 + progress * 0.6 }}>
-          <LogOut className="w-7 h-7" />
-          <span className="text-xs font-bold tracking-wide uppercase">Check out</span>
-        </div>
-      </div>
-
-      {/* Draggable card */}
-      <div
-        ref={cardRef}
-        className="relative rounded-2xl bg-canvas cursor-grab active:cursor-grabbing select-none touch-none"
-        style={{
-          transform: `translateX(${offset}px)`,
-          transition: isAnimating ? 'transform 0.35s cubic-bezier(0.2,0,0,1)' : 'none',
-          boxShadow: 'var(--shadow-card)',
-        }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      >
-        <div className="flex items-stretch overflow-hidden rounded-2xl">
-          <div className="flex-1 px-6 py-5 min-w-0">
-            <p className="text-xs font-semibold text-muted uppercase tracking-wider">Status</p>
-            <p className="text-2xl font-bold text-ink mt-1">You're inside</p>
-            {checkInAt && (
-              <p className="text-sm text-muted mt-1 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 shrink-0" />
-                <span title={formatDateTime(checkInAt)}>Since {relativeTime(checkInAt)}</span>
-              </p>
-            )}
-            <p className="text-xs text-muted mt-3 flex items-center gap-1 opacity-50">
-              Swipe right to check out
-              <ChevronRight className="w-3 h-3" />
-            </p>
-          </div>
-          <div className="w-20 flex items-center justify-center shrink-0" style={{ background: '#16a34a18' }}>
-            {loading ? (
-              <span className="w-6 h-6 rounded-full border-2 border-success-400 border-t-transparent animate-spin" />
-            ) : (
-              <Building2 className="w-8 h-8 text-success-600" />
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -193,15 +83,10 @@ function HomePage() {
 
   const handleCheckOut = async () => {
     if (!staffId || !token) throw new Error('Missing identity or QR code')
-    setSlideLoading(true)
-    try {
-      await checkOut({ data: { rosterEntryId: staffId, token } })
-      showMessage('Checked out ✓', 'success')
-      const newStatus = await getStatus({ data: { rosterEntryId: staffId } })
-      setStatus(newStatus)
-    } finally {
-      setSlideLoading(false)
-    }
+    await checkOut({ data: { rosterEntryId: staffId, token } })
+    showMessage('Checked out ✓', 'success')
+    const newStatus = await getStatus({ data: { rosterEntryId: staffId } })
+    setStatus(newStatus)
   }
 
   const handleUndo = async () => {
@@ -274,33 +159,22 @@ function HomePage() {
       {/* Action area */}
       {staffId && (
         <div className="flex flex-col gap-3">
-          {status.checkedIn ? (
-            /* ── Checked in: swipe-out card ── */
-            <SwipeOutCard
+          <div
+            className="bg-canvas rounded-2xl px-6 py-5"
+            style={{ boxShadow: 'var(--shadow-card)' }}
+          >
+            <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Status</p>
+            <p className="text-2xl font-bold text-ink mb-4">
+              {status.checkedIn ? "You're inside" : "You're outside"}
+            </p>
+            <SlideToAction
+              mode={status.checkedIn ? 'out' : 'in'}
               checkInAt={status.checkInAt}
-              onCheckout={handleCheckOut}
-              loading={slideLoading}
+              onCheckIn={handleCheckIn}
+              onCheckOut={handleCheckOut}
+              disabled={!token || undoLoading}
             />
-          ) : (
-            /* ── Not checked in: slide-in button ── */
-            <div
-              className="bg-canvas rounded-2xl px-6 py-5"
-              style={{ boxShadow: 'var(--shadow-card)' }}
-            >
-              <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Status</p>
-              <p className="text-2xl font-bold text-ink mb-4">You're outside</p>
-              <SlideButton
-                variant="success"
-                label="slide to check in"
-                loading={slideLoading}
-                disabled={!token}
-                onComplete={async () => {
-                  setSlideLoading(true)
-                  try { await handleCheckIn() } finally { setSlideLoading(false) }
-                }}
-              />
-            </div>
-          )}
+          </div>
 
           {/* Undo */}
           {status.hasUndoableAction && (

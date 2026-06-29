@@ -70,8 +70,10 @@ function TabsTrigger({
   const { variant, listId, active } = React.useContext(MotionTabsCtx)
   const isActive = active === value
 
+  // beui pattern: indicator sits at natural z-order (no -z-10),
+  // children are wrapped in relative z-10 so they always render on top.
   const baseCls =
-    'relative flex items-center justify-center gap-1.5 text-sm font-medium cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-primary-500 transition-colors duration-150'
+    'relative flex items-center justify-center text-sm font-medium cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-primary-500 transition-colors duration-150'
 
   const variantCls =
     variant === 'segment'
@@ -81,11 +83,22 @@ function TabsTrigger({
         : `px-3 py-1.5 rounded-lg ${isActive ? 'text-primary-700' : 'text-muted hover:bg-surface-soft'}`
 
   const indicatorCls =
+    variant === 'underline'
+      ? 'absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500'
+      : 'absolute inset-0 rounded-lg'
+
+  // For segment: use inline boxShadow to guarantee visibility regardless of
+  // Tailwind JIT. The shadow is what makes the white card distinct from the
+  // surface-soft background.
+  const indicatorStyle: React.CSSProperties | undefined =
     variant === 'segment'
-      ? 'absolute inset-0 -z-10 rounded-lg bg-canvas shadow ring-1 ring-black/[0.06]'
-      : variant === 'underline'
-        ? 'absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500'
-        : 'absolute inset-0 -z-10 rounded-lg bg-primary-100'
+      ? {
+          backgroundColor: 'var(--color-canvas)',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.07)',
+        }
+      : variant === 'pill'
+        ? { backgroundColor: 'var(--color-primary-100)' }
+        : undefined
 
   return (
     <TabsPrimitive.Trigger
@@ -98,9 +111,11 @@ function TabsTrigger({
           layoutId={`${listId}-ind`}
           transition={SPRING_LAYOUT}
           className={indicatorCls}
+          style={indicatorStyle}
         />
       )}
-      {children}
+      {/* relative z-10 ensures children render above the absolute indicator */}
+      <span className="relative z-10 flex items-center gap-1.5">{children}</span>
     </TabsPrimitive.Trigger>
   )
 }

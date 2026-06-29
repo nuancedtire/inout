@@ -170,16 +170,14 @@ export const uploadRota = createServerFn({ method: 'POST' })
       source: 'rota' as const,
     }))
 
-    // D1/SQLite caps bound parameters at 999; each row uses 6 → max 166 rows per
-    // statement. Chunk at 100 to stay well clear of the limit.
-    const CHUNK = 100
-    const chunks: (typeof rows)[] = []
-    for (let i = 0; i < rows.length; i += CHUNK) chunks.push(rows.slice(i, i + CHUNK))
-
-    await db.batch([
-      db.delete(rosterEntries).where(eq(rosterEntries.rotaId, rota.id)),
-      ...chunks.map((chunk) => db.insert(rosterEntries).values(chunk)),
-    ])
+    // D1 caps bound parameters at 100 per statement. Each row here has 6 cols,
+    // so max 16 rows per INSERT (floor(100/6)). Use 10 to stay safely under.
+    // Sequential calls (not db.batch) since batch also aggregates the param
+    // count across all statements and hits the same 100-param ceiling.
+    await db.delete(rosterEntries).where(eq(rosterEntries.rotaId, rota.id))
+    for (let i = 0; i < rows.length; i += 10) {
+      await db.insert(rosterEntries).values(rows.slice(i, i + 10))
+    }
 
     await logAudit('rota_uploaded', { date: data.date, staffCount: parsed.length }, 'admin')
 

@@ -16,6 +16,7 @@ import {
 const THUMB = 48
 const PAD = 4
 const SPRING = 'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+const EASE_SMOOTH = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
 const ANIM_MS = 450
 const SNAP_MS = 380
 const THRESHOLD = 0.72
@@ -69,7 +70,7 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
   const [offset, setOffset] = useState(0)
   const [trackW, setTrackW] = useState(0)
   const [status, setStatus] = useState<Status>('idle')
-  const [anim, setAnim] = useState(false)
+  const [anim, setAnim] = useState<'spring' | 'smooth' | false>(false)
   const [confirm, setConfirm] = useState(false)
 
   const maxDrag = Math.max(0, trackW - THUMB - 2 * PAD)
@@ -103,10 +104,10 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
       prevModeRef.current = mode
       setConfirm(false)
       setStatus('idle')
-      setAnim(true)
+      setAnim('smooth')
       offsetRef.current = natural
       setOffset(natural)
-      setTimeout(() => setAnim(false), ANIM_MS)
+      setTimeout(() => setAnim(false), SNAP_MS)
     }
   }, [mode, natural, maxDrag])
 
@@ -118,11 +119,17 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
   const labelOpacity = Math.max(0, 1 - progress / 0.45)
 
   // Fill sweeps L→R for check-in (green), R→L for check-out (red).
-  // Width ends at the thumb's center x so the fill's edge is always hidden
-  // under the white circle — avoids the ring artifact from a dome bigger than the thumb.
+  // Width extends to thumb's far edge + matching border-radius so the fill arc
+  // sits exactly behind the thumb circle — no visible seam.
   const fillStyle: React.CSSProperties = mode === 'in'
-    ? { left: 0, width: PAD + offset + THUMB / 2 }
-    : { right: 0, width: Math.max(0, trackW - thumbLeft - THUMB / 2) }
+    ? { left: 0, width: PAD + offset + THUMB }
+    : { right: 0, width: Math.max(0, trackW - thumbLeft) }
+
+  const transition = anim === 'spring'
+    ? `all ${ANIM_MS}ms ${SPRING}`
+    : anim === 'smooth'
+    ? `all ${SNAP_MS}ms ${EASE_SMOOTH}`
+    : 'none'
 
   const interactive = !disabled && status !== 'completing' && status !== 'loading' && status !== 'confirming'
 
@@ -161,7 +168,7 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
       if (mode === 'in') {
         // ── Complete check-in ───────────────────────────────────────────────
         setStatus('completing')
-        setAnim(true)
+        setAnim('spring')
         offsetRef.current = maxDrag
         setOffset(maxDrag)
         await new Promise(r => setTimeout(r, ANIM_MS))
@@ -172,7 +179,7 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
           // mode prop will flip to 'out', effect handles thumb position
         } catch {
           setStatus('idle')
-          setAnim(true)
+          setAnim('smooth')
           offsetRef.current = 0
           setOffset(0)
           setTimeout(() => setAnim(false), SNAP_MS)
@@ -180,7 +187,7 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
       } else {
         // ── Threshold reached → snap left and show confirmation ─────────────
         setStatus('completing')
-        setAnim(true)
+        setAnim('spring')
         offsetRef.current = 0
         setOffset(0)
         await new Promise(r => setTimeout(r, ANIM_MS))
@@ -189,9 +196,9 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
         setConfirm(true)
       }
     } else {
-      // ── Below threshold → spring back to natural position ──────────────────
+      // ── Below threshold → ease back to natural position (no overshoot) ─────
       setStatus('idle')
-      setAnim(true)
+      setAnim('smooth')
       offsetRef.current = natural
       setOffset(natural)
       setTimeout(() => setAnim(false), SNAP_MS)
@@ -215,7 +222,7 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
   const onCancel = useCallback(() => {
     setConfirm(false)
     setStatus('idle')
-    setAnim(true)
+    setAnim('smooth')
     offsetRef.current = maxDrag
     setOffset(maxDrag)
     setTimeout(() => setAnim(false), SNAP_MS)
@@ -229,7 +236,7 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
       // mode flips to 'in', effect resets thumb
     } catch {
       setStatus('idle')
-      setAnim(true)
+      setAnim('smooth')
       offsetRef.current = maxDrag
       setOffset(maxDrag)
       setTimeout(() => setAnim(false), SNAP_MS)
@@ -294,15 +301,18 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
           disabled ? 'opacity-50' : '',
         ].join(' ')}
       >
-        {/* Color fill — top/bottom match thumb height so it never peeks above/below */}
+        {/* Color fill — extends to thumb far edge with matching border-radius */}
         <div
           className={`absolute ${mode === 'in' ? 'bg-success-500' : 'bg-danger-500'}`}
           style={{
             ...fillStyle,
             top: PAD,
             bottom: PAD,
+            borderRadius: mode === 'in'
+              ? `0 ${THUMB / 2}px ${THUMB / 2}px 0`
+              : `${THUMB / 2}px 0 0 ${THUMB / 2}px`,
             opacity: 0.9,
-            transition: anim ? `all ${ANIM_MS}ms ${SPRING}` : 'none',
+            transition,
           }}
         />
 
@@ -324,7 +334,7 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
             width: THUMB,
             height: THUMB,
             left: thumbLeft,
-            transition: anim ? `left ${ANIM_MS}ms ${SPRING}` : 'none',
+            transition: anim ? transition.replace('all', 'left') : 'none',
           }}
         >
           {thumbIcon}

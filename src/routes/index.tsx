@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { getTodayRoster } from '#/utils/rotas.functions'
 import { checkIn, checkOut, getStatus, undoLastAction, manualCheckIn } from '#/utils/sessions.functions'
 import { ErrorFallback } from '#/components/ErrorFallback'
@@ -41,6 +41,7 @@ type Message = { text: string; type: 'success' | 'error' | 'info' }
 function HomePage() {
   const { rota, entries, statusByEntryId } = Route.useLoaderData()
   const { token } = Route.useSearch()
+  const router = useRouter()
 
   const {
     staffId, showIdentityPicker,
@@ -109,11 +110,15 @@ function HomePage() {
     if (!manualName.trim()) { showMessage('Enter your name', 'error'); return }
     setSlideLoading(true)
     try {
-      await manualCheckIn({ data: { name: manualName.trim(), role: manualRole.trim() || undefined, token } })
-      showMessage('Checked in (manual entry)', 'success')
+      const result = await manualCheckIn({ data: { name: manualName.trim(), role: manualRole.trim() || undefined, token } })
+      const newStatus = await getStatus({ data: { rosterEntryId: result.entryId } })
+      setStatus(newStatus)
+      selectIdentity(result.entryId)
       setManualName('')
       setManualRole('')
       setShowManual(false)
+      showMessage('Checked in ✓', 'success')
+      router.invalidate()
     } catch (e) {
       showMessage(e instanceof Error ? e.message : 'Failed', 'error')
     } finally {
@@ -141,7 +146,7 @@ function HomePage() {
     <main className="max-w-sm mx-auto px-4 pt-8 pb-10 flex flex-col gap-5 min-h-screen">
 
       {/* Header */}
-      <div className="flex items-center gap-0 mb-2">
+      <div className="flex items-center justify-center gap-0 mb-2">
         <span className="text-2xl font-bold text-ink tracking-tight leading-none">In</span>
         <Logo size={38} variant="rausch" className="-mx-1" />
         <span className="text-2xl font-bold text-ink tracking-tight leading-none">Out</span>
@@ -203,33 +208,45 @@ function HomePage() {
         Not on the rota? (locum / bank)
       </button>
 
-      {showManual && (
-        <div
-          className="bg-canvas rounded-2xl px-6 py-5 border border-warning-200"
-          style={{ boxShadow: 'var(--shadow-card)' }}
-        >
-          <p className="text-sm text-warning-700 mb-3">
-            For locums, bank staff, or anyone not on today's rota. Your entry will be flagged as manual.
-          </p>
-          <input
-            className="w-full px-4 py-3 border border-hairline rounded-xl mb-2 bg-canvas focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none text-sm transition-all"
-            placeholder="Your name"
-            aria-label="Your name"
-            value={manualName}
-            onChange={(e) => setManualName(e.target.value)}
-          />
-          <input
-            className="w-full px-4 py-3 border border-hairline rounded-xl mb-4 bg-canvas focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none text-sm transition-all"
-            placeholder="Role (optional)"
-            aria-label="Role (optional)"
-            value={manualRole}
-            onChange={(e) => setManualRole(e.target.value)}
-          />
-          <Button variant="warning" fullWidth loading={slideLoading} onClick={handleManualCheckIn}>
-            Request check-in
-          </Button>
-        </div>
-      )}
+      {showManual && (() => {
+        const nameConflict = manualName.trim()
+          ? (entries as { id: number; name: string; role: string | null }[]).some(
+              (e) => e.name.toLowerCase() === manualName.trim().toLowerCase()
+            )
+          : false
+        return (
+          <div
+            className="bg-canvas rounded-2xl px-6 py-5 border border-warning-200"
+            style={{ boxShadow: 'var(--shadow-card)' }}
+          >
+            <p className="text-sm text-warning-700 mb-3">
+              For locums, bank staff, or anyone not on today's rota. Your entry will be flagged as manual.
+            </p>
+            <input
+              className="w-full px-4 py-3 border border-hairline rounded-xl mb-2 bg-canvas focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none text-sm transition-all"
+              placeholder="Your name"
+              aria-label="Your name"
+              value={manualName}
+              onChange={(e) => setManualName(e.target.value)}
+            />
+            {nameConflict && (
+              <p className="text-xs text-warning-700 mb-2 px-1">
+                Someone with this name is already on the rota. Continue only if this is a different person.
+              </p>
+            )}
+            <input
+              className="w-full px-4 py-3 border border-hairline rounded-xl mb-4 bg-canvas focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none text-sm transition-all"
+              placeholder="Role (optional)"
+              aria-label="Role (optional)"
+              value={manualRole}
+              onChange={(e) => setManualRole(e.target.value)}
+            />
+            <Button variant="warning" fullWidth loading={slideLoading} onClick={handleManualCheckIn}>
+              Request check-in
+            </Button>
+          </div>
+        )
+      })()}
 
       {/* History link */}
       <Link

@@ -1,4 +1,6 @@
 import { Link, useRouterState } from '@tanstack/react-router'
+import { useId } from 'react'
+import { motion, MotionConfig } from 'motion/react'
 import {
   Sidebar,
   SidebarContent,
@@ -14,6 +16,7 @@ import {
 import { useIsMobile } from '#/hooks/use-mobile'
 import { LayoutDashboard, ClipboardList, Users, ScrollText, PanelLeftClose } from 'lucide-react'
 import { Logo } from '#/components/Logo'
+import { SPRING_LAYOUT } from '#/lib/ease'
 
 const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
@@ -27,6 +30,7 @@ export function AppSidebar() {
   const router = useRouterState()
   const currentPath = router.location.pathname
   const { setOpen } = useSidebar()
+  const navId = useId()
 
   // On mobile the AdminDock handles navigation — no sidebar needed
   if (isMobile) return null
@@ -61,24 +65,38 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => {
-                const active =
-                  item.to === '/admin'
-                    ? currentPath === '/admin'
-                    : currentPath.startsWith(item.to)
-                return (
-                  <SidebarMenuItem key={item.to}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
-                      <Link to={item.to}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
+            <MotionConfig reducedMotion="user">
+              <SidebarMenu>
+                {navItems.map((item) => {
+                  const active =
+                    item.to === '/admin'
+                      ? currentPath === '/admin'
+                      : currentPath.startsWith(item.to)
+                  return (
+                    <SidebarMenuItem key={item.to}>
+                      {active && (
+                        <motion.span
+                          layoutId={`${navId}-nav-ind`}
+                          transition={SPRING_LAYOUT}
+                          className="absolute inset-0 rounded-md bg-sidebar-accent"
+                        />
+                      )}
+                      <SidebarMenuButton
+                        asChild
+                        isActive={active}
+                        tooltip={item.label}
+                        className="relative z-10 data-[active=true]:bg-transparent"
+                      >
+                        <Link to={item.to}>
+                          <item.icon />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </MotionConfig>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

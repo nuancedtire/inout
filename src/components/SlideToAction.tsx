@@ -1,6 +1,16 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { ChevronRight, ChevronLeft, Loader2, Clock, LogOut } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '#/components/ui/alert-dialog'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const THUMB = 48
@@ -284,10 +294,11 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
       >
         {/* Color fill */}
         <div
-          className={`absolute inset-y-0 ${mode === 'in' ? 'bg-success-500' : 'bg-danger-400'}`}
+          className={`absolute inset-y-0 ${mode === 'in' ? 'bg-success-500' : 'bg-danger-500'}`}
           style={{
             ...fillStyle,
             opacity: 0.9,
+            borderRadius: mode === 'in' ? '0 9999px 9999px 0' : '9999px 0 0 9999px',
             transition: anim ? `all ${ANIM_MS}ms ${SPRING}` : 'none',
           }}
         />
@@ -317,56 +328,41 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
         </div>
       </div>
 
-      {/* ── Confirmation panel ────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {confirm && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden"
-          >
-            <div
-              className="mt-1 rounded-2xl border border-danger-100 bg-canvas px-4 py-4"
-              style={{ boxShadow: 'var(--shadow-card)' }}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-full bg-danger-50 flex items-center justify-center shrink-0">
-                  <LogOut className="w-4 h-4 text-danger-600" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-ink">Check out?</p>
-                  {checkInAt && (
-                    <p className="text-xs text-muted mt-0.5">
-                      Checked in at {fmtTime(checkInAt)} · {elapsed} ago
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  className="flex-1 py-2.5 text-sm font-medium text-ink border border-hairline rounded-xl hover:bg-surface-soft transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={onConfirmOut}
-                  disabled={status === 'loading'}
-                  className="flex-1 py-2.5 text-sm font-medium text-white bg-danger-600 rounded-xl hover:bg-danger-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
-                >
-                  {status === 'loading'
-                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Checking out…</>
-                    : 'Check out'}
-                </button>
-              </div>
+      {/* ── Confirmation dialog ───────────────────────────────────────────────── */}
+      <AlertDialog open={confirm} onOpenChange={(open) => { if (!open) onCancel() }}>
+        <AlertDialogContent>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-full bg-danger-50 flex items-center justify-center shrink-0">
+              <LogOut className="w-5 h-5 text-danger-600" />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <AlertDialogHeader className="gap-0.5">
+              <AlertDialogTitle>Check out?</AlertDialogTitle>
+              {checkInAt && (
+                <AlertDialogDescription>
+                  Checked in at {fmtTime(checkInAt)} · {elapsed} ago
+                </AlertDialogDescription>
+              )}
+            </AlertDialogHeader>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={onCancel}
+              className="flex-1 py-2.5 text-sm font-medium text-ink border border-hairline rounded-xl hover:bg-surface-soft transition-colors"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={onConfirmOut}
+              disabled={status === 'loading'}
+              className="flex-1 py-2.5 text-sm font-medium text-white bg-danger-600 rounded-xl hover:bg-danger-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            >
+              {status === 'loading'
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Checking out…</>
+                : 'Check out'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

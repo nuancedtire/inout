@@ -117,10 +117,12 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
     : 0
   const labelOpacity = Math.max(0, 1 - progress / 0.45)
 
-  // Fill sweeps L→R for check-in (green), R→L for check-out (red)
+  // Fill sweeps L→R for check-in (green), R→L for check-out (red).
+  // Width ends at the thumb's center x so the fill's edge is always hidden
+  // under the white circle — avoids the ring artifact from a dome bigger than the thumb.
   const fillStyle: React.CSSProperties = mode === 'in'
-    ? { left: 0, width: PAD + offset + THUMB }
-    : { right: 0, width: trackW - thumbLeft }
+    ? { left: 0, width: PAD + offset + THUMB / 2 }
+    : { right: 0, width: Math.max(0, trackW - thumbLeft - THUMB / 2) }
 
   const interactive = !disabled && status !== 'completing' && status !== 'loading' && status !== 'confirming'
 
@@ -292,13 +294,14 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
           disabled ? 'opacity-50' : '',
         ].join(' ')}
       >
-        {/* Color fill */}
+        {/* Color fill — top/bottom match thumb height so it never peeks above/below */}
         <div
-          className={`absolute inset-y-0 ${mode === 'in' ? 'bg-success-500' : 'bg-danger-500'}`}
+          className={`absolute ${mode === 'in' ? 'bg-success-500' : 'bg-danger-500'}`}
           style={{
             ...fillStyle,
+            top: PAD,
+            bottom: PAD,
             opacity: 0.9,
-            borderRadius: mode === 'in' ? '0 9999px 9999px 0' : '9999px 0 0 9999px',
             transition: anim ? `all ${ANIM_MS}ms ${SPRING}` : 'none',
           }}
         />

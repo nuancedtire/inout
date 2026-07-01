@@ -70,7 +70,7 @@ export function WeeklyRollupSection({
 
   if (loading) {
     return (
-      <section id="weekly-rollup" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
+      <section id="weekly-rollup" data-tour="weekly-rollup" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
         <h2 className="font-semibold text-neutral-900 mb-3">Weekly hours</h2>
         <p className="text-sm text-neutral-500 animate-pulse">Loading…</p>
       </section>
@@ -79,7 +79,7 @@ export function WeeklyRollupSection({
 
   if (error) {
     return (
-      <section id="weekly-rollup" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
+      <section id="weekly-rollup" data-tour="weekly-rollup" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
         <h2 className="font-semibold text-neutral-900 mb-3">Weekly hours</h2>
         <p className="text-sm text-danger-600">{error}</p>
       </section>
@@ -89,7 +89,7 @@ export function WeeklyRollupSection({
   const { dates, cells } = pivot
 
   return (
-    <section id="weekly-rollup" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
+    <section id="weekly-rollup" data-tour="weekly-rollup" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-semibold text-neutral-900">
           Weekly hours — {formatDate(weekStart)} to {formatDate(weekEnd)}

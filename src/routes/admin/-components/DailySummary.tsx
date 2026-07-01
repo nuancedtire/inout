@@ -75,6 +75,7 @@ export function DailySummary({
     <div
       className="bg-canvas rounded-2xl p-5"
       style={{ boxShadow: 'var(--shadow-card)' }}
+      data-tour="daily-summary"
     >
       <div className="flex items-center gap-2 mb-4">
         <h2 className="font-semibold text-ink">Daily summary</h2>

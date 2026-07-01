@@ -39,7 +39,7 @@ export function SessionSection({
   }
 
   return (
-    <section id="sessions" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
+    <section id="sessions" data-tour="session-history" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="font-semibold text-neutral-900">Session history</h2>
         <Badge variant="neutral">{sessions.length}</Badge>

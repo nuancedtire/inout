@@ -14,15 +14,16 @@ import {
   useSidebar,
 } from '#/components/ui/sidebar'
 import { useIsMobile } from '#/hooks/use-mobile'
-import { LayoutDashboard, ClipboardList, Users, ScrollText, PanelLeftClose } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Users, ScrollText, PanelLeftClose, HelpCircle } from 'lucide-react'
 import { Logo } from '#/components/Logo'
 import { SPRING_LAYOUT } from '#/lib/ease'
+import { useTour } from '#/lib/tour/TourContext'
 
 const navItems = [
-  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/admin/roster', icon: ClipboardList, label: 'Roster' },
-  { to: '/admin/sessions', icon: Users, label: 'Sessions' },
-  { to: '/admin/audit', icon: ScrollText, label: 'Audit' },
+  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', tourId: 'nav-dashboard' },
+  { to: '/admin/roster', icon: ClipboardList, label: 'Roster', tourId: 'nav-roster' },
+  { to: '/admin/sessions', icon: Users, label: 'Sessions', tourId: 'nav-sessions' },
+  { to: '/admin/audit', icon: ScrollText, label: 'Audit', tourId: 'nav-audit' },
 ]
 
 export function AppSidebar() {
@@ -31,6 +32,7 @@ export function AppSidebar() {
   const currentPath = router.location.pathname
   const { setOpen } = useSidebar()
   const navId = useId()
+  const { start } = useTour()
 
   // On mobile the AdminDock handles navigation — no sidebar needed
   if (isMobile) return null
@@ -87,7 +89,7 @@ export function AppSidebar() {
                         tooltip={item.label}
                         className="relative z-10 data-[active=true]:bg-transparent"
                       >
-                        <Link to={item.to}>
+                        <Link to={item.to} data-tour={item.tourId}>
                           <item.icon />
                           <span>{item.label}</span>
                         </Link>
@@ -102,8 +104,22 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <div className="px-3 py-3 group-data-[collapsible=icon]:hidden">
+          <button
+            onClick={start}
+            className="flex items-center gap-1.5 text-xs text-muted hover:text-ink transition-colors mb-1.5"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Replay tutorial
+          </button>
           <p className="text-xs text-muted">v1.0</p>
         </div>
+        <button
+          onClick={start}
+          aria-label="Replay tutorial"
+          className="hidden group-data-[collapsible=icon]:flex items-center justify-center w-full py-2 text-muted hover:text-ink transition-colors"
+        >
+          <HelpCircle className="w-4 h-4" />
+        </button>
       </SidebarFooter>
     </Sidebar>
   )

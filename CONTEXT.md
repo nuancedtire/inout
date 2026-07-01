@@ -41,7 +41,7 @@
 
 ### ADR-004: Print-friendly admin QR page as standalone route
 
-**Decision:** `/admin/print-qr` — standalone route, same admin auth gate as `/admin`. Has date picker. `@media print` hides chrome, maximizes QR. URL displayed below QR as text fallback.
+**Decision:** `/print-qr` — standalone route, same admin auth gate as `/admin`. Has date picker. `@media print` hides chrome, maximizes QR. URL displayed below QR as text fallback.
 
 ### ADR-005: Consolidated cron-powered feature expansion via omp + ponytail (SUPERSEDED by ADR-006)
 
@@ -52,6 +52,14 @@
 ### ADR-006: Self-upgrading maintenance via GitHub issues + cron
 
 See `docs/adr/0006-self-upgrading-cron.md`. The cron auto-discovers issues, files them as GitHub issues with labels, and implements `auto-fix` labeled items via PRs. The human controls the agent through labels and comments.
+
+### ADR-007: In-app admin onboarding tour, custom-built and localStorage-tracked
+
+**Decision:** A single continuous spotlight/tooltip tour (`src/lib/tour/`, `src/components/TourOverlay.tsx`) walks a new admin across all four sections (Dashboard → Roster → Sessions → Audit) in one pass, auto-navigating between routes as steps advance. Custom-built (motion + existing design tokens) rather than a third-party tour library, to avoid a new dependency and match the existing visual system exactly.
+
+**Trigger:** Auto-starts once per browser on first visit to `/admin` (versioned localStorage flag `inout-admin-tour-seen-v{N}` — bump `TOUR_VERSION` in `src/lib/tour/steps.ts` to re-prompt admins after a substantial content change). Always replayable via the sidebar footer (desktop) or a floating "?" button above `AdminDock` (mobile).
+
+**Rationale:** No user accounts exist (ADR-001, shared PIN), so per-admin progress can only live in the browser, not the DB. A single continuous tour matches the small, fixed feature set better than per-section mini-tours that admins would have to discover individually.
 
 ## Deployment
 

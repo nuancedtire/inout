@@ -27,7 +27,7 @@ export function QrSection({
   }
 
   return (
-    <section id="qr-code" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
+    <section id="qr-code" data-tour="qr-code" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-semibold text-neutral-900">QR code</h2>
         <Link

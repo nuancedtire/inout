@@ -50,13 +50,13 @@ export function RotaStaffSection({
             <Upload className="w-3.5 h-3.5" />
             Upload rota
           </TabsTrigger>
-          <TabsTrigger value="add">
+          <TabsTrigger value="add" data-tour="add-staff-tab">
             <UserPlus className="w-3.5 h-3.5" />
             Add staff
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="upload">
+        <TabsContent value="upload" data-tour="rota-upload">
           <p className="text-sm text-neutral-500 mb-1">for {formatDate(date)}</p>
           <p className="text-xs text-neutral-400 mb-3">
             Supports the allocation sheet format (.xlsx) or a simple CSV/Excel with Name, Role, Shift columns.{' '}

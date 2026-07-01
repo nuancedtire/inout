@@ -35,6 +35,7 @@ export function WhoIsInSection({ present }: { present: PresentStaff[] }) {
     <div
       className="bg-canvas rounded-2xl overflow-hidden"
       style={{ boxShadow: 'var(--shadow-card)' }}
+      data-tour="who-is-in"
     >
       <div className="flex items-center justify-between px-5 py-4 border-b border-hairline-soft">
         <div className="flex items-center gap-2">

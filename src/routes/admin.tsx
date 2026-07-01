@@ -13,6 +13,9 @@ import { Button } from '#/components/Button'
 import { Logo } from '#/components/Logo'
 import { DatePicker } from '#/components/DatePicker'
 import { addDays } from '#/utils/dateTime'
+import { TourProvider } from '#/lib/tour/TourContext'
+import { TourOverlay } from '#/components/TourOverlay'
+import { TourFab } from '#/routes/admin/-components/TourFab'
 
 const PAGE_TITLES: Record<string, string> = {
   '/admin': 'Dashboard',
@@ -112,25 +115,29 @@ function AdminLayout() {
 
   return (
     <AdminContext.Provider value={contextValue}>
-      <SidebarProvider>
-        <AppSidebar />
-        <main className="w-full min-h-svh bg-surface-soft flex flex-col">
-          <TopBar
-            viewDate={viewDate}
-            isToday={isToday}
-            today={today}
-            onPrev={() => setViewDate(addDays(viewDate, -1))}
-            onNext={() => setViewDate(addDays(viewDate, 1))}
-            onDateChange={(d) => setViewDate(d)}
-            onToday={() => setViewDate(today)}
-            onLogout={logout}
-          />
-          <div className="flex-1 p-4 sm:p-6 pb-24 sm:pb-6">
-            <Outlet />
-          </div>
-        </main>
-        <AdminDock />
-      </SidebarProvider>
+      <TourProvider>
+        <SidebarProvider>
+          <AppSidebar />
+          <main className="w-full min-h-svh bg-surface-soft flex flex-col">
+            <TopBar
+              viewDate={viewDate}
+              isToday={isToday}
+              today={today}
+              onPrev={() => setViewDate(addDays(viewDate, -1))}
+              onNext={() => setViewDate(addDays(viewDate, 1))}
+              onDateChange={(d) => setViewDate(d)}
+              onToday={() => setViewDate(today)}
+              onLogout={logout}
+            />
+            <div className="flex-1 p-4 sm:p-6 pb-24 sm:pb-6">
+              <Outlet />
+            </div>
+          </main>
+          <AdminDock />
+          <TourFab />
+          <TourOverlay />
+        </SidebarProvider>
+      </TourProvider>
     </AdminContext.Provider>
   )
 }

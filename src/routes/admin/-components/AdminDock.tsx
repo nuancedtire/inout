@@ -5,10 +5,10 @@ import { SPRING_LAYOUT } from '#/lib/ease'
 import { cn } from '#/lib/utils'
 
 const navItems = [
-  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/admin/roster', icon: ClipboardList, label: 'Roster' },
-  { to: '/admin/sessions', icon: Users, label: 'Sessions' },
-  { to: '/admin/audit', icon: ScrollText, label: 'Audit' },
+  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', tourId: 'dock-dashboard' },
+  { to: '/admin/roster', icon: ClipboardList, label: 'Roster', tourId: 'dock-roster' },
+  { to: '/admin/sessions', icon: Users, label: 'Sessions', tourId: 'dock-sessions' },
+  { to: '/admin/audit', icon: ScrollText, label: 'Audit', tourId: 'dock-audit' },
 ]
 
 export function AdminDock() {
@@ -34,6 +34,7 @@ export function AdminDock() {
               <Link
                 key={item.to}
                 to={item.to}
+                data-tour={item.tourId}
                 className={cn(
                   'relative flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl outline-none min-w-0',
                   'focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2',

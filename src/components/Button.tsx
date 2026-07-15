@@ -13,6 +13,7 @@ type ButtonProps = {
   type?: 'button' | 'submit' | 'reset'
   onClick?: () => void
   className?: string
+  'data-tour'?: string
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -40,12 +41,14 @@ export function Button({
   type = 'button',
   onClick,
   className = '',
+  'data-tour': dataTour,
 }: ButtonProps) {
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
+      data-tour={dataTour}
       className={[
         'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1',

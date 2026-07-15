@@ -105,7 +105,7 @@ function PrintQrPage() {
   return (
     <>
       {/* Screen layout */}
-      <main className="min-h-screen bg-neutral-50 p-6 print:p-0 print:bg-white">
+      <main className="min-h-screen print:min-h-0 bg-neutral-50 p-6 print:p-0 print:bg-white">
         {/* Toolbar — hidden when printing */}
         <div className="print:hidden max-w-2xl mx-auto mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -184,6 +184,10 @@ function PrintQrPage() {
           @page {
             size: A4;
             margin: 15mm;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
           }
           body {
             -webkit-print-color-adjust: exact;

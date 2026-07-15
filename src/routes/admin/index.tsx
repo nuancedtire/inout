@@ -65,7 +65,7 @@ function StatCard({
 }
 
 function AdminDashboard() {
-  const { authToken, viewDate, today } = useAdminContext()
+  const { authToken, viewDate } = useAdminContext()
   const [entries, setEntries] = useState<RosterEntryWithStatus[]>([])
   const [present, setPresent] = useState<PresentStaff[]>([])
   const [missingCheckIn, setMissingCheckIn] = useState<RosterEntryWithStatus[]>([])
@@ -126,7 +126,7 @@ function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-tour="stat-cards">
         <StatCard
           icon={CalendarDays}
           label="On rota"

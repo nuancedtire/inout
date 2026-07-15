@@ -89,7 +89,7 @@ export function RosterSection({
   }
 
   return (
-    <section id="roster" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
+    <section id="roster" data-tour="roster-table" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
         <div className="flex items-center gap-2">
           <h2 className="font-semibold text-neutral-900">Roster</h2>

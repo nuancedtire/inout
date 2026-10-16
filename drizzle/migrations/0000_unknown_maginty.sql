@@ -20,6 +20,7 @@ CREATE TABLE `roster_entries` (
 );
 --> statement-breakpoint
 CREATE INDEX `idx_roster_rota` ON `roster_entries` (`rota_id`);--> statement-breakpoint
+CREATE INDEX `idx_roster_rota_name` ON `roster_entries` (`rota_id`,`name`);--> statement-breakpoint
 CREATE TABLE `rotas` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`date` text NOT NULL,
@@ -42,4 +43,5 @@ CREATE TABLE `sessions` (
 CREATE INDEX `idx_sessions_entry` ON `sessions` (`roster_entry_id`);--> statement-breakpoint
 CREATE INDEX `idx_sessions_checkin` ON `sessions` (`check_in_at`);--> statement-breakpoint
 CREATE INDEX `idx_sessions_entry_out` ON `sessions` (`roster_entry_id`,`check_out_at`);--> statement-breakpoint
+CREATE INDEX `idx_sessions_entry_checkin` ON `sessions` (`roster_entry_id`,`check_in_at`);--> statement-breakpoint
 CREATE UNIQUE INDEX `idx_sessions_one_open` ON `sessions` (`roster_entry_id`) WHERE check_out_at IS NULL;

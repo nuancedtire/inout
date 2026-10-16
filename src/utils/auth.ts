@@ -1,15 +1,17 @@
 // ponytail: lazy dynamic import mirrors db/client.ts pattern.
 // Static import of cloudflare:workers leaks into client bundle;
 // dynamic import() inside async functions is tree-shaken on client.
-let _env: Record<string, string> | undefined
-let _envPromise: Promise<Record<string, string>> | undefined
+type AuthEnv = { ADMIN_PIN?: string; QR_SEED?: string }
 
-async function getEnv(): Promise<Record<string, string>> {
+let _env: AuthEnv | undefined
+let _envPromise: Promise<AuthEnv> | undefined
+
+async function getEnv(): Promise<AuthEnv> {
   if (_env) return _env
   if (!_envPromise) {
     _envPromise = (async () => {
       const mod = await import('cloudflare:workers')
-      _env = mod.env as Record<string, string>
+      _env = mod.env
       return _env
     })()
   }
@@ -18,12 +20,12 @@ async function getEnv(): Promise<Record<string, string>> {
 
 async function getAdminPin(): Promise<string> {
   const e = await getEnv()
-  return (e.ADMIN_PIN as string) || 'Wh!ppscross'
+  return e.ADMIN_PIN || 'Wh!ppscross'
 }
 
 async function getQrSeed(): Promise<string> {
   const e = await getEnv()
-  return (e.QR_SEED as string) || 'default-qr-seed-change-me'
+  return e.QR_SEED || 'default-qr-seed-change-me'
 }
 // ═══════════════════════════════════════════════════════════════
 // PIN verification

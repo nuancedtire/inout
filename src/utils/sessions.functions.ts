@@ -1,5 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
+import { getRequestHeader } from '@tanstack/react-start/server'
 import { getDb } from '#/db/client'
+import { updateAttendanceSession, deleteAttendanceEntry } from '#/db/attendance'
 import { rotas, rosterEntries, sessions, auditLog } from '#/db/schema'
 import { eq, and, isNull, isNotNull, sql, desc, asc, gte, lte, inArray } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
@@ -7,6 +9,7 @@ import * as schema from '#/db/schema'
 import { verifyAdminPin, createSessionToken, requireAdmin } from './auth'
 import { logAudit } from './audit'
 import { todayDate } from './dateTime'
+import { createManualCheckInLimiter, validateManualCheckIn } from './manualCheckIn'
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -219,9 +222,14 @@ export const getStatus = createServerFn({ method: 'GET' })
     }
   })
 
+const checkManualCheckInLimit = createManualCheckInLimiter()
+
 export const manualCheckIn = createServerFn({ method: 'POST' })
-  .validator((data: { name: string; role?: string; token: string }) => data)
+  .validator(validateManualCheckIn)
   .handler(async ({ data }) => {
+    // Cloudflare supplies this header. Do not trust client-controlled forwarding headers.
+    // Count attempts before any database access, including invalid/expired QR tokens.
+    checkManualCheckInLimit(getRequestHeader('CF-Connecting-IP'))
     const db = await getDb()
     const date = todayDate()
 
@@ -382,37 +390,14 @@ export const adminUpdateSession = createServerFn({ method: 'POST' })
     await requireAdmin({ token: data.authToken })
     const db = await getDb()
 
-    if (data.sessionId && data.checkOutAt !== undefined) {
-      await db
-        .update(sessions)
-        .set({ checkOutAt: data.checkOutAt || null })
-        .where(eq(sessions.id, data.sessionId))
-      await logAudit('admin_session_updated', { sessionId: data.sessionId, checkOutAt: data.checkOutAt }, 'admin')
-      return { ok: true }
-    }
-
-    if (data.sessionId && data.checkInAt !== undefined) {
-      await db
-        .update(sessions)
-        .set({ checkInAt: data.checkInAt })
-        .where(eq(sessions.id, data.sessionId))
-      await logAudit('admin_session_updated', { sessionId: data.sessionId, checkInAt: data.checkInAt }, 'admin')
-      return { ok: true }
-    }
-
-    if (data.rosterEntryId && data.checkInAt) {
-      await db
-        .insert(sessions)
-        .values({
-          rosterEntryId: data.rosterEntryId,
-          checkInAt: data.checkInAt,
-          qrTokenIn: 'manual',
-        })
-      await logAudit('admin_manual_checkin', { rosterEntryId: data.rosterEntryId, checkInAt: data.checkInAt }, 'admin')
-      return { ok: true }
-    }
-
-    throw new Error('Invalid update request')
+    const result = await updateAttendanceSession(db, data)
+    await logAudit('admin_session_updated', {
+      ...result,
+      rosterEntryId: data.rosterEntryId,
+      checkInAt: data.checkInAt,
+      checkOutAt: data.checkOutAt,
+    }, 'admin')
+    return { ok: true }
   })
 
 export const adminDeleteSession = createServerFn({ method: 'POST' })
@@ -437,7 +422,7 @@ export const adminDeleteRosterEntry = createServerFn({ method: 'POST' })
       .where(eq(rosterEntries.id, data.entryId))
       .get()
 
-    await db.delete(rosterEntries).where(eq(rosterEntries.id, data.entryId))
+    await deleteAttendanceEntry(db, data.entryId)
     await logAudit('roster_entry_deleted', { entryId: data.entryId, name: entry?.name }, 'admin')
     return { ok: true }
   })

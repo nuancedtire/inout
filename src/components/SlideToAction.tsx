@@ -155,11 +155,11 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
     setOffset(next)
   }, [status, maxDrag])
 
-  const onUp = useCallback(async (e: React.PointerEvent) => {
+  const onUp = useCallback(async (e?: React.PointerEvent) => {
     if (status !== 'dragging') return
     const track = trackRef.current
     if (!track) return
-    track.releasePointerCapture(e.pointerId)
+    if (e && track.hasPointerCapture(e.pointerId)) track.releasePointerCapture(e.pointerId)
 
     const cur = offsetRef.current
     const prog = mode === 'in' ? cur / maxDrag : (maxDrag - cur) / maxDrag
@@ -212,6 +212,8 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
     let next = offsetRef.current
     if (e.key === 'ArrowRight') { e.preventDefault(); next = Math.min(next + STEP, maxDrag) }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); next = Math.max(next - STEP, 0) }
+    else if (e.key === 'Home') { e.preventDefault(); next = 0 }
+    else if (e.key === 'End') { e.preventDefault(); next = maxDrag }
     else return
     offsetRef.current = next
     setOffset(next)
@@ -294,6 +296,11 @@ export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled
         onPointerUp={onUp}
         onPointerCancel={onUp}
         onKeyDown={onKey}
+        onKeyUp={(e) => {
+          const keyboardProgress = mode === 'in' ? offsetRef.current / maxDrag : (maxDrag - offsetRef.current) / maxDrag
+          if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key) && keyboardProgress >= THRESHOLD) void onUp()
+        }}
+        aria-disabled={!interactive}
         className={[
           'relative h-14 rounded-full overflow-hidden',
           'bg-neutral-100 border border-neutral-200 shadow-sm',

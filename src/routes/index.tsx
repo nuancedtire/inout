@@ -64,7 +64,7 @@ function HomePage() {
   useEffect(() => {
     const s = staffId ? statusByEntryId[staffId] : undefined
     setStatus(s ?? { checkedIn: false, sessionId: null, checkInAt: null, hasUndoableAction: false })
-  }, [staffId])
+  }, [staffId, statusByEntryId])
 
   useEffect(() => {
     if (!message) return

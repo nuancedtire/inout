@@ -1,4 +1,4 @@
-const CACHE_NAME = "inout-qr-v1";
+const CACHE_NAME = "inout-qr-v2";
 const STATIC_ASSET_EXTS = /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot)$/i;
 
 self.addEventListener("install", (event) => {
@@ -8,7 +8,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k.startsWith('inout-qr-') && k !== CACHE_NAME).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -20,18 +20,17 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(event.request.url);
 
-  // Cache-first for static assets
-  if (STATIC_ASSET_EXTS.test(url.pathname)) {
+  // Only cache versioned production assets from this app, never dev modules or RPCs.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/assets/') && STATIC_ASSET_EXTS.test(url.pathname)) {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
-        const fetchAndCache = fetch(event.request).then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        });
-        return cached || fetchAndCache;
+      caches.match(event.request).then(async (cached) => {
+        if (cached) return cached;
+        const response = await fetch(event.request);
+        if (response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(event.request, response.clone());
+        }
+        return response;
       })
     );
     return;
@@ -50,7 +49,7 @@ self.addEventListener("fetch", (event) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Attendance QR — Offline</title>
+  <title>InOut — Offline</title>
   <style>
     body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f3f4f6; color: #1f2937; }
     .card { background: white; border-radius: 0.75rem; padding: 2rem; text-align: center; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); max-width: 24rem; margin: 1rem; }
@@ -63,7 +62,7 @@ self.addEventListener("fetch", (event) => {
   <div class="card">
     <div class="icon">📡</div>
     <h1>You're offline</h1>
-    <p>Attendance QR needs a network connection to check in or out. Please reconnect and try again.</p>
+    <p>InOut needs a network connection to check in or out. Please reconnect and try again.</p>
   </div>
 </body>
 </html>`,

@@ -1,8 +1,51 @@
-# Attendance QR — Feature Backlog
+# InOut — Verification and Historical Backlog
+
+## Issue follow-up — 18 October 2026
+
+- **#47:** Added server-side input validation and bounded per-client manual check-in throttling (ten well-formed attempts per minute, before database reads/writes). Invalid/expired token attempts also consume the allowance. The limiter uses Cloudflare's client-IP header, shares a fallback when absent, expires old buckets, caps active buckets at 2,048, and fails closed at capacity. This is per-isolate best-effort protection; shared-network clients share the allowance. No distributed enforcement or production deployment is claimed.
+- **#54:** Confirmed the existing Radix-backed rota tabs render tablist/tab/tabpanel roles, selected states, and reciprocal panel/trigger IDs. Browser verification confirmed Arrow Right activates Add staff and Home returns to Upload rota.
+- **#21:** Confirmed both staff routes use `IdentityPickerModal`; the extraction is already present in commit `794b181`. Selection and clearing were rechecked in the browser.
+- **#53:** The duplicated staff PIN/lock modal and associated hook state have been removed. The old extraction request is obsolete; admin PIN login remains a separate feature.
+- Validation: `pnpm run typecheck`, `pnpm test` (**55 tests across 9 files**), and `pnpm run build` pass. Build retains the known non-fatal CSS sourcemap warning. Unit tests cover malformed inputs, burst allowance, address isolation/fallback, expiry, and bounded storage. Workers/D1 tests exercise the application validator/handler with mocked RPC transport and real disposable D1, proving throttled requests create no entries, sessions, or audit records. A browser call through the actual RPC transport also confirmed successful manual check-in, incorrect-token rejection, throttling, and unchanged roster counts for rejected requests. Checks were local only.
+
+## Current verification — 17 October 2026
+
+This section describes the checked-out application. June reports below are historical evidence; their issue/PR status and external cron state have not been rechecked. The intended canonical backlog remains GitHub issues, per [ADR-006](docs/adr/0006-self-upgrading-cron.md).
+
+### Verified and updated
+
+- Installed current stable direct dependencies, including React 19.3.1, Motion 14.3.0, TypeScript 7.0.2, Vitest 5.0.5, jsdom 30.1.3, Vite 8.3.4, Wrangler 4.151.1, and current TanStack packages. Node types intentionally match Node 24.
+- Replaced npm's obsolete SheetJS 0.18.5 with the official 0.20.3 tarball. Removed unused devtools/typography dependencies and patched Drizzle Kit's transitive esbuild through a scoped override. `pnpm audit` reports **0 vulnerabilities** for the migrated install.
+- Migrated the earlier npm setup to pnpm only: committed `pnpm-lock.yaml`, pinned pnpm 12.11.2, moved build permissions/overrides to `pnpm-workspace.yaml`, removed the npm lockfile/configuration, and added a package-manager install guard. A clean frozen-lockfile install succeeds. Local migrations applied successfully from `drizzle/migrations/`.
+- Refreshed TanStack Intent to 0.5.5, configured explicit package skill sources, and regenerated its managed AGENTS.md guidance. Package skills are consumed directly from installed dependencies. Authoring validation of upstream skill examples reports upstream example/link errors; it is not an application health check and no package skill files were modified.
+- Corrected shadcn metadata to non-RSC React SSR with Lucide icons. Inspected upstream component changes via dry-run; retained customized source components and their design tokens.
+- Fixed stale staff status after locum self-entry, keyboard slider completion, and checkout confirmation. Fixed session edits silently discarding check-in changes, converted browser datetime values to ISO on save, and enabled clearing checkout to reopen a session.
+- Fixed admin checkout by roster entry and confirmed roster deletion of linked sessions. Rota replacement is now atomic and refuses to replace recorded attendance. Admin's default date now uses the UK date helper.
+- Removed the unused Vite devtools integration, which caused root-shell hydration mismatches and shadowed the current Intent executable after a clean install. Production-only service worker registration keeps Vite development out of the app asset cache; production caching is restricted to same-origin `/assets/` files.
+- Application and Workers-test TypeScript checks pass. **55 tests pass across 9 files**, including the added keyboard and D1 mutation regressions. Production build passes with a non-fatal Vite CSS sourcemap warning.
+
+Browser walkthrough results are recorded in [POLISH_LOG.md](POLISH_LOG.md). Tests use disposable local D1; the walkthrough uses fictional staff in the separate local development database. No production deployment or remote migration was performed.
+
+### Remaining limitations and follow-ups
+
+1. **Attendance trust and authorization:** QR generation and today's roster/token are public, and staff choose a roster entry without account authentication. `getStatus` is public. Token-gated entry operations do not consistently check that the entry belongs to today's rota. Decide the intended trust model before treating the QR as physical-presence proof.
+2. **Secrets and admin access:** source-code fallback PIN/seed remain; production must configure both secrets. Admin PIN verification has no brute-force rate limit. Admin tokens are in localStorage, and changing the PIN alone does not revoke them.
+3. **Time boundaries:** `runAutoCheckout` combines date/shift text through SQLite UTC date functions; `parseShiftTime` depends on the host/browser timezone. Overnight and BST transitions need dedicated fixes and regression coverage. Auto-checkout only considers today's rota and records the run time.
+4. **Stable identity/history:** personal history only follows one daily roster-entry ID; there is no cross-day staff identity. Admin ad-hoc additions always target today even when another date is selected.
+5. **Refresh and errors:** dashboard data does not poll. Roster/Sessions refresh helpers rethrow errors, with some callers lacking catches. Several action components still need a complete error/loading-state review.
+6. **Validation and consistency:** many server validators only assert TypeScript shapes. Shift/name parsing has limitations; audit writes and locum entry/session creation are not universally atomic with their associated mutations. Undo has no server-enforced short time window.
+7. **Retention and offline:** no scheduled pruning and no offline write queue. The pruning server function has no UI. Physical camera scanning, actual printing, mobile touch gestures, and extended offline/reconnect behavior still require device testing.
+8. **Tooling:** Drizzle metadata is ignored, so generation from a fresh checkout can recreate an initial migration; inspect generated SQL. Drizzle Kit retains deprecated esbuild-kit packages despite the fixed esbuild override. Build CSS sourcemap warning remains non-fatal.
+9. **External maintenance:** no scheduler configuration or GitHub workflow is checked in. The old scheduler ID, cadence, labels, issue states, and PR states below must be verified with the external owner before reuse.
+
+## Historical reports — June 2026
+
+Statements below describe their dated run, not the current application. In particular, the original PWA item was completed; the old opening counter was stale. Current schema changes use new migrations under `drizzle/migrations/`.
+
 
 > **What's been done:** Major security/architecture overhaul on 2026-06-20 (see CONTEXT.md for decisions). Auth tokens, race-condition-proof check-ins, atomic rota uploads, batched dashboard queries, public endpoint lockdown. Extensive UI polish: design system, shared components, mobile-responsive admin, day-by-day navigation, human-readable timestamps, audit log UX.
 >
-> **13 of 14 original backlog items completed. 1 remains (#12 PWA). Plus 3 newly discovered items (#15–#17), 2 of which are already resolved.**
+> **Historical backlog:** all 17 original items were marked completed by the June 2026 runs. See the current verification above for behavior and remaining gaps.
 
 ## Backlog (ordered by impact)
 
@@ -73,7 +116,7 @@ The consolidated cron (`inout-qr-consolidated`, every 3h) is now a self-upgradin
 2. **PHASE B — Implement:** Pick oldest `auto-fix` issue → create branch `agent/issue-{N}-{slug}` → implement → build check → open PR. Never push to main.
 3. **Labels as control surface:** `needs-triage` → human adds `auto-fix` → agent sets `in-progress` → PR opened → `ready-to-merge`. `wont-fix` = rejected. `question` = needs clarification.
 4. **If nothing to do:** `[SILENT]` — no delivery.
-5. If item needs DB change: update `src/db/schema.ts` AND `migrations/0001_init.sql`.
+5. Current correction: update `src/db/schema.ts` and generate a new SQL migration in `drizzle/migrations/`; the old `migrations/0001_init.sql` path no longer exists.
 6. Append to `POLISH_LOG.md` with date, issue #, what changed, build status.
 
 ---

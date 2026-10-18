@@ -1,4 +1,40 @@
-# UI Polish Log
+# InOut — Change and Polish Log
+
+## 2026-10-17 — pnpm-only migration
+
+- Supersedes the npm toolchain recorded in the earlier refresh below. Pinned pnpm 12.11.2, imported the verified resolutions into `pnpm-lock.yaml`, removed `package-lock.json` and npm-only settings, and converted the deploy script and current documentation to pnpm.
+- Moved engine enforcement, explicit build permissions, and the scoped esbuild override to `pnpm-workspace.yaml`. Kept version-specific release-age exceptions for the already-verified imported packages. Intent remains the skill loader; pnpm's duplicate skill linker is disabled.
+- Added an install guard that rejects other package managers. Recreated `node_modules` with `pnpm install --frozen-lockfile` to verify a clean pnpm installation.
+- Corrected an unrelated manual-check-in test fixture that supplied valid defaults for its allegedly empty input; empty-object rejection is now tested directly.
+- Verification: clean frozen pnpm install, both TypeScript projects, production build, and Intent discovery/loading pass; all 55 tests pass across 9 files; `pnpm audit` reports no known vulnerabilities. The existing non-fatal CSS sourcemap warning remains.
+- Earlier npm commands and verification below are historical; current setup instructions are in README.md and AGENTS.md.
+
+## 2026-10-17 — Dependency refresh and documentation review
+
+- Upgraded current stable runtime and development dependencies, including React 19.3, Motion 14, TypeScript 7, Vitest 5, and jsdom 30. SheetJS now uses its official 0.20.3 tarball; a scoped override fixes Drizzle Kit's legacy esbuild. Removed unused devtools adapters and typography. npm audit: 0 vulnerabilities.
+- Added the npm lockfile, Node 24/npm 12 constraints, explicit install-script policy, Vite hot-reload development command, built-Worker command, and combined typecheck command.
+- Updated package-provided TanStack skills with their dependencies, installed Intent 0.5.5, added its explicit source allowlist, and regenerated the managed AGENTS.md instructions. No project-authored skills directory exists.
+- Corrected shadcn's RSC/icon metadata. Inspected upstream UI changes without overwriting customized components.
+- Fixed staff status synchronization after locum entry so the UI reflects the reloaded roster instead of showing a saved check-in as outside.
+- Browser checks exposed the keyboard slider and session-edit failures. Fixed keyboard completion/checkout confirmation, both timestamp updates, ISO serialization, clearing checkout, admin checkout by roster entry, and deletion of linked sessions. Added regression tests.
+- Made unused-rota replacement transactional using D1 batch; imports now refuse to replace attendance records. D1 regression coverage includes an 80-person import and rollback on an invalid later insert.
+- Updated the Cloudflare compatibility date to 2026-10-12, matching the installed workerd runtime. Admin defaults now use the UK date helper.
+- Limited service worker registration to production, restricted cached files to versioned same-origin assets, and removed the unused Vite devtools integration that caused source-line hydration mismatches and an Intent executable collision. Concurrent branding/icon work in the workspace was preserved.
+- Rewrote README.md, AGENTS.md, and CONTEXT.md against current source and runtime behavior. Added current audit findings, marked old issue/PR/cron reports as historical, and clarified ADR-006's external operational status.
+- Verification: production build and both TypeScript projects pass; 39 tests pass across 7 files. Build retains a non-fatal Vite CSS sourcemap warning. Local migrations apply; Vite and the built Worker both start. A fresh `npm ci` succeeds and package skills load after reinstall. Restart the built Worker after rebuilding; its previously loaded server modules can otherwise remain stale.
+
+
+### Browser walkthrough (local data only)
+
+- Vite dev server (5173) and production-built Wrangler server (8787) both start and render the app. Admin PIN login, first-visit tour/skip, and nested Dashboard/Roster/Sessions/Audit navigation work.
+- Uploaded a fictional two-person CSV through the upload control. Roster names, roles, shifts, and attendance appeared. Staff keyboard check-in, confirmation checkout, and completed-entry history were exercised.
+- Production session editing persisted both ISO timestamps; a check-in at 08:00Z and checkout at 09:00Z produced a 1.00-hour CSV row. Both UI download and authenticated HTTP export worked. Missing/invalid export tokens returned 401.
+- Admin manual checkout by roster entry succeeded. Staff undo reopened the closed session. Locum self-entry created a new entry/session and, after the status fix and a full Worker restart, correctly displayed inside.
+- Roster QR generation and public `/qr` rendered loaded QR images. `/print-qr` rendered a loaded QR plus the text staff URL. Audit displayed upload, check-in/out, and session-edit events.
+- Physical camera scanning, actual printing, touch gestures on a phone, and sustained offline/reconnect behavior were not tested. The development database contains only the fictional walkthrough records created during this review; no existing remote data was accessed.
+
+Older entries are preserved as historical records. They may reference renamed components, obsolete commands, old branding, superseded architecture, or externally managed PR/cron state; they are not current operational instructions.
+
 
 ## 2026-06-19
 

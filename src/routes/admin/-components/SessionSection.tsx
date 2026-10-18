@@ -32,8 +32,8 @@ export function SessionSection({
 
   const save = async (sessionId: number) => {
     await onUpdate(sessionId, {
-      checkInAt: editForm.checkInAt,
-      checkOutAt: editForm.checkOutAt || undefined,
+      checkInAt: new Date(editForm.checkInAt).toISOString(),
+      checkOutAt: editForm.checkOutAt ? new Date(editForm.checkOutAt).toISOString() : '',
     })
     setEditingSession(null)
   }

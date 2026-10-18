@@ -18,11 +18,11 @@ todos.json
 plan.html
 sample-rota.csv
 sample-rota.xlsx
-# Package manager lockfiles (using pnpm)
+# Other package managers (pnpm lockfile is committed)
 package-lock.json
 yarn.lock
-pnpm-lock.yaml
-pnpm-workspace.yaml
+bun.lock
+bun.lockb
 
 
 # Drizzle

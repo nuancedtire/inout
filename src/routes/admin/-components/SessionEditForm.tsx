@@ -24,12 +24,14 @@ export function SessionEditForm({
     <div className={className}>
       <input
         type="datetime-local"
+        aria-label="Check-in time"
         className={`p-2 border border-neutral-300 rounded-lg text-sm ${inputClassName}`}
         value={checkInAt}
         onChange={handleCheckIn}
       />
       <input
         type="datetime-local"
+        aria-label="Check-out time"
         className={`p-2 border border-neutral-300 rounded-lg text-sm ${inputClassName}`}
         value={checkOutAt}
         onChange={handleCheckOut}

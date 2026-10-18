@@ -1,7 +1,11 @@
 # ADR-006: Self-upgrading maintenance via GitHub issues + cron
 
 **Date:** 2026-06-21
-**Status:** Accepted
+**Status:** Accepted design; external operational state unverified
+
+**Review (2026-10-17):** This ADR records the June 2026 maintenance design. This checkout contains no scheduler configuration or GitHub Actions workflow implementing it; `wrangler.jsonc` has no Cron Triggers. The historical job ID/cadence and current issue/PR states were not inspected or changed in the local application review. Do not interpret this document as an instruction to activate a cron or contact GitHub without an explicit maintenance request. For current local verification and limitations, see [AUDIT.md](../../AUDIT.md).
+
+Schema maintenance now uses `src/db/schema.ts` and new SQL files under `drizzle/migrations/`, not the old `migrations/0001_init.sql`. Use the current pnpm checks in [README.md](../../README.md), including tests and both TypeScript projects as well as a build, before considering implementation complete.
 
 ## Context
 

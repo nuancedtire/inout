@@ -12,7 +12,7 @@ import { Lock, LogOut } from 'lucide-react'
 import { Button } from '#/components/Button'
 import { Logo } from '#/components/Logo'
 import { DatePicker } from '#/components/DatePicker'
-import { addDays } from '#/utils/dateTime'
+import { addDays, todayDate } from '#/utils/dateTime'
 import { TourProvider } from '#/lib/tour/TourContext'
 import { TourOverlay } from '#/components/TourOverlay'
 import { TourFab } from '#/routes/admin/-components/TourFab'
@@ -29,7 +29,7 @@ export const Route = createFileRoute('/admin')({
   errorComponent: ErrorFallback,
   notFoundComponent: () => <NotFound />,
   loader: async () => {
-    return { date: new Date().toISOString().slice(0, 10) }
+    return { date: todayDate() }
   },
 })
 

@@ -16,7 +16,7 @@ export function IdentityBar({ staffId, staffName, staffRole, onSelectClick, onCl
       <button
         type="button"
         onClick={onSelectClick}
-        className="ui-press flex min-h-16 w-full items-center gap-3.5 rounded-[20px] bg-canvas px-4 py-3 text-left shadow-card hover:shadow-hover"
+        className="ui-press flex min-h-16 w-full items-center gap-3.5 rounded-card bg-canvas px-4 py-3 text-left shadow-card hover:shadow-hover"
       >
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-strong text-muted" aria-hidden="true">
           <UserRound className="size-5" />
@@ -28,7 +28,7 @@ export function IdentityBar({ staffId, staffName, staffRole, onSelectClick, onCl
   }
 
   return (
-    <div className="flex min-h-16 w-full items-center gap-3.5 rounded-[20px] bg-canvas px-4 py-3 shadow-card">
+    <div className="flex min-h-16 w-full items-center gap-3.5 rounded-card bg-canvas px-4 py-3 shadow-card">
       <span
         className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-sm font-semibold text-accent-accessible"
         aria-hidden="true"

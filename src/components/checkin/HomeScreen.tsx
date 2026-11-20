@@ -22,7 +22,7 @@ export function IdentityMenu({ name, role, pending, historyToken, onWithout, onS
   onSignOut: () => void
   withoutLabel?: string
 }) {
-  const item = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10px] px-3 text-[0.9375rem] font-medium text-ink outline-none select-none data-[highlighted]:bg-surface-strong'
+  const item = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-inner px-3 text-[0.9375rem] font-medium text-ink outline-none select-none data-[highlighted]:bg-surface-strong'
   return (
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger
@@ -37,7 +37,7 @@ export function IdentityMenu({ name, role, pending, historyToken, onWithout, onS
         <DropdownMenu.Content
           align="end"
           sideOffset={8}
-          className="animate-pop z-50 w-[min(18rem,calc(100vw-2.5rem))] rounded-[18px] bg-canvas p-1.5 shadow-overlay outline-none"
+          className="animate-pop z-50 w-[min(18rem,calc(100vw-2.5rem))] rounded-control bg-canvas p-1.5 shadow-overlay outline-none"
         >
           <div className="px-3 pt-2.5 pb-3">
             <p className="truncate font-semibold text-ink">{name}</p>
@@ -115,11 +115,11 @@ export function HomeScreen({
 
       {notice ? <div className="mt-5">{notice}</div> : null}
 
-      <section aria-labelledby="ck-status" className="mt-6 rounded-[28px] bg-canvas p-5 shadow-card">
+      <section aria-labelledby="ck-status" className="mt-6 rounded-card bg-canvas p-5 shadow-card">
         {status === null ? (
           <div className="animate-pulse" aria-hidden="true">
             <div className="h-6 w-28 rounded-full bg-surface-strong" />
-            <div className="mt-4 h-10 w-44 rounded-[10px] bg-surface-strong" />
+            <div className="mt-4 h-10 w-44 rounded-inner bg-surface-strong" />
             <div className="mt-6 h-16 rounded-full bg-surface-strong" />
           </div>
         ) : (

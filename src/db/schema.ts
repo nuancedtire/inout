@@ -179,6 +179,8 @@ export const siteSettings = sqliteTable('site_settings', {
   radiusM: integer('radius_m').notNull().default(150),
   accuracyCeilingM: integer('accuracy_ceiling_m').notNull().default(100),
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+  /** Permanent check-in QR code (12 base32 characters). Admin-only; replaceable. */
+  qrToken: text('qr_token'),
 })
 
 export type Rota = typeof rotas.$inferSelect

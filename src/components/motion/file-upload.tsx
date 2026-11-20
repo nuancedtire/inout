@@ -105,7 +105,7 @@ export function FileUpload({
                     inputRef.current?.click()
                   }
                 }}
-                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+                className={`border-2 border-dashed rounded-control p-6 text-center cursor-pointer transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
                   isDragOver
                     ? 'border-primary-400 bg-primary-50'
                     : 'border-hairline hover:border-primary-300 hover:bg-surface-soft'
@@ -159,7 +159,7 @@ function FileUploadRow({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.2, ease: EASE_OUT }}
-      className="mt-3 flex items-center gap-3 p-3 rounded-xl border border-hairline bg-canvas"
+      className="mt-3 flex items-center gap-3 p-3 rounded-control border border-hairline bg-canvas"
     >
       <FileSpreadsheet className="w-8 h-8 text-muted shrink-0" />
       <div className="flex-1 min-w-0">
@@ -174,7 +174,7 @@ function FileUploadRow({
         {item.status === 'error' && onRetry && (
           <button
             onClick={() => onRetry(item)}
-            className="p-1.5 rounded-lg hover:bg-surface-soft text-muted hover:text-ink transition-colors"
+            className="p-1.5 rounded-inner hover:bg-surface-soft text-muted hover:text-ink transition-colors"
             aria-label="Retry upload"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -183,7 +183,7 @@ function FileUploadRow({
         {item.status !== 'uploading' && (
           <button
             onClick={onRemove}
-            className="p-1.5 rounded-lg hover:bg-surface-soft text-muted hover:text-ink transition-colors"
+            className="p-1.5 rounded-inner hover:bg-surface-soft text-muted hover:text-ink transition-colors"
             aria-label="Remove file"
           >
             <X className="w-3.5 h-3.5" />

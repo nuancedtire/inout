@@ -1,17 +1,22 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { RUNNER_GRADIENT_Y, RUNNER_MATRIX, RUNNER_PATHS, RUNNER_VIEWBOX } from './runnerArt'
 
-export type RunnerAnimation = 'run' | 'idle' | 'none'
+export type RunnerAnimation = 'run' | 'ambient' | 'idle' | 'none'
 export type RunnerTone = 'brand' | 'ink' | 'white' | 'current'
 
 export type RunnerMarkProps = {
   /** Rendered width and height. Numbers are pixels; strings accept any CSS length (e.g. `'1.6em'`). */
   size?: number | string
   /**
-   * `run`  – continuous stride, for working/loading states. Lands on the next footfall when it stops.
-   * `idle` – one stride on mount and whenever the pointer enters the mark (or the nearest ancestor with
-   *          `data-runner-hover`), then rests.
-   * `none` – the static logo.
+   * `run`     – continuous stride, for hero lockups and working states. Lands on the next footfall when it
+   *             stops; pauses while offscreen or while the tab is hidden.
+   * `ambient` – small header marks: one stride shortly after hydration, then one every ~6–8 s while the mark
+   *             is on screen and the tab is visible, plus one on hover or tap.
+   * `idle`    – one stride shortly after hydration, then only on hover or tap.
+   * `none`    – the static logo.
+   * Strides are started on the client after mount, so they are actually seen; the server renders the rest
+   * pose. Hover/tap is read from the mark or the nearest ancestor with `data-runner-hover`. Under
+   * prefers-reduced-motion nothing moves.
    */
   animate?: RunnerAnimation
   /** `brand` gradient for light surfaces, `ink`, `white` for brand/dark surfaces, `current` = currentColor. */
@@ -28,6 +33,12 @@ const TONE_FILL: Record<Exclude<RunnerTone, 'brand'>, string> = {
   current: 'currentColor',
 }
 
+/** Delay before the first stride, so it plays after hydration and page reveal, when someone is looking. */
+const INTRO_DELAY_MS = 700
+/** Ambient cadence: a stride every 6–8 s (jittered so several marks never fall into lockstep). */
+const AMBIENT_MIN_MS = 6000
+const AMBIENT_JITTER_MS = 2000
+
 function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
@@ -41,7 +52,8 @@ export function RunnerMark({ size = 32, animate = 'none', tone = 'brand', label,
   const ref = useRef<SVGSVGElement>(null)
   // `mode` trails `animate` while a running stride lands, so the figure never snaps mid-pose.
   const [mode, setMode] = useState<RunnerAnimation>(animate)
-  const [playing, setPlaying] = useState(animate === 'idle')
+  // A single stride (idle/ambient). Never true on the server: strides start after mount.
+  const [playing, setPlaying] = useState(false)
 
   useEffect(() => {
     const svg = ref.current
@@ -55,7 +67,7 @@ export function RunnerMark({ size = 32, animate = 'none', tone = 'brand', label,
     }
     if (mode !== 'run') {
       setMode(animate)
-      setPlaying(animate === 'idle')
+      setPlaying(false)
       return
     }
 
@@ -65,7 +77,7 @@ export function RunnerMark({ size = 32, animate = 'none', tone = 'brand', label,
       setMode(animate)
       setPlaying(false)
     }
-    if (!animations.length || prefersReducedMotion() || svg?.hasAttribute('data-offscreen')) {
+    if (!animations.length || prefersReducedMotion() || svg?.hasAttribute('data-paused')) {
       settle()
       return
     }
@@ -81,9 +93,9 @@ export function RunnerMark({ size = 32, animate = 'none', tone = 'brand', label,
     // Only `animate` drives this effect; `mode` is read as the previous state on purpose.
   }, [animate])
 
-  // Idle: replay one stride on hover.
+  // Idle / ambient: single strides — once after mount, on a cadence (ambient), and on hover or tap.
   useEffect(() => {
-    if (mode !== 'idle') return
+    if (mode !== 'idle' && mode !== 'ambient') return
     const svg = ref.current
     if (!svg) return
     const striding = () =>
@@ -91,37 +103,74 @@ export function RunnerMark({ size = 32, animate = 'none', tone = 'brand', label,
       svg
         .getAnimations({ subtree: true })
         .some((a) => (a as CSSAnimation).animationName === 'rm-body' && a.playState === 'running')
-    // A server-rendered intro stride can finish before hydration attaches onAnimationEnd.
-    if (!striding()) setPlaying(false)
 
+    let onScreen = true
     let frame = 0
-    const host = svg.closest<HTMLElement | SVGElement>('[data-runner-hover]') ?? svg
-    const replay = () => {
-      if (striding()) return
+    let timer = 0
+    const play = () => {
+      if (prefersReducedMotion() || document.hidden || !onScreen || striding()) return
       // Drop and re-add the attribute on the next frame so the stride restarts from its first pose.
       setPlaying(false)
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => setPlaying(true))
     }
-    host.addEventListener('pointerenter', replay)
+    const schedule = (delay: number) => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        play()
+        if (mode === 'ambient') schedule(AMBIENT_MIN_MS + Math.random() * AMBIENT_JITTER_MS)
+      }, delay)
+    }
+    schedule(INTRO_DELAY_MS)
+
+    // Coming back to the tab: greet with a stride and restart the cadence.
+    const onVisibility = () => {
+      if (!document.hidden && mode === 'ambient') schedule(INTRO_DELAY_MS)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    const observer =
+      typeof IntersectionObserver === 'undefined'
+        ? null
+        : new IntersectionObserver(([entry]) => {
+            onScreen = entry.isIntersecting
+          })
+    observer?.observe(svg)
+
+    const host = svg.closest<HTMLElement | SVGElement>('[data-runner-hover]') ?? svg
+    host.addEventListener('pointerenter', play)
+    host.addEventListener('pointerdown', play)
     return () => {
+      window.clearTimeout(timer)
       cancelAnimationFrame(frame)
-      host.removeEventListener('pointerenter', replay)
+      document.removeEventListener('visibilitychange', onVisibility)
+      observer?.disconnect()
+      host.removeEventListener('pointerenter', play)
+      host.removeEventListener('pointerdown', play)
     }
   }, [mode])
 
-  // Running: pause while scrolled out of view.
+  // Running: pause while scrolled out of view or while the tab is hidden.
   useEffect(() => {
-    if (mode !== 'run' || typeof IntersectionObserver === 'undefined') return
+    if (mode !== 'run') return
     const svg = ref.current
     if (!svg) return
-    const observer = new IntersectionObserver(([entry]) => {
-      svg.toggleAttribute('data-offscreen', !entry.isIntersecting)
-    })
-    observer.observe(svg)
+    let onScreen = true
+    const sync = () => svg.toggleAttribute('data-paused', !onScreen || document.hidden)
+    const observer =
+      typeof IntersectionObserver === 'undefined'
+        ? null
+        : new IntersectionObserver(([entry]) => {
+            onScreen = entry.isIntersecting
+            sync()
+          })
+    observer?.observe(svg)
+    document.addEventListener('visibilitychange', sync)
+    sync()
     return () => {
-      observer.disconnect()
-      svg.removeAttribute('data-offscreen')
+      observer?.disconnect()
+      document.removeEventListener('visibilitychange', sync)
+      svg.removeAttribute('data-paused')
     }
   }, [mode])
 
@@ -138,7 +187,7 @@ export function RunnerMark({ size = 32, animate = 'none', tone = 'brand', label,
       viewBox={RUNNER_VIEWBOX}
       xmlns="http://www.w3.org/2000/svg"
       data-animate={mode}
-      data-playing={mode === 'idle' && playing ? '' : undefined}
+      data-playing={(mode === 'idle' || mode === 'ambient') && playing ? '' : undefined}
       onAnimationEnd={(event) => {
         if (event.animationName === 'rm-body') setPlaying(false)
       }}

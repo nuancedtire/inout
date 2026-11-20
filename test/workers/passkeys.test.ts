@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { deleteAttendanceEntry } from '#/db/attendance'
-import { auditLog, rosterEntries, sessions, staffCredentials, webauthnChallenges } from '#/db/schema'
+import { auditLog, rosterEntries, rotas, sessions, staffCredentials, webauthnChallenges } from '#/db/schema'
+import { todayDate } from '#/utils/dateTime'
 import { isoBase64URL } from '@simplewebauthn/server/helpers'
 import { SoftAuthenticator } from './softAuthenticator'
 import { act, adminToken, enrol, freshIp, ORIGIN, passkeyFns, RP_ID, request, seedTodayRota, TOKEN } from './harness'
@@ -226,6 +227,64 @@ describe('passkey-signed actions', () => {
     await adminUpdateSession({ data: { authToken: await adminToken(), rosterEntryId: entry.id, checkOutAt: new Date().toISOString() } })
     await expect(act(authenticator, 'undo')).rejects.toThrow(/administrator/)
     expect(await db.select({ o: sessions.identityOut, l: sessions.locationOut }).from(sessions)).toEqual([{ o: 'admin', l: 'not_requested' }])
+  })
+})
+
+describe('night shifts across midnight', () => {
+  /** Turn today's rota into "yesterday's" and start a fresh rota for today with the same QR token. */
+  async function rollOverMidnight(db: Awaited<ReturnType<typeof seedTodayRota>>['db']) {
+    await db.update(rotas).set({ date: '2000-01-01', token: 'YESTERDAYXXX' })
+    await db.insert(rotas).values({ date: todayDate(), token: TOKEN })
+  }
+
+  it('keeps a night-shift worker checked in after midnight and checks them out of the original session', async () => {
+    const { db } = await seedTodayRota()
+    const { authenticator } = await enrol({ name: 'Nina' })
+    await act(authenticator, 'check_in')
+    const [yesterdayEntry] = await db.select().from(rosterEntries)
+    await rollOverMidnight(db)
+
+    const who = await act(authenticator, 'identify')
+    expect(who.status).toMatchObject({ checkedIn: true, rosterEntryId: yesterdayEntry.id })
+    await expect(act(authenticator, 'check_in')).rejects.toThrow("You're already checked in")
+    expect(await db.select().from(sessions)).toHaveLength(1)
+
+    expect((await act(authenticator, 'check_out')).result?.action).toBe('check_out')
+    expect((await act(authenticator, 'undo')).result?.action).toBe('checkout_undone')
+    expect((await act(authenticator, 'check_out')).status).toMatchObject({ checkedIn: false })
+    const all = await db.select().from(sessions)
+    expect(all).toHaveLength(1)
+    expect(all[0]).toMatchObject({ rosterEntryId: yesterdayEntry.id, identityOut: 'passkey_pending' })
+    expect(all[0].checkOutAt).not.toBeNull()
+  })
+
+  it('lets a name-picked night shift check out of yesterday\'s entry, but not check in on it', async () => {
+    const { db } = await seedTodayRota()
+    const { checkIn, checkOut } = await import('#/utils/sessions.functions')
+    const [entry] = await db.insert(rosterEntries).values({ rotaId: (await db.select().from(rotas))[0].id, name: 'Pat' }).returning()
+    // Step past the per-entry burst limiter between calls.
+    const start = Date.now()
+    let step = 0
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => start + ++step * 10_000)
+    await checkIn({ data: { token: TOKEN, rosterEntryId: entry.id } })
+    await rollOverMidnight(db)
+    await expect(checkIn({ data: { token: TOKEN, rosterEntryId: entry.id } })).rejects.toThrow('Staff not found')
+    await expect(checkOut({ data: { token: TOKEN, rosterEntryId: entry.id } })).resolves.toMatchObject({ ok: true })
+    await expect(checkOut({ data: { token: TOKEN, rosterEntryId: entry.id } })).rejects.toThrow('Staff not found')
+    now.mockRestore()
+  })
+
+  it('does not let a forgotten checkout from over 20 hours ago block a new check-in', async () => {
+    const { db } = await seedTodayRota()
+    const { authenticator } = await enrol({ name: 'Omar' })
+    await act(authenticator, 'check_in')
+    await db.update(sessions).set({ checkInAt: new Date(Date.now() - 25 * 3600_000).toISOString() })
+    await rollOverMidnight(db)
+
+    expect((await act(authenticator, 'identify')).status).toMatchObject({ checkedIn: false })
+    const res = await act(authenticator, 'check_in')
+    expect(res.status.checkedIn).toBe(true)
+    expect(await db.select().from(sessions)).toHaveLength(2)
   })
 })
 

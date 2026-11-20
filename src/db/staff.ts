@@ -1,6 +1,6 @@
-import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNull, sql, type SQL } from 'drizzle-orm'
 import type { getDb } from './client'
-import { rosterEntries, rotas, staff, type RosterEntry, type Staff } from './schema'
+import { rosterEntries, rotas, sessions, staff, type RosterEntry, type Staff } from './schema'
 import { normalizeName } from '#/utils/staffNames'
 
 type Db = Awaited<ReturnType<typeof getDb>>
@@ -97,6 +97,28 @@ export async function findOrCreateEntryForStaff(db: Db, rotaId: number, person: 
   const entry = await find()
   if (!entry) throw new Error('Could not add you to today\'s rota. Please try again.')
   return entry
+}
+
+/**
+ * How long an open session still counts as "you're in". Covers a night shift that started on
+ * yesterday's rota plus a late checkout; anything older is treated as a forgotten checkout
+ * (left for the coordinator) so it can never lock someone out of checking in.
+ */
+export const CARRY_OVER_MS = 20 * 60 * 60 * 1000
+
+/**
+ * The roster entry a staff member's next checkout or undo applies to: their most recent session
+ * that started within the carry-over window, on any rota (an open one first). Null if none.
+ */
+export async function findRecentEntryForStaff(db: Db, staffId: number, opts: { openOnly?: boolean; now?: Date } = {}): Promise<RosterEntry | null> {
+  const since = new Date((opts.now ?? new Date()).getTime() - CARRY_OVER_MS).toISOString()
+  const base = [eq(rosterEntries.staffId, staffId), gte(sessions.checkInAt, since)]
+  const pick = (where: SQL | undefined) => db.select({ entry: rosterEntries }).from(sessions)
+    .innerJoin(rosterEntries, eq(rosterEntries.id, sessions.rosterEntryId))
+    .where(where).orderBy(desc(sessions.checkInAt), desc(sessions.id)).limit(1).get()
+  const open = await pick(and(...base, isNull(sessions.checkOutAt)))
+  if (open || opts.openOnly) return open?.entry ?? null
+  return (await pick(and(...base)))?.entry ?? null
 }
 
 export type RotaLinkResult = {

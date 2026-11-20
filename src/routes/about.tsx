@@ -8,8 +8,8 @@ export const Route = createFileRoute('/about')({
 
 const STEPS = [
   'Admin uploads the daily staff rota (Excel or CSV).',
-  'A single QR code is generated for the day and printed.',
-  'Staff scan the QR and slide to check in or out.',
+  'One permanent QR poster is printed for the department.',
+  'Staff scan it once, set up Face ID, then slide to check in or out.',
   'Admin dashboard shows who is in, late, early, and weekly hours.',
 ]
 
@@ -18,9 +18,9 @@ function About() {
     <main className="min-h-svh bg-surface-soft px-4 py-10 pt-safe sm:py-16">
       <div className="mx-auto max-w-2xl">
         <header className="animate-reveal text-center">
-          <Wordmark as="h1" size="lg" animate="idle" />
+          <Wordmark as="h1" size="lg" animate="run" />
           <p className="mx-auto mt-6 max-w-[52ch] text-lg leading-relaxed text-body text-pretty">
-            A lightweight staff in/out system built for hospital wards. Staff scan a daily QR code on the
+            A lightweight staff in/out system built for hospital wards. Staff scan a QR code on the
             notice board to check in and out. Admin uploads the daily rota, and the system tracks who is
             present, handles late arrivals, early departures, and generates weekly hour rollups.
           </p>
@@ -28,7 +28,7 @@ function About() {
 
         <section
           aria-labelledby="how-it-works"
-          className="animate-reveal mt-12 rounded-lg border border-hairline-soft bg-canvas p-6 shadow-card sm:p-8 [animation-delay:60ms]"
+          className="animate-reveal mt-12 rounded-card border border-hairline-soft bg-canvas p-6 shadow-card sm:p-8 [animation-delay:60ms]"
         >
           <h2 id="how-it-works" className="text-lg font-semibold text-ink">How it works</h2>
           <ol className="mt-5 space-y-4">
@@ -48,7 +48,7 @@ function About() {
 
         <section
           aria-labelledby="stack"
-          className="animate-reveal mt-4 rounded-lg border border-hairline-soft bg-canvas p-6 shadow-card sm:p-8 [animation-delay:100ms]"
+          className="animate-reveal mt-4 rounded-card border border-hairline-soft bg-canvas p-6 shadow-card sm:p-8 [animation-delay:100ms]"
         >
           <h2 id="stack" className="text-lg font-semibold text-ink">Stack</h2>
           <p className="mt-3 leading-relaxed text-body">

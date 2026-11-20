@@ -24,7 +24,7 @@ export function classifyServerError(error: unknown, online = true): CheckinError
     return { kind: 'network', title: 'No connection', message: 'Nothing was recorded. Check your signal and try again.' }
   }
   if (/invalid or expired qr code/i.test(message)) {
-    return { kind: 'qr_expired', title: 'This QR code has expired', message: 'It’s from another day. Scan today’s code in the department.' }
+    return { kind: 'qr_expired', title: 'This QR code isn’t current', message: 'The check-in code has changed. Scan the InOut poster in the department.' }
   }
   if (/turned off/i.test(message) && /passkey/i.test(message)) {
     return { kind: 'revoked', title: 'This phone has been turned off', message: 'Ask the coordinator, or set this phone up again.' }

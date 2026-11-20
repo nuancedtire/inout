@@ -26,7 +26,7 @@ export function WelcomeScreen({ platform, supported, busy, notice, dateLabel, on
       <div className="ck-stagger flex flex-1 flex-col items-center justify-center pt-4 pb-2 text-center">
         <div className="relative mb-8">
           <div className="absolute -inset-x-6 -inset-y-10 rounded-full bg-[radial-gradient(closest-side,rgba(255,56,92,0.14),transparent)]" aria-hidden="true" />
-          <Wordmark size="lg" as="p" className="relative" />
+          <Wordmark size="lg" as="p" animate="run" className="relative" />
         </div>
         <ScreenTitle sub={dateLabel}>Check in for your shift</ScreenTitle>
       </div>
@@ -57,7 +57,7 @@ export function WelcomeScreen({ platform, supported, busy, notice, dateLabel, on
               type="button"
               onClick={onSignUp}
               disabled={busy}
-              className="ui-press group flex min-h-[76px] w-full items-center gap-4 rounded-[20px] bg-canvas px-5 py-4 text-left shadow-card hover:shadow-hover disabled:opacity-45"
+              className="ui-press group flex min-h-[76px] w-full items-center gap-4 rounded-card bg-canvas px-5 py-4 text-left shadow-card hover:shadow-hover disabled:opacity-45"
             >
               <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary-50 text-accent-accessible" aria-hidden="true">
                 <Sparkles className="size-5" />

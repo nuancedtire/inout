@@ -7,7 +7,7 @@ type CardProps = {
 
 export function Card({ children, className = '', title, action }: CardProps) {
   return (
-    <section className={`bg-canvas rounded-lg border border-hairline-soft shadow-card ${className}`}>
+    <section className={`bg-canvas rounded-card border border-hairline-soft shadow-card ${className}`}>
       {(title || action) && (
         <div className="flex min-h-14 items-center justify-between gap-3 px-5 py-3 border-b border-hairline-soft">
           {title ? <h2 className="text-base font-semibold text-ink">{title}</h2> : <div />}

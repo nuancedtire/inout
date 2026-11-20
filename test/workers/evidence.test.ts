@@ -92,8 +92,8 @@ describe('location check outcomes', () => {
 
   it('tells the public check-in page only whether a location check applies', async () => {
     const { getTodayRoster } = await import('#/utils/rotas.functions')
-    expect(await getTodayRoster()).toMatchObject({ rota: null, locationCheck: false })
-    await seedTodayRota()
+    // Today's rota is created on first use, so the page never stops at "no rota".
+    expect(await getTodayRoster()).toMatchObject({ rota: { date: todayDate() }, locationCheck: false })
     expect((await getTodayRoster()).locationCheck).toBe(false)
     await configureSite()
     const roster = await getTodayRoster()

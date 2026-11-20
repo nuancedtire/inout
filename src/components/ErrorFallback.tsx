@@ -7,10 +7,10 @@ export function ErrorFallback({ error, reset }: ErrorComponentProps) {
 
   return (
     <main className="min-h-svh flex flex-col items-center justify-center gap-8 bg-surface-soft px-4 py-12 pt-safe">
-      <Wordmark size="sm" animate="none" />
+      <Wordmark size="md" animate="run" />
       <div
         role="alert"
-        className="animate-reveal w-full max-w-sm rounded-lg border border-hairline-soft bg-canvas p-6 text-center shadow-card"
+        className="animate-reveal w-full max-w-sm rounded-card border border-hairline-soft bg-canvas p-6 text-center shadow-card"
       >
         <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-danger-50 text-danger-700 ring-1 ring-inset ring-danger-100">
           <AlertCircle className="size-6" strokeWidth={1.75} aria-hidden="true" />

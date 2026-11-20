@@ -183,7 +183,7 @@ export function MorphSelectTrigger({ className, children }: MorphSelectTriggerPr
   const ctx = useMorphContext("MorphSelectTrigger")
   return (
     <>
-      <div aria-hidden className={cn(ROW, "invisible rounded-xl border border-hairline")}>
+      <div aria-hidden className={cn(ROW, "invisible rounded-control border border-hairline")}>
         {children}
         <ChevronDown className="h-4 w-4" />
       </div>
@@ -312,7 +312,7 @@ export function MorphSelectItem({ value, disabled = false, className, children }
         disabled={disabled}
         onClick={() => ctx.select(value)}
         className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm outline-none transition-colors",
+          "flex w-full items-center justify-between gap-2 rounded-inner px-2.5 py-1.5 text-left text-sm outline-none transition-colors",
           selected
             ? "bg-surface-soft text-ink"
             : "text-muted hover:bg-surface-soft hover:text-ink focus-visible:bg-surface-soft",

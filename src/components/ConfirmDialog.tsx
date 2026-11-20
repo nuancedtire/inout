@@ -60,7 +60,7 @@ export function ConfirmDialog({ state, onClose }: ConfirmDialogProps) {
       {/* card */}
       <div
         ref={cardRef}
-        className="animate-pop relative w-full max-w-sm rounded-lg bg-canvas p-6 shadow-overlay"
+        className="animate-pop relative w-full max-w-sm rounded-card bg-canvas p-6 shadow-overlay"
       >
         <div className="flex items-start gap-4">
           <div className={`flex size-11 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ${tone}`}>

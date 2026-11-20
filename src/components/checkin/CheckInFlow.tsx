@@ -81,9 +81,30 @@ const ENROL_FRESH_MS = 4 * 60 * 1000
 function setFallbackFlag(on: boolean) {
   try {
     if (on) localStorage.setItem(FALLBACK_KEY, '1')
-    else localStorage.removeItem(FALLBACK_KEY)
+    else {
+      localStorage.removeItem(FALLBACK_KEY)
+      localStorage.removeItem(FALLBACK_ENTRY_KEY)
+    }
   } catch {
     // Storage unavailable.
+  }
+}
+const FALLBACK_ENTRY_KEY = 'inout-fallback-entry'
+function storeFallbackEntry(entry: RosterEntry | null) {
+  try {
+    if (entry) localStorage.setItem(FALLBACK_ENTRY_KEY, JSON.stringify(entry))
+    else localStorage.removeItem(FALLBACK_ENTRY_KEY)
+  } catch {
+    // Storage unavailable.
+  }
+}
+function readFallbackEntry(id: number | null): RosterEntry | null {
+  try {
+    const raw = localStorage.getItem(FALLBACK_ENTRY_KEY)
+    const entry = raw ? (JSON.parse(raw) as RosterEntry) : null
+    return entry && entry.id === id ? entry : null
+  } catch {
+    return null
   }
 }
 function fallbackFlag() {
@@ -123,6 +144,8 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
   const [welcomeNotice, setWelcomeNotice] = useState<WelcomeNotice>(null)
   const [homeNotice, setHomeNotice] = useState<HomeNoticeData>(null)
   const [identifyBusy, setIdentifyBusy] = useState(false)
+  // A passkey user who chose "Check in without Face ID" for now (e.g. a phone whose Face ID fails).
+  const [forceFallback, setForceFallback] = useState(false)
 
   // Sign-up
   const [person, setPerson] = useState<Person | null>(null)
@@ -189,6 +212,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
     rememberRosterEntry(nextStatus.rosterEntryId)
     setFallbackFlag(false)
     setFallbackEntry(null)
+    setForceFallback(false)
   }, [])
 
   const signOut = useCallback(() => {
@@ -199,6 +223,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
     setStatus(null)
     setFallbackEntry(null)
     setFallbackStatus(null)
+    setForceFallback(false)
     setHomeNotice(null)
     setWelcomeNotice({ tone: 'neutral', title: 'Removed from this phone', message: 'Your passkey is still saved on the phone. Sign in again any time.' })
     setView({ name: 'welcome' })
@@ -261,16 +286,23 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
     }
 
     const savedEntry = readRosterEntry()
-    const fallbackPick = fallbackFlag() && savedEntry ? entries.find((e) => e.id === savedEntry) : undefined
+    const todayPick = fallbackFlag() && savedEntry ? entries.find((e) => e.id === savedEntry) : undefined
+    // Yesterday's entry (a night shift) stays usable only while that session is still open.
+    const carriedPick = !todayPick && fallbackFlag() ? readFallbackEntry(savedEntry) : null
+    const fallbackPick = todayPick ?? carriedPick
     if (fallbackPick) {
-      setFallbackEntry(fallbackPick)
-      setFallbackStatus(null)
-      setView({ name: 'home' })
-      getStatus({ data: { rosterEntryId: fallbackPick.id } }).then(setFallbackStatus, () => setFallbackStatus({ checkedIn: false, checkInAt: null }))
-      return
+      const carried = !todayPick
+      const s = await getStatus({ data: { rosterEntryId: fallbackPick.id } }).catch(() => null)
+      if (!carried || s?.checkedIn) {
+        setFallbackEntry(fallbackPick)
+        setFallbackStatus(s ?? { checkedIn: false, checkInAt: null })
+        setView({ name: 'home' })
+        return
+      }
+      setFallbackFlag(false)
     }
 
-    // Unknown phone: check the QR is today's before asking anyone to sign up.
+    // Unknown phone: check the code is current before asking anyone to sign up.
     try {
       await getStaffStatus({ data: { token: t, staffToken: 'none' } })
       setView({ name: 'welcome' })
@@ -505,9 +537,11 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
       if (p.kind !== 'entry') return
       setFallbackFlag(true)
       rememberRosterEntry(p.entry.id)
+      storeFallbackEntry(p.entry)
       setFallbackEntry(p.entry)
       setFallbackStatus(null)
       setHomeNotice(null)
+      if (me) setForceFallback(true)
       setView({ name: 'home' })
       getStatus({ data: { rosterEntryId: p.entry.id } }).then(setFallbackStatus, () => setFallbackStatus({ checkedIn: false, checkInAt: null }))
       return
@@ -616,7 +650,9 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
           const added: RosterEntry = { id: res.entryId, name: locum.name, role: locum.role || null, shiftStart: null, shiftEnd: null, source: 'manual' }
           setFallbackFlag(true)
           rememberRosterEntry(res.entryId)
+          storeFallbackEntry(added)
           setFallbackEntry(added)
+          if (me) setForceFallback(true)
         } else if (action === 'undo') {
           const res = await undoLastAction({ data: { token: t, rosterEntryId: entryId } })
           result = { action: res.action, at: new Date().toISOString(), identity: 'self_selected', location: 'not_requested', verified: false, reasons: [] }
@@ -647,7 +683,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
   }
 
   // ── Derived ─────────────────────────────────────────────────────────────────
-  const fallbackMode = !me && !!fallbackEntry
+  const fallbackMode = (!me || forceFallback) && !!fallbackEntry
   const myEntry = useMemo(() => {
     const id = fallbackMode ? fallbackEntry?.id : status?.rosterEntryId
     return id ? entries.find((e) => e.id === id) ?? null : null
@@ -658,7 +694,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
   const enrolSteps = ['You', capitalise(unlock.name), ...(locationCheck && checkInNow ? ['Location'] : [])]
 
   // ── Render ──────────────────────────────────────────────────────────────────
-  const identityMenu = me ? (
+  const identityMenu = me && !fallbackMode ? (
     <IdentityMenu
       name={me.staff.name}
       role={me.staff.role}
@@ -682,13 +718,20 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
       role={fallbackEntry.role}
       pending={false}
       historyToken={token}
-      onWithout={supported ? () => {
+      onWithout={me ? () => {
+        // Back to this phone's passkey.
+        setFallbackFlag(false)
+        setFallbackEntry(null)
+        setForceFallback(false)
+        setHomeNotice(null)
+        setView({ name: 'home' })
+      } : supported ? () => {
         setFallbackFlag(false)
         setFallbackEntry(null)
         setConfirming({ person: { kind: 'entry', entry: fallbackEntry }, purpose: 'enrol' })
         setView({ name: 'welcome' })
       } : undefined}
-      withoutLabel={`Set up ${unlock.name} instead`}
+      withoutLabel={me ? `Use ${unlock.name} again` : `Set up ${unlock.name} instead`}
       onSignOut={signOut}
     />
   ) : null

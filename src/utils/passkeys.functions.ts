@@ -10,6 +10,7 @@ import { and, eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type * as schema from '#/db/schema'
 import { getDb } from '#/db/client'
+import { requireCheckInCode } from '#/db/checkInCode'
 import { getEntryStatus, performAttendanceAction, type AttendanceOutcome } from '#/db/attendance'
 import {
   consumeChallenge,
@@ -20,9 +21,10 @@ import {
   pruneExpiredChallenges,
   storeChallenge,
 } from '#/db/passkeys'
-import { auditLog, rosterEntries, rotas, staff, staffCredentials } from '#/db/schema'
+import { auditLog, rosterEntries, staff, staffCredentials } from '#/db/schema'
 import {
   findOrCreateEntryForStaff,
+  findRecentEntryForStaff,
   isUniqueViolation,
   resolveStaffForEntry,
   resolveStaffForName,
@@ -31,7 +33,6 @@ import {
 } from '#/db/staff'
 import { createStaffToken, verifyStaffToken } from './auth'
 import { logAudit } from './audit'
-import { todayDate } from './dateTime'
 import { evaluateLocation, type LocationReading } from './location'
 import { createManualCheckInLimiter } from './manualCheckIn'
 import { passkeyLabel } from './passkeyLabels'
@@ -99,15 +100,14 @@ function clientIp() {
 }
 
 async function requireTodayRota(db: Db, token: string) {
-  const rota = await db.select({ id: rotas.id, token: rotas.token }).from(rotas)
-    .where(eq(rotas.date, todayDate())).get()
-  if (!rota || rota.token !== token) throw new Error('Invalid or expired QR code')
-  return rota
+  return requireCheckInCode(db, token)
 }
 
 async function statusForStaff(db: Db, rotaId: number, staffId: number): Promise<StaffStatus> {
-  const entry = await db.select({ id: rosterEntries.id }).from(rosterEntries)
-    .where(and(eq(rosterEntries.rotaId, rotaId), eq(rosterEntries.staffId, staffId))).get()
+  // A night shift that began on yesterday's rota is still "in" after midnight.
+  const entry = await findRecentEntryForStaff(db, staffId, { openOnly: true })
+    ?? await db.select({ id: rosterEntries.id }).from(rosterEntries)
+      .where(and(eq(rosterEntries.rotaId, rotaId), eq(rosterEntries.staffId, staffId))).get()
   if (!entry) return { checkedIn: false, sessionId: null, checkInAt: null, hasUndoableAction: false, rosterEntryId: null }
   return { ...(await getEntryStatus(db, entry.id)), rosterEntryId: entry.id }
 }
@@ -210,7 +210,8 @@ export const finishEnrolment = createServerFn({ method: 'POST' })
     ] as const
 
     let session: ActionResult | undefined
-    const wantsCheckIn = data.checkIn && !(await getEntryStatus(db, entry.id)).checkedIn
+    const wantsCheckIn = data.checkIn && !(await findRecentEntryForStaff(db, person.id, { openOnly: true }))
+      && !(await getEntryStatus(db, entry.id)).checkedIn
     try {
       if (wantsCheckIn) {
         // Registration with user verification counts as identity evidence: one Face ID on the first visit.
@@ -242,7 +243,7 @@ export const finishEnrolment = createServerFn({ method: 'POST' })
       staff: toStaffSummary(person),
       credential: { id: credentialId, status: 'pending' },
       staffToken: await createStaffToken(person.id, credentialId),
-      status: { ...(await getEntryStatus(db, entry.id)), rosterEntryId: entry.id },
+      status: await statusForStaff(db, rota.id, person.id),
       ...(session ? { session } : {}),
     }
   })
@@ -322,9 +323,13 @@ export const passkeyAction = createServerFn({ method: 'POST' })
     if (data.action === 'identify') {
       await usage
     } else {
+      // Check-out and undo follow the person's latest session, even one that began on yesterday's
+      // rota (night shifts). Check-in refuses while a recent session is still open anywhere.
+      const recent = await findRecentEntryForStaff(db, person.id, { openOnly: data.action !== 'undo' })
+      if (data.action === 'check_in' && recent) throw new Error("You're already checked in")
       const entry = data.action === 'check_in'
         ? await findOrCreateEntryForStaff(db, rota.id, person)
-        : await db.select().from(rosterEntries)
+        : recent ?? await db.select().from(rosterEntries)
             .where(and(eq(rosterEntries.rotaId, rota.id), eq(rosterEntries.staffId, person.id))).get()
       if (!entry) throw new Error(data.action === 'check_out' ? "You're not checked in" : 'Nothing to undo')
       const location = data.action === 'undo'

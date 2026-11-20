@@ -97,7 +97,7 @@ export function ApprovalsTab({
         ) : (
           <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {pending.map((e) => (
-              <li key={e.credentialId} className="flex flex-col rounded-md border border-hairline-soft bg-canvas">
+              <li key={e.credentialId} className="flex flex-col rounded-control border border-hairline-soft bg-canvas">
                 <div className="flex items-start gap-3 p-4">
                   <StaffAvatar name={e.staffName} />
                   <div className="min-w-0 flex-1">
@@ -134,7 +134,7 @@ export function ApprovalsTab({
                 {e.otherApprovedCount > 0 || !e.staffActive ? (
                   <div className="mx-4 mb-3 flex flex-col gap-2">
                     {e.otherApprovedCount > 0 ? (
-                      <p className="flex items-start gap-2 rounded-md bg-warning-50 px-3 py-2.5 text-sm text-warning-800">
+                      <p className="flex items-start gap-2 rounded-control bg-warning-50 px-3 py-2.5 text-sm text-warning-800">
                         <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                         <span>
                           <strong className="font-semibold">Second phone — check with them.</strong> {e.staffName} already has{' '}
@@ -143,7 +143,7 @@ export function ApprovalsTab({
                       </p>
                     ) : null}
                     {!e.staffActive ? (
-                      <p className="flex items-start gap-2 rounded-md bg-surface-soft px-3 py-2.5 text-sm text-body">
+                      <p className="flex items-start gap-2 rounded-control bg-surface-soft px-3 py-2.5 text-sm text-body">
                         <UserRoundX className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                         <span>This profile is turned off, so the phone won’t work until it’s turned back on.</span>
                       </p>

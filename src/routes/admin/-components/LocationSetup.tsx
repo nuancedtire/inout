@@ -191,7 +191,7 @@ export function LocationSetup() {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
           <div className="flex min-w-0 flex-col gap-6">
             {!saved.configured ? (
-              <p className="rounded-md bg-warning-50 px-4 py-3 text-sm text-warning-800">
+              <p className="rounded-control bg-warning-50 px-4 py-3 text-sm text-warning-800">
                 No area yet, so every check-in shows <strong className="font-semibold">“Location not checked”</strong>. Stand in the
                 department and take a reading to set it up.
               </p>
@@ -204,10 +204,10 @@ export function LocationSetup() {
 
             {/* Step 1 */}
             <Step n={1} title="Find the centre" hint="Stand inside the department, away from the outside walls. For the best centre, take 2–4 readings at different spots — the main entrance, majors, resus — and InOut averages them, trusting the most precise ones most.">
-              {problem ? <p className="rounded-md bg-danger-50 px-4 py-3 text-sm text-danger-800">{problem}</p> : null}
+              {problem ? <p className="rounded-control bg-danger-50 px-4 py-3 text-sm text-danger-800">{problem}</p> : null}
               <SamplerCard state={reading.state} onStop={reading.stop} label="Taking a reading" />
               {readings.length > 0 ? (
-                <ul className="flex flex-col divide-y divide-hairline-soft rounded-md border border-hairline-soft">
+                <ul className="flex flex-col divide-y divide-hairline-soft rounded-control border border-hairline-soft">
                   {readings.map((r, i) => (
                     <li key={r.at + i} className="flex items-center gap-3 px-4 py-2">
                       <span className="flex size-7 items-center justify-center rounded-full bg-ink text-xs font-bold text-white tabular-nums" aria-hidden="true">
@@ -343,14 +343,14 @@ function Step({ n, title, hint, children }: { n: number; title: string; hint: st
 
 function SamplerCard({ state, onStop, label }: { state: SamplerState; onStop: () => void; label: string }) {
   if (state.status === 'error') {
-    return <p role="alert" className="rounded-md bg-danger-50 px-4 py-3 text-sm text-danger-800">{state.message}</p>
+    return <p role="alert" className="rounded-control bg-danger-50 px-4 py-3 text-sm text-danger-800">{state.message}</p>
   }
   if (state.status !== 'sampling') return null
   const pct = Math.round((state.elapsedMs / state.maxMs) * 100)
   const secondsLeft = Math.max(0, Math.ceil((state.maxMs - state.elapsedMs) / 1000))
   const quality = state.best ? accuracyQuality(state.best.accuracy) : null
   return (
-    <div className="rounded-md border border-hairline-soft bg-surface-soft p-4" role="status" aria-live="polite">
+    <div className="rounded-control border border-hairline-soft bg-surface-soft p-4" role="status" aria-live="polite">
       <div className="flex items-center justify-between gap-3">
         <p className="flex items-center gap-2 text-sm font-semibold text-ink">
           <span className="relative flex size-2.5" aria-hidden="true">
@@ -496,7 +496,7 @@ function TestResult({
           ? `The phone reported ±${accuracy} m, vaguer than your ${ceiling} m limit. Raise the accuracy limit if readings here are always this weak.`
           : 'Take a reading to set the centre, then test again.'
   return (
-    <div role="status" className={cn('animate-reveal flex items-start gap-3 rounded-md border px-4 py-3', ui.tone)}>
+    <div role="status" className={cn('animate-reveal flex items-start gap-3 rounded-control border px-4 py-3', ui.tone)}>
       <Glyph className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
       <div>
         <p className="font-semibold">{ui.title}</p>
@@ -556,7 +556,7 @@ function AreaDiagram({
   const ringStep = niceStep(extent)
 
   return (
-    <figure className="rounded-md border border-hairline-soft bg-surface-soft p-3">
+    <figure className="rounded-control border border-hairline-soft bg-surface-soft p-3">
       <svg viewBox="-110 -110 220 220" role="img" aria-label={diagramLabel(centre, radius, readings.length, test, testOutcome)} className="block aspect-square w-full">
         <defs>
           <pattern id="area-grid" width="20" height="20" patternUnits="userSpaceOnUse" x="-110" y="-110">

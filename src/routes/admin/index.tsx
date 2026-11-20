@@ -40,7 +40,7 @@ function StatCard({
   }[tone]
   const barClass = { neutral: 'bg-neutral-600', success: 'bg-success-accessible', brand: 'bg-primary-500', warning: 'bg-warning-600' }[tone]
   return (
-    <div className="flex min-w-0 flex-col rounded-lg border border-hairline-soft bg-canvas p-4 shadow-card sm:p-5">
+    <div className="flex min-w-0 flex-col rounded-card border border-hairline-soft bg-canvas p-4 shadow-card sm:p-5">
       <div className="flex items-center gap-2">
         <span aria-hidden="true" className={cn('flex size-7 items-center justify-center rounded-full', toneClass)}>
           <Icon className="size-3.5" strokeWidth={2.25} />
@@ -66,7 +66,7 @@ function DashboardSkeleton() {
     <Page>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" aria-hidden="true">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex flex-col gap-3 rounded-lg border border-hairline-soft bg-canvas p-5 shadow-card">
+          <div key={i} className="flex flex-col gap-3 rounded-card border border-hairline-soft bg-canvas p-5 shadow-card">
             <Bone className="h-4 w-24" />
             <Bone className="h-8 w-16" />
             <Bone className="h-3 w-28" />
@@ -110,7 +110,7 @@ function AdminDashboard() {
         <Link
           to="/admin/staff"
           search={{ tab: 'approvals' }}
-          className="ui-press group flex items-center gap-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3.5 text-ink hover:border-primary-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:px-5"
+          className="ui-press group flex items-center gap-4 rounded-card border border-primary-100 bg-primary-50 px-4 py-3.5 text-ink hover:border-primary-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:px-5"
         >
           <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-canvas text-accent-accessible shadow-card">
             <Smartphone className="size-5" />
@@ -164,7 +164,7 @@ function AdminDashboard() {
         onAccept={(subject) => setDialog({ subject, mode: 'review' })}
       />
 
-      <div className="grid grid-cols-1 gap-5 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-5 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <WhoIsInSection present={present} onDetails={(subject) => setDialog({ subject, mode: 'details' })} />
         <DailySummary
           missingCheckIn={missingCheckIn}

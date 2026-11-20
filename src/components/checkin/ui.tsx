@@ -16,7 +16,7 @@ export function Shell({ children, right, left }: { children: ReactNode; right?: 
           {left ? (
             <div className="flex min-w-0 flex-1 items-center gap-2">{left}</div>
           ) : (
-            <Wordmark size="sm" label="InOut" animate="idle" />
+            <Wordmark size="sm" label="InOut" animate="ambient" />
           )}
           {right ? <div className="flex min-w-0 shrink-0 items-center">{right}</div> : null}
         </header>
@@ -114,7 +114,7 @@ export function Notice({ tone = 'neutral', title, children, action, icon, role, 
 }) {
   const t = NOTICE_TONE[tone]
   return (
-    <div role={role} className={`animate-reveal flex gap-3 rounded-[16px] p-4 ring-1 ring-inset ${t.box} ${className}`}>
+    <div role={role} className={`animate-reveal flex gap-3 rounded-card p-4 ring-1 ring-inset ${t.box} ${className}`}>
       <span className={`mt-px shrink-0 ${t.icon}`} aria-hidden="true">
         {icon ?? <t.Icon className="size-5" strokeWidth={2} />}
       </span>
@@ -162,7 +162,7 @@ export const BigButton = forwardRef<HTMLButtonElement, BigButtonProps>(function 
       aria-busy={busy || undefined}
       aria-describedby={describedBy}
       className={[
-        'ui-press relative inline-flex w-full items-center justify-center gap-2.5 rounded-[16px] font-semibold select-none',
+        'ui-press relative inline-flex w-full items-center justify-center gap-2.5 rounded-control font-semibold select-none',
         variant === 'quiet' ? 'min-h-11 text-[0.9375rem]' : 'min-h-14 px-5 text-base',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
         'disabled:cursor-not-allowed',
@@ -231,7 +231,7 @@ export function Sheet({ open, onOpenChange, title, description, children, dismis
         <style href="inout-checkin" precedence="default">{CHECKIN_CSS}</style>
         <Dialog.Overlay className="animate-scrim fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" />
         <Dialog.Content
-          className="checkin-sheet fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[440px] rounded-t-[28px] bg-canvas px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-overlay outline-none sm:bottom-6 sm:rounded-[28px]"
+          className="checkin-sheet fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[440px] rounded-t-card bg-canvas px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-overlay outline-none sm:bottom-6 sm:rounded-card"
           onPointerDownOutside={(e) => !dismissible && e.preventDefault()}
           onEscapeKeyDown={(e) => !dismissible && e.preventDefault()}
         >
@@ -273,7 +273,7 @@ export const TextField = forwardRef<HTMLInputElement, React.InputHTMLAttributes<
         id={fieldId}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined}
-        className="h-13 w-full rounded-control border border-hairline bg-canvas px-4 text-base text-ink placeholder:text-muted outline-none transition-[border-color,box-shadow] focus:border-ink focus:ring-4 focus:ring-ink/8 aria-invalid:border-danger-600"
+        className="h-13 w-full rounded-control border border-hairline bg-canvas px-4 text-base text-ink placeholder:text-muted outline-none transition-[border-color,box-shadow] hover:border-neutral-400 focus:border-ink focus:shadow-[0_0_0_1px_var(--color-ink)] aria-invalid:border-danger-600"
         {...rest}
       />
       {error ? (

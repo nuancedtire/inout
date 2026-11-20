@@ -197,7 +197,7 @@ function EndEvidence({
 }) {
   const locationOk = identity === 'admin' || location === 'inside'
   return (
-    <div className="rounded-md border border-hairline-soft px-4 py-2">
+    <div className="rounded-control border border-hairline-soft px-4 py-2">
       <div className="flex items-baseline justify-between gap-3 border-b border-hairline-soft pb-2 pt-1">
         <p className="text-sm font-semibold text-ink">{heading}</p>
         <p className="text-sm tabular-nums text-muted" title={formatDateTime(at)}>{formatTime(at)}</p>
@@ -413,14 +413,14 @@ export function EvidenceDialog({
                   accuracyM={subject.accuracyOutM}
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-hairline px-4 py-6 text-center">
+                <div className="flex flex-col items-center justify-center gap-1 rounded-control border border-dashed border-hairline px-4 py-6 text-center">
                   <p className="text-sm font-semibold text-ink">Checkout</p>
                   <p className="text-sm text-muted">Still on shift. Checkout evidence appears when they check out.</p>
                 </div>
               )}
             </div>
             {subject.accepted ? (
-              <div className="rounded-md bg-surface-soft px-4 py-3">
+              <div className="rounded-control bg-surface-soft px-4 py-3">
                 <p className="flex items-center gap-2 text-sm font-semibold text-ink">
                   <CircleCheck className="size-4" aria-hidden="true" />
                   Accepted by a coordinator
@@ -450,7 +450,7 @@ function StatusSummary({ subject }: { subject: EvidenceSubject }) {
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 rounded-md px-4 py-3',
+        'flex flex-col gap-2 rounded-control px-4 py-3',
         state === 'flagged' ? 'bg-warning-50' : state === 'verified' ? 'bg-success-50' : 'bg-surface-soft',
       )}
     >

@@ -1,13 +1,11 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getDb } from '#/db/client'
 import { replaceRotaEntries } from '#/db/attendance'
-import type { Rota } from '#/db/schema'
-import { rotas, rosterEntries, sessions } from '#/db/schema'
+import { rosterEntries, sessions } from '#/db/schema'
 import { eq, asc, desc, inArray } from 'drizzle-orm'
-import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import type * as schema from '#/db/schema'
 import { parseRota } from './rotaParser'
-import { requireAdmin, deriveTokenForDate } from './auth'
+import { requireAdmin } from './auth'
+import { ensureRotaForDate, getOrCreateCheckInCode, replaceCheckInCode } from '#/db/checkInCode'
 import { logAudit } from './audit'
 import { todayDate } from './dateTime'
 import { planRotaLinks, summariseRotaLinks } from '#/db/staff'
@@ -15,31 +13,10 @@ import { getSiteSettings } from '#/db/passkeys'
 import { isSiteConfigured } from './location'
 import {
   validateAddAdHocStaff,
-  validateQrDate,
+  validateAdminAuth as validateAuthOnly,
   validateUpdateRosterEntry,
   validateUploadRota,
 } from './validation'
-
-type Db = DrizzleD1Database<typeof schema>
-
-async function ensureRotaForDate(db: Db, date: string): Promise<Rota> {
-  const existing = await db
-    .select()
-    .from(rotas)
-    .where(eq(rotas.date, date))
-    .get()
-
-  if (existing) return existing
-
-  const token = await deriveTokenForDate(date)
-  const [inserted] = await db
-    .insert(rotas)
-    .values({ date, token })
-    .returning()
-
-  if (!inserted) throw new Error('Failed to create rota')
-  return inserted
-}
 
 // ══════════════════════════════════════════════════════════════════
 // Public (staff-facing) — only what the check-in page needs
@@ -52,12 +29,10 @@ export const getTodayRoster = createServerFn({ method: 'GET' }).handler(async ()
   // location prompt entirely when there is nothing to compare against. Never the coordinates.
   const locationCheck = isSiteConfigured(await getSiteSettings(db))
 
-  // Public endpoint: never return the rota's QR token here.
-  const rota = await db
-    .select({ id: rotas.id, date: rotas.date })
-    .from(rotas)
-    .where(eq(rotas.date, date))
-    .get()
+  // Public endpoint: never return the rota's QR token here. Today's rota is created on first
+  // use so check-in never stops at "no rota" when nobody uploaded one.
+  const { id: rotaId } = await ensureRotaForDate(db, date)
+  const rota = { id: rotaId, date }
 
   if (!rota) {
     return {
@@ -120,12 +95,22 @@ export const getTodayRoster = createServerFn({ method: 'GET' }).handler(async ()
   return { rota, locationCheck, entries, statusByEntryId }
 })
 
-export const getQrTokenOrSeed = createServerFn({ method: 'GET' })
-  .validator(validateQrDate)
+/** The permanent check-in code for posters (admin only). Created on first request. */
+export const adminGetCheckInCode = createServerFn({ method: 'POST' })
+  .validator(validateAuthOnly)
   .handler(async ({ data }) => {
-    const db = await getDb()
-    const rota = await ensureRotaForDate(db, data.date)
-    return { token: rota.token }
+    await requireAdmin({ token: data.authToken })
+    return { token: await getOrCreateCheckInCode(await getDb()) }
+  })
+
+/** Replace the permanent check-in code: every printed poster stops working immediately. */
+export const adminReplaceCheckInCode = createServerFn({ method: 'POST' })
+  .validator(validateAuthOnly)
+  .handler(async ({ data }) => {
+    await requireAdmin({ token: data.authToken })
+    const token = await replaceCheckInCode(await getDb())
+    await logAudit('check_in_code_replaced', {}, 'admin')
+    return { token }
   })
 
 // ══════════════════════════════════════════════════════════════════

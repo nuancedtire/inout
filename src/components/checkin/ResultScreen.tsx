@@ -136,7 +136,7 @@ function UndoButton({ until, busy, onUndo, viaFaceId, unlockName }: {
         type="button"
         onClick={onUndo}
         disabled={busy}
-        className="ui-press inline-flex min-h-12 items-center justify-center gap-2.5 rounded-full px-5 text-[0.9375rem] font-semibold text-ink hover:bg-surface-strong disabled:opacity-60"
+        className="ui-press inline-flex min-h-12 items-center justify-center gap-2.5 rounded-control px-5 text-[0.9375rem] font-semibold text-ink hover:bg-surface-strong disabled:opacity-60"
         aria-describedby="ck-undo-hint"
       >
         {busy ? (

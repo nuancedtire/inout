@@ -48,7 +48,7 @@ export function Panel({
     <section
       id={id}
       data-tour={tour}
-      className={cn('min-w-0 rounded-lg border border-hairline-soft bg-canvas shadow-card', className)}
+      className={cn('min-w-0 rounded-card border border-hairline-soft bg-canvas shadow-card', className)}
     >
       {title ? (
         <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b border-hairline-soft px-5 py-4">
@@ -79,13 +79,13 @@ export function Panel({
 }
 
 export function Bone({ className }: { className?: string }) {
-  return <Skeleton className={cn('rounded-md bg-surface-strong', className)} />
+  return <Skeleton className={cn('rounded-inner bg-surface-strong', className)} />
 }
 
 /** Loading placeholder shaped like a panel with a header and a few rows. */
 export function PanelSkeleton({ rows = 4, className }: { rows?: number; className?: string }) {
   return (
-    <div className={cn('rounded-lg border border-hairline-soft bg-canvas shadow-card', className)} aria-hidden="true">
+    <div className={cn('rounded-card border border-hairline-soft bg-canvas shadow-card', className)} aria-hidden="true">
       <div className="flex items-center gap-3 border-b border-hairline-soft px-5 py-4">
         <Bone className="size-8 rounded-full" />
         <Bone className="h-4 w-40" />
@@ -108,7 +108,7 @@ export function PanelSkeleton({ rows = 4, className }: { rows?: number; classNam
 
 export function LoadError({ title, message, onRetry }: { title: string; message: string; onRetry?: () => void }) {
   return (
-    <div role="alert" className="flex items-start gap-3 rounded-lg border border-danger-200 bg-danger-50 p-4 text-danger-800">
+    <div role="alert" className="flex items-start gap-3 rounded-card border border-danger-200 bg-danger-50 p-4 text-danger-800">
       <AlertCircle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="font-semibold">{title}</p>
@@ -131,7 +131,7 @@ export function Notice({ message, tone = 'success', onClose }: { message: string
     <div
       role={tone === 'error' ? 'alert' : 'status'}
       className={cn(
-        'animate-reveal flex items-center gap-3 rounded-lg border py-2 pl-4 pr-2 text-sm font-medium',
+        'animate-reveal flex items-center gap-3 rounded-card border py-2 pl-4 pr-2 text-sm font-medium',
         tone === 'error' ? 'border-danger-200 bg-danger-50 text-danger-800' : 'border-success-200 bg-success-50 text-success-800',
       )}
     >

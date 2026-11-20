@@ -129,7 +129,7 @@ function HistoryPage() {
           <h1 className="text-xl font-semibold leading-tight text-ink">Session history</h1>
           <p className="text-sm text-muted">Completed sessions for the selected name</p>
         </div>
-        <RunnerMark size={36} animate="idle" />
+        <RunnerMark size={36} animate="ambient" />
       </header>
 
       {/* Identity bar */}
@@ -201,7 +201,7 @@ function HistoryPage() {
                           <p className="font-semibold text-ink">{dateLabel}</p>
                           <p className="mt-0.5 text-sm text-muted">Shift {shiftLabel}</p>
                         </div>
-                        <Badge variant="info">{hoursLabel}</Badge>
+                        <Badge variant="neutral">{hoursLabel}</Badge>
                       </div>
                       <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-hairline-soft pt-4 text-sm">
                         <div>

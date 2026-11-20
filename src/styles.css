@@ -99,24 +99,48 @@ textarea {
   animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* shadcn/ui tokens, mapped onto the app palette. (`muted` stays the app's text colour; shadcn's
+   `muted-foreground` maps to it.) `ring` is ink so shadcn focus rings match the app's focus outline. */
 :root {
+  --background: #ffffff;
+  --foreground: #222222;
+  --card: #ffffff;
+  --card-foreground: #222222;
+  --secondary: #f2f2f2;
+  --secondary-foreground: #222222;
+  --muted-foreground: #6a6a6a;
+  --destructive: #dc2626;
+  --border: #ebebeb;
+  --input: #dddddd;
+  --ring: #222222;
   --popover: #ffffff;
   --popover-foreground: #222222;
-  --primary: #ff385c;
+  --primary: #d50b40; /* accent-accessible: white text on it passes AA (brand #ff385c is 3.5:1) */
   --primary-foreground: #ffffff;
   --accent: #fff1f4;
-  --accent-foreground: #e00b41;
+  --accent-foreground: #d50b40;
   --sidebar: #ffffff;
   --sidebar-foreground: #6a6a6a;
-  --sidebar-primary: #ff385c;
+  --sidebar-primary: #d50b40;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #fff1f4;
-  --sidebar-accent-foreground: #e00b41;
+  --sidebar-accent-foreground: #d50b40;
   --sidebar-border: #ebebeb;
-  --sidebar-ring: #ff385c;
+  --sidebar-ring: #222222;
 }
 
 @theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);

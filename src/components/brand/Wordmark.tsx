@@ -42,7 +42,10 @@ function Letters({ letters }: { letters: ReadonlyArray<readonly [string, number]
   )
 }
 
-/** The "In [runner] Out" lockup. Hovering it replays an idle stride. */
+/**
+ * The "In [runner] Out" lockup. Hovering or tapping it replays a stride. Hero placements use `run`; header
+ * placements use `ambient`.
+ */
 export function Wordmark({
   size = 'md',
   animate = 'idle',

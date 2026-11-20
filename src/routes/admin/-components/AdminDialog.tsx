@@ -46,7 +46,7 @@ export function AdminDialog({
         <div className="pointer-events-none fixed inset-0 z-50 flex items-end justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-6">
           <Dialog.Content
             className={cn(
-              'animate-pop pointer-events-auto relative flex max-h-[calc(100svh-1.5rem)] w-full flex-col overflow-hidden rounded-lg bg-canvas shadow-overlay focus:outline-none',
+              'animate-pop pointer-events-auto relative flex max-h-[calc(100svh-1.5rem)] w-full flex-col overflow-hidden rounded-card bg-canvas shadow-overlay focus:outline-none',
               size === 'lg' ? 'sm:max-w-xl' : 'sm:max-w-md',
             )}
           >

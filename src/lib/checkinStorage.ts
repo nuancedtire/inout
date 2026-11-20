@@ -2,8 +2,10 @@
  * Browser-side memory for the staff check-in page. Every accessor tolerates storage being
  * unavailable (private browsing, blocked site data) and returns the empty value instead.
  *
- * - Daily QR token: sessionStorage, keyed by the rota date, so a reload keeps working after the
- *   token is stripped from the address bar, and a new day never reuses yesterday's token.
+ * - Check-in code: localStorage. The department's QR code is permanent, so the phone (and the
+ *   Home Screen app, which has its own storage) remembers it after the first scan and staff can
+ *   check in without scanning again. Cleared when the server rejects it (code replaced).
+ *   The `date` parameters are kept for call-site compatibility and ignored.
  * - Remembered staff: localStorage. The staff token is a display hint only; every attendance
  *   action still needs a fresh passkey assertion.
  * - Legacy `inout-staff-id`: the roster entry ID that /history reads.
@@ -28,23 +30,25 @@ function safe<T>(fn: () => T, fallback: T): T {
   }
 }
 
-export function readStoredToken(date: string): string | null {
-  return safe(() => sessionStorage.getItem(TOKEN_PREFIX + date), null)
+const CODE_KEY = 'inout-check-in-code'
+
+export function readStoredToken(_date?: string): string | null {
+  return safe(() => localStorage.getItem(CODE_KEY), null)
 }
 
-export function storeToken(date: string, token: string) {
+export function storeToken(_date: string | undefined, token: string) {
   safe(() => {
-    // Only ever keep today's token.
+    localStorage.setItem(CODE_KEY, token)
+    // Tidy up the old per-day session copies.
     for (let i = sessionStorage.length - 1; i >= 0; i--) {
       const key = sessionStorage.key(i)
-      if (key?.startsWith(TOKEN_PREFIX) && key !== TOKEN_PREFIX + date) sessionStorage.removeItem(key)
+      if (key?.startsWith(TOKEN_PREFIX)) sessionStorage.removeItem(key)
     }
-    sessionStorage.setItem(TOKEN_PREFIX + date, token)
   }, undefined)
 }
 
-export function clearStoredToken(date: string) {
-  safe(() => sessionStorage.removeItem(TOKEN_PREFIX + date), undefined)
+export function clearStoredToken(_date?: string) {
+  safe(() => localStorage.removeItem(CODE_KEY), undefined)
 }
 
 export function readRememberedStaff(): RememberedStaff | null {

@@ -46,7 +46,7 @@ export function RotaStaffSection({
   const summary = lastUpload && lastUpload.date === date ? lastUpload : null
 
   return (
-    <section id="rota-staff" className="min-w-0 rounded-lg border border-hairline-soft bg-canvas p-5 shadow-card">
+    <section id="rota-staff" className="min-w-0 rounded-card border border-hairline-soft bg-canvas p-5 shadow-card">
       <Tabs variant="segment" defaultValue="upload">
         <TabsList className="mb-5 w-full">
           <TabsTrigger value="upload" className="min-h-10">
@@ -79,7 +79,7 @@ export function RotaStaffSection({
             hint="Supports .xlsx, .xls, .csv"
           />
           {summary ? (
-            <div role="status" className="animate-reveal flex flex-col gap-2 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+            <div role="status" className="animate-reveal flex flex-col gap-2 rounded-control border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
               <p className="flex items-center gap-2 font-semibold">
                 <CircleCheck className="size-4" aria-hidden="true" />
                 {summary.count} staff uploaded

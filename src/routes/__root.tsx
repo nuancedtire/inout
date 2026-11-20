@@ -38,7 +38,7 @@ function NotFoundPage() {
     <main className="min-h-svh flex items-center justify-center bg-surface-soft px-4 py-12 pt-safe">
       <div className="animate-reveal w-full max-w-sm text-center">
         <div className="relative mx-auto mb-6 w-fit">
-          <RunnerMark size={96} animate="idle" />
+          <RunnerMark size={96} animate="run" className="rm-decorative" />
         </div>
         <p className="text-sm font-semibold tracking-wide text-accent-accessible">404</p>
         <h1 className="mt-1 text-2xl font-semibold text-ink text-balance">This page has checked out</h1>

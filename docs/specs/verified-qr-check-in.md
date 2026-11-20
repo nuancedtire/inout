@@ -4,6 +4,8 @@ Status: implementation in progress on branch `feat/verified-check-in` (20 Novemb
 
 Related: [Secure NFC attendance](secure-nfc-attendance.md) (tracker issue #72). This specification covers the ED pilot that runs before NFC. It shares the stable staff record with that specification and amends two of its decisions; see "Relationship to the secure NFC specification".
 
+> **Amendment, 21 November 2026.** The daily QR was replaced by one permanent, admin-only check-in code (see ADR-009 in CONTEXT.md). Wherever this specification says "daily QR token", read "check-in code". Sessions now also carry over midnight for up to 20 hours.
+
 ## Problem Statement
 
 The ED general manager has been offered a pilot of InOut. The current application proves only that someone held today's QR token and chose a name:

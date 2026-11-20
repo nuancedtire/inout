@@ -42,12 +42,13 @@ describe('manual check-in handler', () => {
     expect(await db.select().from(sessions)).toHaveLength(12)
   })
 
-  it('rejects malformed inputs, missing rotas and incorrect tokens without creating records', async () => {
+  it('rejects malformed inputs and incorrect codes without creating attendance records', async () => {
     request.ip = '192.0.2.3'
     const db = await getDb()
     await expect(manualCheckIn({ data: { ...input, name: ' ' } })).rejects.toThrow(/name/)
-    await expect(manualCheckIn({ data: input })).rejects.toThrow(/No rota/)
-    await db.insert(rotas).values({ date: todayDate(), token: 'MNOPQRSTUVWX' })
+    // No uploaded rota: today's rota is created on first use, but a wrong code still records nothing.
+    await expect(manualCheckIn({ data: input })).rejects.toThrow(/Invalid or expired/)
+    expect(await db.select().from(rotas)).toHaveLength(1)
     for (let i = 0; i < 9; i++) await expect(manualCheckIn({ data: input })).rejects.toThrow(/Invalid or expired/)
     await expect(manualCheckIn({ data: input })).rejects.toThrow(/Too many check-ins/)
     expect(await db.select().from(rosterEntries)).toEqual([])

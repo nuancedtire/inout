@@ -208,7 +208,7 @@ export function AuditEvent({ event }: { event: AuditEventItem }) {
           ) : null}
         </p>
         {open ? (
-          <dl className="animate-reveal mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-md bg-surface-soft px-3 py-2 text-xs">
+          <dl className="animate-reveal mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-control bg-surface-soft px-3 py-2 text-xs">
             {details.map(([k, v]) => (
               <div key={k} className="contents">
                 <dt className="text-muted">{humanKey(k)}</dt>

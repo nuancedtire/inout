@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAdminContext } from '#/routes/admin/-context'
-import { uploadRota, addAdHocStaff, getQrTokenOrSeed, adminUpdateRosterEntry } from '#/utils/rotas.functions'
+import { uploadRota, addAdHocStaff, adminGetCheckInCode, adminReplaceCheckInCode, adminUpdateRosterEntry } from '#/utils/rotas.functions'
 import { adminUpdateSession, adminDeleteRosterEntry, adminExportSessions, runAutoCheckout } from '#/utils/sessions.functions'
 import { adminLinkRosterEntry, adminListStaff, adminListUnlinkedEntries } from '#/utils/staff.functions'
 import { buildAttendanceCsv } from '#/utils/exportCsv'
@@ -194,11 +194,12 @@ function AdminRoster() {
     }
   }
 
-  const handleQrGenerate = async (qrDate: string) => {
+  const toQr = async (token: string) => {
     const { default: QRCode } = await import('qrcode')
-    const { token } = await getQrTokenOrSeed({ data: { date: qrDate } })
-    return QRCode.toDataURL(`${window.location.origin}/?token=${token}`, { width: 448, margin: 1 })
+    return { token, image: await QRCode.toDataURL(`${window.location.origin}/?token=${token}`, { width: 448, margin: 1 }) }
   }
+  const loadQr = async () => toQr((await adminGetCheckInCode({ data: { authToken } })).token)
+  const replaceQr = async () => toQr((await adminReplaceCheckInCode({ data: { authToken } })).token)
 
   if (dataLoading && !data) {
     return (
@@ -227,7 +228,7 @@ function AdminRoster() {
           today={today}
           lastUpload={lastUpload}
         />
-        <QrSection viewDate={viewDate} onGenerate={handleQrGenerate} />
+        <QrSection onLoad={loadQr} onReplace={replaceQr} />
       </div>
 
       <LinkStaffPanel key={viewDate} unlinked={unlinked} staff={staff} onLink={handleLink} linkingId={linkingId} />

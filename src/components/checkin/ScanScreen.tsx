@@ -15,7 +15,7 @@ import { BigButton, Notice, ScreenTitle, TextLink } from './ui'
 type CameraState = 'starting' | 'live' | 'found' | CameraError | 'paused'
 
 /**
- * "Scan today's QR": a live rear-camera scanner (for Home Screen launches and anyone without a
+ * "Scan the QR": a live rear-camera scanner (for Home Screen launches and anyone without a
  * token), with typed-code entry as the fallback. The camera stops whenever the page is hidden.
  */
 export function ScanScreen({ greetingName, notice, onToken }: {
@@ -30,9 +30,9 @@ export function ScanScreen({ greetingName, notice, onToken }: {
         eyebrow={greetingName ? `Hi ${greetingName}` : undefined}
         sub={mode === 'camera'
           ? 'Point your camera at the InOut QR code in the department.'
-          : 'Type the 12-character code shown with today’s QR code. Ask the coordinator if you can’t see it.'}
+          : 'Type the 12-character code printed under the InOut QR code. Ask the coordinator if you can’t see it.'}
       >
-        {mode === 'camera' ? 'Scan today’s QR code' : 'Enter today’s code'}
+        {mode === 'camera' ? 'Scan the InOut QR code' : 'Enter the check-in code'}
       </ScreenTitle>
 
       {notice ? (
@@ -113,7 +113,7 @@ function CameraScanner({ onToken, onTypeInstead }: { onToken: (t: string) => voi
   return (
     <div className="mt-6 flex flex-1 flex-col">
       <div
-        className={`relative mx-auto aspect-square w-full max-w-[340px] overflow-hidden rounded-[28px] bg-[#111] shadow-[0_20px_40px_-20px_rgba(0,0,0,0.5)] ${state === 'found' ? 'ck-found' : ''}`}
+        className={`relative mx-auto aspect-square w-full max-w-[340px] overflow-hidden rounded-card bg-[#111] shadow-[0_20px_40px_-20px_rgba(0,0,0,0.5)] ${state === 'found' ? 'ck-found' : ''}`}
       >
         <video
           ref={videoRef}
@@ -150,7 +150,7 @@ function CameraScanner({ onToken, onTypeInstead }: { onToken: (t: string) => voi
             <p className="text-sm leading-relaxed text-white/75">
               {state === 'denied'
                 ? 'Allow camera access for InOut in your browser settings, or type the code instead.'
-                : 'You can type the code shown with today’s QR code instead.'}
+                : 'You can type the code printed under the QR code instead.'}
             </p>
           </div>
         ) : null}
@@ -211,7 +211,7 @@ function CodeEntry({ onToken, onUseCamera }: { onToken: (t: string) => void; onU
 
   return (
     <form onSubmit={submit} className="mt-6 flex flex-1 flex-col" noValidate>
-      <label htmlFor="ck-code" className="sr-only">Today’s code</label>
+      <label htmlFor="ck-code" className="sr-only">Check-in code</label>
       <input
         ref={inputRef}
         id="ck-code"
@@ -228,7 +228,7 @@ function CodeEntry({ onToken, onUseCamera }: { onToken: (t: string) => void; onU
         placeholder="ABCD EFGH JKLM"
         aria-invalid={error ? true : undefined}
         aria-describedby="ck-code-help"
-        className="h-[72px] w-full rounded-[20px] border border-hairline bg-canvas px-5 text-center font-mono text-[1.625rem] font-semibold tracking-[0.12em] text-ink uppercase placeholder:text-neutral-400 outline-none focus:border-ink focus:ring-4 focus:ring-ink/8 aria-invalid:border-danger-600"
+        className="h-[72px] w-full rounded-control border border-hairline bg-canvas px-5 text-center font-mono text-[1.625rem] font-semibold tracking-[0.12em] text-ink uppercase placeholder:text-neutral-500 outline-none transition-[border-color,box-shadow] hover:border-neutral-400 focus:border-ink focus:shadow-[0_0_0_1px_var(--color-ink)] aria-invalid:border-danger-600"
       />
       <p id="ck-code-help" className={`mt-2 text-center text-sm ${error ? 'text-danger-700' : 'text-muted'}`} role={error ? 'alert' : undefined}>
         {error ?? `${code.length} of 12`}

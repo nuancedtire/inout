@@ -27,7 +27,7 @@ export function AdminDock() {
                 data-tour={`dock-${item.tourId}`}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'relative flex min-h-13 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 outline-none',
+                  'relative flex min-h-13 min-w-0 flex-col items-center justify-center gap-1 rounded-control px-1 outline-none',
                   'focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-focus',
                   active ? 'text-accent-accessible' : 'text-muted hover:text-ink',
                 )}
@@ -36,7 +36,7 @@ export function AdminDock() {
                   <motion.span
                     layoutId="admin-dock-pill"
                     transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
-                    className="absolute inset-x-1 inset-y-0.5 -z-10 rounded-md bg-primary-50"
+                    className="absolute inset-x-1 inset-y-0.5 -z-10 rounded-control bg-primary-50"
                   />
                 )}
                 <span className="relative">

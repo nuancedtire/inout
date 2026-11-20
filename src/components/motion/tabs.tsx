@@ -49,7 +49,7 @@ function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimi
   const { variant } = React.useContext(MotionTabsCtx)
   const variantCls =
     variant === 'segment'
-      ? 'bg-surface-soft rounded-xl p-1 gap-0.5'
+      ? 'bg-surface-strong rounded-full p-1 gap-0.5'
       : variant === 'underline'
         ? 'border-b border-hairline gap-1'
         : 'gap-1'
@@ -73,19 +73,19 @@ function TabsTrigger({
   // beui pattern: indicator sits at natural z-order (no -z-10),
   // children are wrapped in relative z-10 so they always render on top.
   const baseCls =
-    'relative flex items-center justify-center text-sm font-medium cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-primary-500 transition-colors duration-150'
+    'relative flex items-center justify-center text-sm font-medium cursor-pointer select-none outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus transition-colors duration-150'
 
   const variantCls =
     variant === 'segment'
-      ? `flex-1 px-3 py-1.5 rounded-lg ${isActive ? 'text-ink' : 'text-muted hover:text-ink'}`
+      ? `flex-1 px-3 py-1.5 rounded-full ${isActive ? 'text-ink' : 'text-muted hover:text-ink'}`
       : variant === 'underline'
-        ? `px-3 py-2 rounded-t-lg ${isActive ? 'text-primary-700' : 'text-muted hover:text-ink'}`
-        : `px-3 py-1.5 rounded-lg ${isActive ? 'text-primary-700' : 'text-muted hover:bg-surface-soft'}`
+        ? `px-3 py-2 rounded-t-inner ${isActive ? 'text-primary-700' : 'text-muted hover:text-ink'}`
+        : `px-3 py-1.5 rounded-full ${isActive ? 'text-primary-700' : 'text-muted hover:bg-surface-soft'}`
 
   const indicatorCls =
     variant === 'underline'
       ? 'absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500'
-      : 'absolute inset-0 rounded-lg'
+      : 'absolute inset-0 rounded-full'
 
   // For segment: use inline boxShadow to guarantee visibility regardless of
   // Tailwind JIT. The shadow is what makes the white card distinct from the

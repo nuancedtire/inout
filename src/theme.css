@@ -79,14 +79,24 @@
   --text-3xl: 1.875rem;
   --text-3xl--line-height: 2.25rem;
 
-  /* Radius — Airbnb soft/generous rounding */
-  --radius-sm: 0.5rem;
-  --radius-md: 0.875rem;
-  --radius-lg: 1.25rem;
-  --radius-xl: 2rem;
-  --radius-2xl: 2.5rem;
-  /* Buttons, inputs and other controls */
+  /* Radius — one scale for the whole app. Use the semantic names:
+       rounded-inner    8px  something nested in a control or card edge: menu items, calendar days,
+                             icon buttons inside a field, small icon tiles
+       rounded-control 12px  buttons, inputs, selects, toggle chips, dropdowns/popovers
+       rounded-card    20px  cards, sheets, dialogs, panels, large tiles and media frames
+       rounded-full          pills: badges, avatars, segmented tabs, filter/choice chips, switches,
+                             progress, and icon-only round buttons
+     The stock Tailwind/shadcn names resolve onto the same three steps, so nothing can drift to 32/40px. */
+  --radius-inner: 0.5rem;
   --radius-control: 0.75rem;
+  --radius-card: 1.25rem;
+  --radius-xs: var(--radius-inner);
+  --radius-sm: var(--radius-inner);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-card);
+  --radius-xl: var(--radius-card);
+  --radius-2xl: var(--radius-card);
+  --radius-3xl: var(--radius-card);
 
   /* Airbnb single shadow tier */
   --shadow-card: rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0, rgba(0,0,0,0.08) 0 4px 8px 0;

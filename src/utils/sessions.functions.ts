@@ -1,6 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader } from '@tanstack/react-start/server'
 import { getDb } from '#/db/client'
+import { requireCheckInCode } from '#/db/checkInCode'
+import { CARRY_OVER_MS } from '#/db/staff'
 import { updateAttendanceSession, deleteAttendanceEntry, getEntryStatus, performAttendanceAction } from '#/db/attendance'
 import { countPendingEnrolments, getSiteSettings } from '#/db/passkeys'
 import { rotas, rosterEntries, sessions, auditLog } from '#/db/schema'
@@ -100,10 +102,17 @@ async function selfSelectedAction(
   action: 'check_in' | 'check_out' | 'undo',
 ) {
   const db = await getDb()
-  const rota = await getRotaForDate(todayDate())
-  if (!rota || rota.token !== data.token) throw new Error('Invalid or expired QR code')
+  const rota = await requireCheckInCode(db, data.token)
   const entry = await db.select({ id: rosterEntries.id, name: rosterEntries.name }).from(rosterEntries)
     .where(and(eq(rosterEntries.id, data.rosterEntryId), eq(rosterEntries.rotaId, rota.id))).get()
+    // A night shift picked on yesterday's rota can still check out (or undo) after midnight.
+    ?? (action === 'check_in' ? undefined : await db.select({ id: rosterEntries.id, name: rosterEntries.name }).from(rosterEntries)
+      .innerJoin(sessions, eq(sessions.rosterEntryId, rosterEntries.id))
+      .where(and(
+        eq(rosterEntries.id, data.rosterEntryId),
+        gte(sessions.checkInAt, new Date(Date.now() - CARRY_OVER_MS).toISOString()),
+        ...(action === 'check_out' ? [isNull(sessions.checkOutAt)] : []),
+      )).get())
   if (!entry) throw new Error('Staff not found')
   const location = action === 'undo'
     ? { outcome: 'not_requested' as const, accuracyM: null }
@@ -162,17 +171,9 @@ export const manualCheckIn = createServerFn({ method: 'POST' })
     // Count attempts before any database access, including invalid/expired QR tokens.
     checkManualCheckInLimit(getRequestHeader('CF-Connecting-IP'))
     const db = await getDb()
-    const date = todayDate()
 
-    // Validate QR token — but do NOT auto-create a rota
-    const rota = await getRotaForDate(date)
-    if (!rota) {
-      throw new Error('No rota for today. Ask an admin to upload the rota first.')
-    }
-
-    if (rota.token !== data.token) {
-      throw new Error('Invalid or expired QR code')
-    }
+    // Today's rota is created on first use, so a missing upload never blocks a locum.
+    const rota = await requireCheckInCode(db, data.token)
 
     const [entryInserted] = await db
       .insert(rosterEntries)
@@ -217,12 +218,7 @@ export const getStaffHistory = createServerFn({ method: 'POST' })
   .validator(validateEntryWithToken)
   .handler(async ({ data }) => {
     const db = await getDb()
-    const date = todayDate()
-    const rota = await getRotaForDate(date)
-
-    if (!rota || rota.token !== data.token) {
-      throw new Error('Invalid or expired QR code')
-    }
+    await requireCheckInCode(db, data.token)
 
     const result = await db
       .select({

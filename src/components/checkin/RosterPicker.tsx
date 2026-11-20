@@ -36,7 +36,7 @@ export function RosterPicker({ entries, title, sub, onPick, onLocum, locumLabel 
     <button
       type="button"
       onClick={onLocum}
-      className="ui-press group flex min-h-[68px] w-full items-center gap-3.5 rounded-[20px] border border-dashed border-hairline bg-canvas/60 px-4 py-3 text-left hover:border-ink/30 hover:bg-canvas"
+      className="ui-press group flex min-h-[68px] w-full items-center gap-3.5 rounded-card border border-dashed border-hairline bg-canvas/60 px-4 py-3 text-left hover:border-ink/30 hover:bg-canvas"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-strong text-ink" aria-hidden="true">
         <UserPlus className="size-5" />
@@ -66,7 +66,7 @@ export function RosterPicker({ entries, title, sub, onPick, onLocum, locumLabel 
             autoComplete="off"
             autoCorrect="off"
             enterKeyHint="search"
-            className="h-13 w-full rounded-[16px] border border-hairline bg-canvas pr-12 pl-12 text-base text-ink placeholder:text-muted outline-none focus:border-ink focus:ring-4 focus:ring-ink/8 [&::-webkit-search-cancel-button]:hidden"
+            className="h-13 w-full rounded-control border border-hairline bg-canvas pr-12 pl-12 text-base text-ink placeholder:text-muted outline-none transition-[border-color,box-shadow] hover:border-neutral-400 focus:border-ink focus:shadow-[0_0_0_1px_var(--color-ink)] [&::-webkit-search-cancel-button]:hidden"
           />
           {query ? (
             <button
@@ -86,7 +86,7 @@ export function RosterPicker({ entries, title, sub, onPick, onLocum, locumLabel 
       </p>
 
       {filtered.length > 0 ? (
-        <ul className="overflow-hidden rounded-[20px] bg-canvas shadow-card" aria-label="Today’s rota">
+        <ul className="overflow-hidden rounded-card bg-canvas shadow-card" aria-label="Today’s rota">
           {filtered.map((entry) => {
             const shift = shiftLabel(entry.shiftStart, entry.shiftEnd)
             const detail = [entry.role, shift].filter(Boolean).join(' · ')
@@ -109,7 +109,7 @@ export function RosterPicker({ entries, title, sub, onPick, onLocum, locumLabel 
           })}
         </ul>
       ) : (
-        <div className="rounded-[20px] bg-canvas px-5 py-8 text-center shadow-card">
+        <div className="rounded-card bg-canvas px-5 py-8 text-center shadow-card">
           <p className="font-semibold text-ink">{entries.length === 0 ? 'Nobody is on today’s rota yet' : `No one called “${query.trim()}” today`}</p>
           <p className="mt-1 text-sm text-muted">If you’re a locum or not on the rota, add yourself below.</p>
         </div>

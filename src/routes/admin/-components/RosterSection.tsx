@@ -89,7 +89,7 @@ export function RosterSection({
 
   const editor = (entryId: number) => (
     <form
-      className="grid grid-cols-2 gap-3 rounded-md border border-hairline-soft bg-canvas p-4 lg:grid-cols-[2fr_1.5fr_1fr_1fr_auto] lg:items-end"
+      className="grid grid-cols-2 gap-3 rounded-control border border-hairline-soft bg-canvas p-4 lg:grid-cols-[2fr_1.5fr_1fr_1fr_auto] lg:items-end"
       onSubmit={(ev) => {
         ev.preventDefault()
         void save(entryId)

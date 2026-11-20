@@ -20,13 +20,13 @@ export function DatePicker({ value, onChange, className = '' }: DatePickerProps)
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full border border-hairline bg-canvas hover:bg-surface-soft text-sm text-body transition-colors ${className}`}
+          className={`ui-press flex items-center gap-2 rounded-control border border-hairline bg-canvas px-3 py-1.5 text-sm text-body hover:border-neutral-400 hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${className}`}
         >
-          <CalendarDays className="w-4 h-4 text-muted shrink-0" />
+          <CalendarDays className="size-4 shrink-0 text-muted" aria-hidden="true" />
           <span className="font-medium">{displayLabel}</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 rounded-2xl shadow-lg border border-hairline" align="end">
+      <PopoverContent className="w-auto p-0 rounded-control shadow-overlay border border-hairline" align="end">
         <Calendar
           mode="single"
           selected={selected}

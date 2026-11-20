@@ -32,7 +32,7 @@ function DateNav({ viewDate, isToday, onPrev, onNext, onDateChange, onToday, cla
         <button
           type="button"
           onClick={onToday}
-          className="ui-press ml-1 inline-flex min-h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-white hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          className="ui-press ml-1 inline-flex min-h-10 items-center rounded-control bg-ink px-4 text-sm font-semibold text-white hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           Today
         </button>
@@ -60,7 +60,7 @@ export function AdminTopBar({ onLogout, ...dateNav }: DateNavProps & { onLogout:
       <button
         type="button"
         onClick={onLogout}
-        className="ui-press inline-flex min-h-11 items-center gap-2 rounded-full px-3.5 text-sm font-semibold text-ink hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-focus sm:min-h-10"
+        className="ui-press inline-flex min-h-11 items-center gap-2 rounded-control px-3.5 text-sm font-semibold text-ink hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-focus sm:min-h-10"
       >
         <Lock className="size-4" aria-hidden="true" />
         Lock

@@ -41,7 +41,7 @@ export function PasskeySetupScreen({ platform, name, role, checkInNow, onCheckIn
         Set up {platform === 'other' ? 'your screen lock' : unlock.name === 'fingerprint' ? 'fingerprint sign-in' : unlock.name}
       </ScreenTitle>
 
-      <div className="mt-6 overflow-hidden rounded-[20px] bg-canvas shadow-card">
+      <div className="mt-6 overflow-hidden rounded-card bg-canvas shadow-card">
         <div className="flex items-center gap-3.5 px-4 py-3.5">
           <Avatar name={name} size={40} />
           <div className="min-w-0 flex-1">

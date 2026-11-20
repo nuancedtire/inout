@@ -21,7 +21,7 @@ export function SessionEditForm({
   const id = useId()
   return (
     <form
-      className="flex flex-col gap-3 rounded-md border border-hairline-soft bg-canvas p-4 sm:flex-row sm:flex-wrap sm:items-end"
+      className="flex flex-col gap-3 rounded-control border border-hairline-soft bg-canvas p-4 sm:flex-row sm:flex-wrap sm:items-end"
       onSubmit={(e) => {
         e.preventDefault()
         onSave()

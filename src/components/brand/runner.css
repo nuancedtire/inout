@@ -32,22 +32,23 @@
 .rm-trail-1 { --rm-ox: 508.74px; }
 .rm-trail-2 { --rm-ox: 278.06px; }
 
-:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-part {
+:is(.rm[data-animate='run'], .rm[data-playing]) .rm-part {
   animation-duration: var(--rm-cycle);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
-.rm[data-animate='idle'][data-playing] .rm-part { animation-iteration-count: 1; }
-:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-body { animation-name: rm-body; }
-:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-leg { animation-name: rm-leg; }
-:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-shin { animation-name: rm-shin; }
-:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-arm { animation-name: rm-arm; }
-:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-head { animation-name: rm-head; }
-:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-trail { animation-name: rm-trail; }
-/* Speed lines are staggered while running so two are always visible; an idle stride sweeps them together. */
+.rm[data-playing] .rm-part { animation-iteration-count: 1; }
+:is(.rm[data-animate='run'], .rm[data-playing]) .rm-body { animation-name: rm-body; }
+:is(.rm[data-animate='run'], .rm[data-playing]) .rm-leg { animation-name: rm-leg; }
+:is(.rm[data-animate='run'], .rm[data-playing]) .rm-shin { animation-name: rm-shin; }
+:is(.rm[data-animate='run'], .rm[data-playing]) .rm-arm { animation-name: rm-arm; }
+:is(.rm[data-animate='run'], .rm[data-playing]) .rm-head { animation-name: rm-head; }
+:is(.rm[data-animate='run'], .rm[data-playing]) .rm-trail { animation-name: rm-trail; }
+/* Speed lines are staggered while running so two are always visible; a single (idle/ambient) stride sweeps
+   them together. */
 .rm[data-animate='run'] .rm-trail-0 { animation-delay: calc(var(--rm-cycle) * -0.62); }
 .rm[data-animate='run'] .rm-trail-2 { animation-delay: calc(var(--rm-cycle) * -0.31); }
-.rm[data-offscreen] .rm-part { animation-play-state: paused; }
+.rm[data-paused] .rm-part { animation-play-state: paused; }
 
 /* A speed line streams back off the runner, thins and fades, then re-forms from its thick end. */
 @keyframes rm-trail {
@@ -72,7 +73,8 @@
   }
 }
 
-/* Reduced motion: nothing moves. A running mark still signals work by gently breathing its speed lines. */
+/* Reduced motion: nothing moves. A working (run) mark still signals progress by gently breathing its speed
+   lines; hero lockups and other decorative runs stay still. */
 @keyframes rm-trail-calm {
   from { opacity: 1; }
   to { opacity: 0.2; }
@@ -84,6 +86,9 @@
   }
   .rm[data-animate='run'] .rm-trail-0 { animation-delay: -0.47s !important; }
   .rm[data-animate='run'] .rm-trail-2 { animation-delay: -0.93s !important; }
+  /* A hero lockup's run is decoration, not progress: it stays completely still. */
+  .wm .rm[data-animate] .rm-part,
+  .rm.rm-decorative[data-animate] .rm-part { animation: none !important; }
 }
 @media print {
   .rm .rm-part { animation: none !important; }
@@ -130,6 +135,7 @@
   animation: wm-footfall var(--rm-cycle) linear var(--wm-delay, 0ms) infinite;
 }
 .wm:has(.rm[data-playing]) .wm-letter { animation-iteration-count: 1; }
+.wm:has(.rm[data-paused]) .wm-letter { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
   .wm .wm-letter { animation: none !important; }
 }

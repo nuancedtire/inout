@@ -40,14 +40,14 @@ export function AppSidebar() {
       <SidebarHeader>
         {/* Collapsed: the runner alone; clicking it expands the sidebar. */}
         <button
-          className="hidden w-full items-center justify-center rounded-md py-4 group-data-[collapsible=icon]:flex focus-visible:outline-2 focus-visible:outline-focus"
+          className="hidden w-full items-center justify-center rounded-control py-4 group-data-[collapsible=icon]:flex focus-visible:outline-2 focus-visible:outline-focus"
           onClick={() => setOpen(true)}
           aria-label="Expand sidebar"
         >
-          <RunnerMark size={36} animate="none" />
+          <RunnerMark size={36} animate="ambient" />
         </button>
         <div className="flex items-center gap-2 px-3 pb-3 pt-4 group-data-[collapsible=icon]:hidden">
-          <Wordmark size="sm" label="InOut admin" />
+          <Wordmark size="sm" label="InOut admin" animate="ambient" />
           <span className="ml-1 rounded-full bg-surface-strong px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
             Admin
           </span>
@@ -75,7 +75,7 @@ export function AppSidebar() {
                         <motion.span
                           layoutId={`${navId}-nav-ind`}
                           transition={SPRING_LAYOUT}
-                          className="absolute inset-0 rounded-md bg-sidebar-accent"
+                          className="absolute inset-0 rounded-control bg-sidebar-accent"
                         />
                       )}
                       <SidebarMenuButton
@@ -115,7 +115,7 @@ export function AppSidebar() {
         <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
           <button
             onClick={start}
-            className="ui-press flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-sm font-medium text-muted hover:bg-surface-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-focus"
+            className="ui-press flex min-h-10 w-full items-center gap-2 rounded-control px-2 text-sm font-medium text-muted hover:bg-surface-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-focus"
           >
             <HelpCircle className="size-4" aria-hidden="true" />
             Replay the tour
@@ -124,7 +124,7 @@ export function AppSidebar() {
         <button
           onClick={start}
           aria-label="Replay the tour"
-          className="hidden w-full items-center justify-center rounded-md py-3 text-muted hover:text-ink group-data-[collapsible=icon]:flex focus-visible:outline-2 focus-visible:outline-focus"
+          className="hidden w-full items-center justify-center rounded-control py-3 text-muted hover:text-ink group-data-[collapsible=icon]:flex focus-visible:outline-2 focus-visible:outline-focus"
         >
           <HelpCircle className="size-5" aria-hidden="true" />
         </button>

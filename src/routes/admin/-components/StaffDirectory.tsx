@@ -206,13 +206,13 @@ export function StaffDirectory({
                   {open ? (
                     <div id={panelId} className="animate-reveal flex flex-col gap-3 px-5 pb-5 pl-5 sm:pl-[4.25rem]">
                       {phones.length === 0 ? (
-                        <p className="rounded-md border border-dashed border-hairline px-4 py-3 text-sm text-muted">
+                        <p className="rounded-control border border-dashed border-hairline px-4 py-3 text-sm text-muted">
                           No working phone. {s.name.split(' ')[0]} can set one up from the check-in page.
                         </p>
                       ) : (
                         <ul className="flex flex-col gap-2">
                           {phones.map((p) => (
-                            <li key={p.credentialId} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-hairline-soft bg-canvas px-4 py-3">
+                            <li key={p.credentialId} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control border border-hairline-soft bg-canvas px-4 py-3">
                               <Smartphone className="size-5 shrink-0 text-muted" aria-hidden="true" />
                               <div className="min-w-0 flex-1 basis-[calc(100%-2rem)] sm:basis-0">
                                 <p className="text-sm font-semibold text-ink">

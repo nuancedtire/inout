@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { X, ArrowLeft, ArrowRight, MousePointerClick } from 'lucide-react'
 import { useTour } from '#/lib/tour/TourContext'
+import { Button } from './Button'
 import { SPRING_PANEL } from '#/lib/ease'
 
 const SPOTLIGHT_PADDING = 8
@@ -218,7 +219,7 @@ export function TourOverlay() {
             )
           })()}
           <motion.div
-            className={`fixed rounded-2xl ring-2 ring-primary-500 pointer-events-none ${reduceMotion ? '' : 'animate-pulse'}`}
+            className={`fixed rounded-card ring-2 ring-primary-500 pointer-events-none ${reduceMotion ? '' : 'animate-pulse'}`}
             initial={false}
             animate={{
               top: rect.top - SPOTLIGHT_PADDING,
@@ -231,7 +232,7 @@ export function TourOverlay() {
         </>
       ) : rect ? (
         <motion.div
-          className="fixed rounded-2xl ring-2 ring-primary-500"
+          className="fixed rounded-card ring-2 ring-primary-500"
           initial={false}
           animate={{
             top: rect.top - SPOTLIGHT_PADDING,
@@ -260,7 +261,7 @@ export function TourOverlay() {
           animate={{ opacity: 1, y: 0 }}
           exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
           transition={reduceMotion ? { duration: 0.1 } : SPRING_PANEL}
-          className="fixed w-[min(360px,calc(100vw-2rem))] bg-canvas rounded-2xl p-5 outline-none"
+          className="fixed w-[min(360px,calc(100vw-2rem))] bg-canvas rounded-card p-5 outline-none"
           style={{
             boxShadow: 'var(--shadow-hover)',
             top: cardPos?.top ?? -9999,
@@ -277,20 +278,20 @@ export function TourOverlay() {
             <button
               onClick={skip}
               aria-label="Skip tour"
-              className="text-muted hover:text-ink -m-1 p-1 rounded-full hover:bg-surface-soft transition-colors"
+              className="ui-press -m-2 flex size-9 items-center justify-center rounded-full text-muted hover:bg-surface-soft hover:text-ink"
             >
-              <X className="w-4 h-4" />
+              <X className="size-4" aria-hidden="true" />
             </button>
           </div>
 
           <div className="h-1 bg-surface-strong rounded-full overflow-hidden mb-4">
             <div
-              className="h-full bg-primary-500 rounded-full transition-all duration-300"
+              className="h-full bg-accent-accessible rounded-full transition-all duration-300"
               style={{ width: `${((stepIndex + 1) / totalSteps) * 100}%` }}
             />
           </div>
 
-          <h2 id="tour-step-title" className="font-semibold text-ink mb-1.5">
+          <h2 id="tour-step-title" className="text-base font-semibold text-ink mb-1.5">
             {step.title}
           </h2>
           <p id="tour-step-body" className="text-sm text-body leading-relaxed">
@@ -301,28 +302,28 @@ export function TourOverlay() {
             <button
               onClick={back}
               disabled={stepIndex === 0}
-              className="flex items-center gap-1 text-sm text-muted hover:text-ink disabled:opacity-0 disabled:pointer-events-none transition-opacity"
+              className="ui-press -ml-2 flex min-h-9 items-center gap-1 rounded-control px-2 text-sm font-medium text-muted hover:bg-surface-soft hover:text-ink disabled:opacity-0 disabled:pointer-events-none"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="size-4" aria-hidden="true" />
               Back
             </button>
-            <div className="flex items-center gap-3">
-              <button onClick={skip} className="text-sm text-muted hover:text-ink transition-colors">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={skip}
+                className="ui-press flex min-h-9 items-center rounded-control px-3 text-sm font-medium text-muted hover:bg-surface-soft hover:text-ink"
+              >
                 Skip
               </button>
               {step.requireClick ? (
-                <span className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary-600">
-                  <MousePointerClick className="w-3.5 h-3.5" />
+                <span className="flex items-center gap-1.5 px-2 text-sm font-semibold text-accent-accessible">
+                  <MousePointerClick className="size-4" aria-hidden="true" />
                   Click above to continue
                 </span>
               ) : (
-                <button
-                  onClick={next}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 active:scale-[0.98] transition-all"
-                >
+                <Button size="sm" onClick={next}>
                   {isLast ? 'Finish' : 'Next'}
-                  {!isLast && <ArrowRight className="w-3.5 h-3.5" />}
-                </button>
+                  {!isLast && <ArrowRight className="size-4" aria-hidden="true" />}
+                </Button>
               )}
             </div>
           </div>

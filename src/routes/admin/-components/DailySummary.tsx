@@ -26,7 +26,7 @@ type StatusCellProps = {
 function StatusCell({ icon: Icon, title, emptyMsg, items, tone }: StatusCellProps) {
   const empty = items.length === 0
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border border-hairline-soft p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-control border border-hairline-soft p-4">
       <div className="flex items-center gap-2.5">
         <span aria-hidden="true" className={cn('flex size-8 items-center justify-center rounded-full', empty ? 'bg-success-50 text-success-800' : TONE[tone].icon)}>
           {empty ? <Check className="size-4" /> : <Icon className="size-4" />}
@@ -91,55 +91,58 @@ export function DailySummary({
       title="Daily summary"
       description={isToday ? 'Compared with each person’s rota’d shift. Late or early means more than 15 minutes out.' : 'Missing check-ins and check-outs are worked out for today only.'}
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <StatusCell
-          icon={AlertCircle}
-          title="Missing check-in"
-          emptyMsg={isToday ? 'Everyone due has checked in.' : 'Not tracked for past dates.'}
-          items={missingCheckIn.map((p) => ({
-            id: p.id,
-            name: p.name,
-            role: p.role,
-            detail: p.shift_start ? `Shift from ${p.shift_start}` : undefined,
-          }))}
-          tone="danger"
-        />
-        <StatusCell
-          icon={Clock}
-          title="Missing check-out"
-          emptyMsg={isToday ? 'No one is overdue.' : 'Not tracked for past dates.'}
-          items={missingCheckOut.map((p) => ({
-            id: p.id,
-            name: p.name,
-            role: p.role,
-            detail: p.checkInAt ? `In at ${formatTime(p.checkInAt)}` : undefined,
-          }))}
-          tone="warning"
-        />
-        <StatusCell
-          icon={Timer}
-          title="Late arrivals"
-          emptyMsg="Everyone was on time."
-          items={lateArrivals.map((p) => ({
-            id: p.id,
-            name: p.name,
-            role: p.role,
-            detail: p.checkInAt ? `In at ${formatTime(p.checkInAt)} (shift ${p.shift_start})` : undefined,
-          }))}
-          tone="warning"
-        />
-        <StatusCell
-          icon={UserX}
-          title="Early departures"
-          emptyMsg="No one left early."
-          items={earlyDepartures.map((p) => ({
-            id: p.id,
-            name: p.name,
-            role: p.role,
-            detail: p.checkOutAt ? `Out at ${formatTime(p.checkOutAt)} (shift to ${p.shift_end})` : undefined,
-          }))}
-          tone="neutral"
-        />
+      {/* Two columns only when the panel itself is wide enough (it sits in a half-width column on xl). */}
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2">
+          <StatusCell
+            icon={AlertCircle}
+            title="Missing check-in"
+            emptyMsg={isToday ? 'Everyone due has checked in.' : 'Not tracked for past dates.'}
+            items={missingCheckIn.map((p) => ({
+              id: p.id,
+              name: p.name,
+              role: p.role,
+              detail: p.shift_start ? `Shift from ${p.shift_start}` : undefined,
+            }))}
+            tone="danger"
+          />
+          <StatusCell
+            icon={Clock}
+            title="Missing check-out"
+            emptyMsg={isToday ? 'No one is overdue.' : 'Not tracked for past dates.'}
+            items={missingCheckOut.map((p) => ({
+              id: p.id,
+              name: p.name,
+              role: p.role,
+              detail: p.checkInAt ? `In at ${formatTime(p.checkInAt)}` : undefined,
+            }))}
+            tone="warning"
+          />
+          <StatusCell
+            icon={Timer}
+            title="Late arrivals"
+            emptyMsg="Everyone was on time."
+            items={lateArrivals.map((p) => ({
+              id: p.id,
+              name: p.name,
+              role: p.role,
+              detail: p.checkInAt ? `In at ${formatTime(p.checkInAt)} (shift ${p.shift_start})` : undefined,
+            }))}
+            tone="warning"
+          />
+          <StatusCell
+            icon={UserX}
+            title="Early departures"
+            emptyMsg="No one left early."
+            items={earlyDepartures.map((p) => ({
+              id: p.id,
+              name: p.name,
+              role: p.role,
+              detail: p.checkOutAt ? `Out at ${formatTime(p.checkOutAt)} (shift to ${p.shift_end})` : undefined,
+            }))}
+            tone="neutral"
+          />
+        </div>
       </div>
     </Panel>
   )

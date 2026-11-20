@@ -48,7 +48,7 @@ export function LinkStaffPanel({
       <div className="flex flex-col gap-5">
         {ambiguous.length > 0 ? (
           <section className="flex flex-col gap-3">
-            <div className="flex items-start gap-2 rounded-md bg-warning-50 px-4 py-3 text-sm text-warning-800">
+            <div className="flex items-start gap-2 rounded-control bg-warning-50 px-4 py-3 text-sm text-warning-800">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <p>
                 <strong className="font-semibold">Same name, more than one match.</strong> These names match several profiles, or appear
@@ -114,7 +114,7 @@ function LinkRow({
   const selectId = `link-${entry.entryId}`
 
   return (
-    <li className="flex flex-col gap-2 rounded-md border border-hairline-soft p-3 sm:flex-row sm:items-center sm:gap-3">
+    <li className="flex flex-col gap-2 rounded-control border border-hairline-soft p-3 sm:flex-row sm:items-center sm:gap-3">
       <div className="min-w-0 sm:w-48">
         <label htmlFor={selectId} className="block truncate font-semibold text-ink">
           {entry.name}

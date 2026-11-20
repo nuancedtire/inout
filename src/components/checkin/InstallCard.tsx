@@ -17,7 +17,7 @@ export function InstallCard() {
   return (
     <section
       aria-labelledby="ck-install-title"
-      className="animate-reveal relative overflow-hidden rounded-[24px] bg-canvas p-4 shadow-card"
+      className="animate-reveal relative overflow-hidden rounded-card bg-canvas p-4 shadow-card"
     >
       <div className="pointer-events-none absolute -top-16 -right-16 size-44 rounded-full bg-[radial-gradient(circle,rgba(255,56,92,0.12),transparent_70%)]" aria-hidden="true" />
       <button
@@ -29,12 +29,12 @@ export function InstallCard() {
         <X className="size-5" aria-hidden="true" />
       </button>
       <div className="flex items-center gap-3.5 pr-8">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-[14px] bg-canvas shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_4px_10px_-4px_rgba(0,0,0,0.2)]" aria-hidden="true">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-control bg-canvas shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_4px_10px_-4px_rgba(0,0,0,0.2)]" aria-hidden="true">
           <RunnerMark size={34} />
         </span>
         <div className="min-w-0">
           <h2 id="ck-install-title" className="font-semibold leading-snug text-ink">Add InOut to your Home Screen</h2>
-          <p className="text-sm leading-snug text-muted">One tap next shift — scan the QR right inside the app.</p>
+          <p className="text-sm leading-snug text-muted">Next shift, just open it and slide — no scanning.</p>
         </div>
       </div>
 
@@ -50,7 +50,7 @@ export function InstallCard() {
               setInstalling(false)
             }
           }}
-          className="ui-press mt-3.5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-ink px-5 font-semibold text-white hover:bg-neutral-800 disabled:opacity-60"
+          className="ui-press mt-3.5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-control bg-ink px-5 font-semibold text-white hover:bg-neutral-800 disabled:opacity-60"
         >
           <SquarePlus className="size-5" aria-hidden="true" />
           Install InOut
@@ -62,7 +62,7 @@ export function InstallCard() {
           aria-expanded={open}
           aria-controls={stepsId}
           onClick={() => setOpen((o) => !o)}
-          className="ui-press mt-3 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-[14px] bg-surface-strong px-4 text-sm font-semibold text-ink hover:bg-neutral-200"
+          className="ui-press mt-3 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-control bg-surface-strong px-4 text-sm font-semibold text-ink hover:bg-neutral-200"
         >
           {open ? 'Hide steps' : 'Show me how'}
           <ChevronDown className={`size-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
@@ -80,9 +80,9 @@ export function InstallCard() {
                 { icon: <Plus className="size-[18px]" />, text: <>Tap <b className="font-semibold text-ink">Install</b> to confirm</> },
               ]
           ).map((step, i) => (
-            <li key={i} className="flex items-center gap-3 rounded-[14px] bg-surface-soft px-3 py-2.5 text-sm text-body">
+            <li key={i} className="flex items-center gap-3 rounded-control bg-surface-soft px-3 py-2.5 text-sm text-body">
               <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-semibold text-white" aria-hidden="true">{i + 1}</span>
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-canvas text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.06)]" aria-hidden="true">{step.icon}</span>
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-inner bg-canvas text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.06)]" aria-hidden="true">{step.icon}</span>
               <span className="min-w-0">{step.text}</span>
             </li>
           ))}

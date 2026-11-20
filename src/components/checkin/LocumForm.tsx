@@ -143,7 +143,7 @@ export function ConfirmPersonSheet({ person, onConfirm, onCancel, mode = 'enrol'
     >
       {person ? (
         <>
-          <div className="flex items-center gap-4 rounded-[20px] bg-surface-soft p-4">
+          <div className="flex items-center gap-4 rounded-control bg-surface-soft p-4">
             <Avatar name={name} size={52} />
             <div className="min-w-0">
               <p className="truncate text-lg font-semibold text-ink">{name}</p>

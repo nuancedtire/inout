@@ -61,7 +61,7 @@ export const TOUR_STEPS: TourStep[] = [
     path: '/admin/roster',
     target: ['[data-tour="qr-generate-button"]'],
     title: 'The check-in QR code',
-    body: "This is how staff check in — no app required, just a phone camera. Click 'Show QR code' to see it.",
+    body: "This is how staff check in — just a phone camera, no app store. It's one permanent code: print it once. Replace it only if a photo of it is being shared.",
     requireClick: true,
   },
   {
@@ -69,7 +69,7 @@ export const TOUR_STEPS: TourStep[] = [
     path: '/admin/roster',
     target: ['[data-tour="qr-print-link"]'],
     title: 'Print it for the notice board',
-    body: "Once generated, use Print to get a clean, printer-friendly version with a large QR code — put it up where staff clock in and out.",
+    body: "Print a clean poster with a large QR code and the typed code, and put one up at each staff entrance. After the first scan, phones remember it.",
   },
   {
     id: 'rota-upload',

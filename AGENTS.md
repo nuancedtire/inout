@@ -52,7 +52,7 @@ src/
     index.tsx                Staff check-in/out and locum self-entry
     -hooks.ts                Browser-persisted staff identity
     history.tsx              Completed sessions for a roster entry
-    qr.tsx                   Public dated QR display
+    qr.tsx                   Redirect to /print-qr (legacy URL)
     print-qr.tsx             Standalone print page with admin UI gate
     about.tsx                Project information
     admin.tsx                PIN gate, sidebar/dock, date context, tour, Outlet
@@ -67,7 +67,7 @@ src/
       -types.ts              Admin data types
     api/export[.]csv.ts       Authenticated CSV server route
   utils/
-    auth.ts                  PIN, daily QR derivation, HMAC admin tokens
+    auth.ts                  PIN, legacy daily token derivation, HMAC admin/staff tokens
     audit.ts                 Audit writes
     dateTime.ts              UK display/date and shift helpers
     rotaParser.ts            First-sheet Excel/CSV parsing
@@ -113,7 +113,7 @@ Remote operations are separate: `pnpm run db:migrate:remote` and `pnpm run deplo
 - `ADMIN_PIN` and `QR_SEED` belong in `.dev.vars` locally and Wrangler secrets remotely. `vars` is empty. Existing fallback values are documented in README; set both secrets for production.
 - Admin server functions validate credentials inside their handlers. UI gates are not an authorization boundary. New server inputs need real runtime validation; a typed identity validator alone does not validate input.
 - Admin tokens are HMAC-SHA256 signed using `QR_SEED`, expire in 12 hours, and persist under `inout-admin-token-v2` in localStorage. PIN rotation alone does not revoke issued tokens.
-- Daily QR tokens are custom 12-character values derived from SHA-256 of `seed:date`, persisted in `rotas.token`. They are not HMACs. `/qr` and `getQrTokenOrSeed` are public and can create a dated rota before upload.
+- The check-in QR is one permanent random 12-character code in `site_settings.qr_token` (see `src/db/checkInCode.ts`), readable and replaceable only by admins. Legacy daily tokens in `rotas.token` are still accepted but never published. Today's rota is auto-created on first use. Open sessions carry over midnight for up to 20 hours.
 - Staff choose a roster entry; there are no staff accounts. History is limited to completed sessions for that entry ID. Do not describe it as cross-day personal history or strong identity verification.
 - Auto-checkout requires an admin action, acts on today's rota, and stamps closure with the action time. No app cron/scheduled handler exists. Overnight/BST behavior remains a known limitation.
 - Admin ad-hoc additions target today, regardless of the selected date. Dashboard reads do not poll. Audit shows the latest 50 events globally.

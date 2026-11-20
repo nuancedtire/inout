@@ -1,44 +1,47 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 const STAFF_ID_KEY = 'inout-staff-id'
 
-export function useStaffIdentity(
-  entries: { id: number; name: string; role: string | null }[],
-) {
+function read(): string | null {
+  try {
+    return localStorage.getItem(STAFF_ID_KEY)
+  } catch {
+    return null
+  }
+}
+
+function write(id: number | null) {
+  try {
+    if (id === null) localStorage.removeItem(STAFF_ID_KEY)
+    else localStorage.setItem(STAFF_ID_KEY, String(id))
+  } catch {
+    // Storage unavailable (private browsing): identity lasts for this page only.
+  }
+}
+
+/**
+ * Today's roster entry chosen on this browser (used by /history). The check-in page keeps the same
+ * key pointed at the person's entry after a passkey sign-in, so history opens on the right name.
+ * Reads happen after mount only, so server and first client render match.
+ */
+export function useStaffIdentity(entries: { id: number; name: string; role: string | null }[]) {
   const [staffId, setStaffId] = useState<number | null>(null)
   const [showIdentityPicker, setShowIdentityPicker] = useState(false)
 
-  // On mount, load saved identity from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem(STAFF_ID_KEY)
-    if (saved && entries.some((e) => String(e.id) === saved)) {
-      setStaffId(Number(saved))
-    }
+    const saved = read()
+    if (saved && entries.some((e) => String(e.id) === saved)) setStaffId(Number(saved))
   }, [entries])
 
-  // Save identity to localStorage whenever staffId changes
-  useEffect(() => {
-    if (staffId !== null) {
-      localStorage.setItem(STAFF_ID_KEY, String(staffId))
-    } else {
-      localStorage.removeItem(STAFF_ID_KEY)
-    }
-  }, [staffId])
-
-  const selectIdentity = (id: number) => {
+  const selectIdentity = useCallback((id: number) => {
+    write(id)
     setStaffId(id)
-  }
+  }, [])
 
-  const clearIdentity = () => {
+  const clearIdentity = useCallback(() => {
+    write(null)
     setStaffId(null)
-    localStorage.removeItem(STAFF_ID_KEY)
-  }
+  }, [])
 
-  return {
-    staffId,
-    showIdentityPicker,
-    selectIdentity,
-    clearIdentity,
-    setShowIdentityPicker,
-  }
+  return { staffId, showIdentityPicker, selectIdentity, clearIdentity, setShowIdentityPicker }
 }

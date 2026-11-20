@@ -1,4 +1,5 @@
-import { Fingerprint } from 'lucide-react'
+import { ChevronRight, UserRound } from 'lucide-react'
+import { initials } from '#/components/checkin/copy'
 
 type IdentityBarProps = {
   staffId: number | null
@@ -8,43 +9,40 @@ type IdentityBarProps = {
   onClear: () => void
 }
 
+/** Who this page is showing, with a way to change it. */
 export function IdentityBar({ staffId, staffName, staffRole, onSelectClick, onClear }: IdentityBarProps) {
   if (staffId === null || !staffName) {
     return (
       <button
         type="button"
         onClick={onSelectClick}
-        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-hairline bg-canvas hover:bg-surface-soft transition-colors cursor-pointer"
-        style={{ boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0' }}
+        className="ui-press flex min-h-16 w-full items-center gap-3.5 rounded-[20px] bg-canvas px-4 py-3 text-left shadow-card hover:shadow-hover"
       >
-        <div className="w-9 h-9 rounded-full bg-surface-strong flex items-center justify-center shrink-0">
-          <span className="text-base text-muted">?</span>
-        </div>
-        <span className="text-sm font-medium text-muted flex-1 text-left">Tap to identify yourself</span>
-        <Fingerprint className="w-4 h-4 text-muted shrink-0" />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-strong text-muted" aria-hidden="true">
+          <UserRound className="size-5" />
+        </span>
+        <span className="flex-1 font-semibold text-ink">Choose your name</span>
+        <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden="true" />
       </button>
     )
   }
 
   return (
-    <div
-      className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-canvas border border-hairline"
-      style={{ boxShadow: 'rgba(0,0,0,0.02) 0 0 0 1px, rgba(0,0,0,0.04) 0 2px 6px 0' }}
-    >
-      <div
-        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-sm font-semibold"
-        style={{ background: '#ff385c18', color: '#ff385c' }}
+    <div className="flex min-h-16 w-full items-center gap-3.5 rounded-[20px] bg-canvas px-4 py-3 shadow-card">
+      <span
+        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-sm font-semibold text-accent-accessible"
+        aria-hidden="true"
       >
-        {staffName.charAt(0).toUpperCase()}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-ink truncate">{staffName}</p>
-        {staffRole && <p className="text-xs text-muted">{staffRole}</p>}
+        {initials(staffName)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold text-ink">{staffName}</p>
+        {staffRole ? <p className="truncate text-sm text-muted">{staffRole}</p> : null}
       </div>
       <button
         type="button"
         onClick={onClear}
-        className="shrink-0 text-xs font-medium text-muted hover:text-danger-600 transition-colors cursor-pointer"
+        className="ui-press min-h-11 shrink-0 rounded-control px-3 text-sm font-semibold text-accent-accessible hover:bg-primary-50"
       >
         Not you?
       </button>

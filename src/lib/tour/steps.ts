@@ -1,10 +1,10 @@
 // Bump this when step content changes meaningfully, so admins who've already
 // seen the tour are re-prompted for the new material.
-export const TOUR_VERSION = 2
+export const TOUR_VERSION = 3
 
 export type TourStep = {
   id: string
-  path: '/admin' | '/admin/roster' | '/admin/sessions' | '/admin/audit'
+  path: '/admin' | '/admin/roster' | '/admin/sessions' | '/admin/staff' | '/admin/audit'
   /** CSS selectors to try in order; the first visible match is highlighted. Null renders a centered card with no spotlight. */
   target: string[] | null
   title: string
@@ -19,14 +19,21 @@ export const TOUR_STEPS: TourStep[] = [
     path: '/admin',
     target: null,
     title: 'Welcome to InOut Admin',
-    body: "This quick tour walks through the daily workflow: uploading the rota, watching who's checked in, editing sessions, and reviewing the audit trail. Takes about a minute — skip anytime.",
+    body: "This quick tour walks through the daily workflow: uploading the rota, reviewing flagged check-ins, approving staff phones, setting the department area and the audit trail. About two minutes — skip anytime.",
   },
   {
     id: 'stat-cards',
     path: '/admin',
     target: ['[data-tour="stat-cards"]'],
     title: 'Today at a glance',
-    body: "These cards show who's on the rota, who's checked in, and who's still on site right now — updated live as staff scan the QR code.",
+    body: "Who's on the rota, who's checked in, who's on site now, and how many sessions were verified. Reload the page for the latest numbers.",
+  },
+  {
+    id: 'needs-review',
+    path: '/admin',
+    target: ['[data-tour="needs-review"]'],
+    title: 'Needs review',
+    body: 'Check-ins are never blocked. When a phone is not yet approved, someone picked their name without Face ID, or the location check did not pass, the session is flagged here with the reason. Tap Accept and add a short note once you are happy.',
   },
   {
     id: 'daily-summary',
@@ -54,7 +61,7 @@ export const TOUR_STEPS: TourStep[] = [
     path: '/admin/roster',
     target: ['[data-tour="qr-generate-button"]'],
     title: 'The check-in QR code',
-    body: "This is how staff check in — no app required, just a phone camera. Click 'Generate / refresh QR' to see it.",
+    body: "This is how staff check in — no app required, just a phone camera. Click 'Show QR code' to see it.",
     requireClick: true,
   },
   {
@@ -69,7 +76,7 @@ export const TOUR_STEPS: TourStep[] = [
     path: '/admin/roster',
     target: ['[data-tour="rota-upload"]'],
     title: 'Upload the daily rota',
-    body: "Drop in the ward's Excel/CSV rota and the system parses names, roles, and shift times automatically. This becomes the source of truth for who's expected today.",
+    body: "Drop in the Excel/CSV rota and InOut reads names, roles and shift times. Names that exactly match one staff profile are linked automatically; anything unclear is listed for you to link.",
   },
   {
     id: 'add-staff-tab',
@@ -83,14 +90,14 @@ export const TOUR_STEPS: TourStep[] = [
     path: '/admin/roster',
     target: ['[data-tour="roster-table"]'],
     title: 'The roster',
-    body: "Everyone scheduled for the day, with live in/out times and status. Edit or remove an entry, check someone out manually, run auto-checkout for anyone who forgot, or export the day's data to CSV.",
+    body: "Everyone scheduled for the day, with in/out times, status and verification. Edit or remove an entry, check someone out, run auto-checkout, or export the day to CSV — the export includes identity, location check and review columns.",
   },
   {
     id: 'weekly-rollup',
     path: '/admin/roster',
     target: ['[data-tour="weekly-rollup"]'],
     title: 'Weekly hours',
-    body: 'A Monday-to-Sunday breakdown of hours worked per person — handy for payroll or rota-planning conversations without exporting anything.',
+    body: 'A Monday-to-Sunday breakdown of hours worked per person, with a mark showing whether each day was verified, flagged or accepted.',
   },
   {
     id: 'nav-sessions',
@@ -104,21 +111,42 @@ export const TOUR_STEPS: TourStep[] = [
     path: '/admin/sessions',
     target: ['[data-tour="session-history"]'],
     title: 'Session history',
-    body: 'Each row is one check-in/check-out pair. Edit the times if someone forgot to scan, or delete a session entirely — every change is written to the audit log.',
+    body: 'Each row is one check-in/checkout pair with its verification. Tap the badge to see the evidence, filter to what needs review, edit times or delete a session — every change is logged.',
+  },
+  {
+    id: 'nav-staff',
+    path: '/admin/sessions',
+    target: ['[data-tour="nav-staff"]', '[data-tour="dock-staff"]'],
+    title: 'Next: Staff & phones',
+    body: 'Staff link their phone once with Face ID or fingerprint. The Staff page is where you approve those phones and manage profiles.',
+  },
+  {
+    id: 'approvals',
+    path: '/admin/staff',
+    target: ['[data-tour="approvals"]'],
+    title: 'Approve new phones',
+    body: "Each new phone waits here. Approve it once you know it's really theirs; a second phone for the same person is called out so you can check with them.",
+  },
+  {
+    id: 'location-tab',
+    path: '/admin/staff',
+    target: ['[data-tour="location-tab"]'],
+    title: 'Department area',
+    body: "Set the area once, standing in the department: take a few readings, choose the radius, then test from the corners. Only the department's centre is stored — never staff positions.",
   },
   {
     id: 'nav-audit',
-    path: '/admin/sessions',
+    path: '/admin/staff',
     target: ['[data-tour="nav-audit"]', '[data-tour="dock-audit"]'],
     title: 'Next: Audit',
-    body: "Finally, the Audit page — an immutable record of everything that's happened today.",
+    body: 'Finally, the Audit page — a record of everything that has happened.',
   },
   {
     id: 'audit-log',
     path: '/admin/audit',
     target: ['[data-tour="audit-log"]'],
     title: 'Audit log',
-    body: "Every check-in, check-out, edit, and rota upload is logged here with who did it and when. Nothing can be altered after the fact — it's the record of truth if a shift is ever queried.",
+    body: "Every check-in, phone approval, acceptance, edit and rota upload is logged in plain English with who did it and when. Nothing can be altered after the fact — it's the record of truth if a shift is ever queried.",
   },
   {
     id: 'finish',

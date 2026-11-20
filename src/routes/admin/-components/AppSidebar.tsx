@@ -14,53 +14,50 @@ import {
   useSidebar,
 } from '#/components/ui/sidebar'
 import { useIsMobile } from '#/hooks/use-mobile'
-import { LayoutDashboard, ClipboardList, Users, ScrollText, PanelLeftClose, HelpCircle } from 'lucide-react'
-import { Logo } from '#/components/Logo'
+import { PanelLeftClose, HelpCircle } from 'lucide-react'
+import { Wordmark } from '#/components/brand/Wordmark'
+import { RunnerMark } from '#/components/brand/RunnerMark'
 import { SPRING_LAYOUT } from '#/lib/ease'
 import { useTour } from '#/lib/tour/TourContext'
-
-const navItems = [
-  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', tourId: 'nav-dashboard' },
-  { to: '/admin/roster', icon: ClipboardList, label: 'Roster', tourId: 'nav-roster' },
-  { to: '/admin/sessions', icon: Users, label: 'Sessions', tourId: 'nav-sessions' },
-  { to: '/admin/audit', icon: ScrollText, label: 'Audit', tourId: 'nav-audit' },
-]
+import { useAdminContext } from '#/routes/admin/-context'
+import { ADMIN_NAV, isActivePath } from './nav'
+import { usePendingApprovals } from './pendingApprovals'
 
 export function AppSidebar() {
   const isMobile = useIsMobile()
-  const router = useRouterState()
-  const currentPath = router.location.pathname
+  const currentPath = useRouterState({ select: (s) => s.location.pathname })
   const { setOpen } = useSidebar()
   const navId = useId()
   const { start } = useTour()
+  const { authToken } = useAdminContext()
+  const pending = usePendingApprovals(authToken)
 
-  // On mobile the AdminDock handles navigation — no sidebar needed
+  // On phones the AdminDock handles navigation.
   if (isMobile) return null
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        {/* In(Logo)Out lockup */}
-        {/* Collapsed: logo centered, clicking it expands the sidebar */}
+        {/* Collapsed: the runner alone; clicking it expands the sidebar. */}
         <button
-          className="group-data-[collapsible=icon]:flex hidden w-full items-center justify-center py-5 cursor-pointer"
+          className="hidden w-full items-center justify-center rounded-md py-4 group-data-[collapsible=icon]:flex focus-visible:outline-2 focus-visible:outline-focus"
           onClick={() => setOpen(true)}
           aria-label="Expand sidebar"
         >
-          <Logo size={48} variant="rausch" />
+          <RunnerMark size={36} animate="none" />
         </button>
-        {/* Expanded: In + Logo + Out + collapse button */}
-        <div className="group-data-[collapsible=icon]:hidden flex items-center gap-0 px-5 py-5">
-          <span className="text-3xl font-bold text-ink tracking-tight leading-none">In</span>
-          <Logo size={56} variant="rausch" className="-mx-1.5" />
-          <span className="text-3xl font-bold text-ink tracking-tight leading-none">Out</span>
+        <div className="flex items-center gap-2 px-3 pb-3 pt-4 group-data-[collapsible=icon]:hidden">
+          <Wordmark size="sm" label="InOut admin" />
+          <span className="ml-1 rounded-full bg-surface-strong px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+            Admin
+          </span>
           <div className="flex-1" />
           <button
             onClick={() => setOpen(false)}
             aria-label="Collapse sidebar"
-            className="p-1.5 rounded-full text-muted hover:text-ink hover:bg-surface-soft transition-colors"
+            className="ui-press flex size-9 items-center justify-center rounded-full text-muted hover:bg-surface-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-focus"
           >
-            <PanelLeftClose className="w-4 h-4" />
+            <PanelLeftClose className="size-4" aria-hidden="true" />
           </button>
         </div>
       </SidebarHeader>
@@ -68,12 +65,10 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <MotionConfig reducedMotion="user">
-              <SidebarMenu>
-                {navItems.map((item) => {
-                  const active =
-                    item.to === '/admin'
-                      ? currentPath === '/admin'
-                      : currentPath.startsWith(item.to)
+              <SidebarMenu className="gap-1">
+                {ADMIN_NAV.map((item) => {
+                  const active = isActivePath(item, currentPath)
+                  const badge = item.to === '/admin/staff' && pending > 0 ? pending : 0
                   return (
                     <SidebarMenuItem key={item.to}>
                       {active && (
@@ -86,12 +81,26 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         asChild
                         isActive={active}
-                        tooltip={item.label}
-                        className="relative z-10 data-[active=true]:bg-transparent"
+                        tooltip={badge ? `${item.label} · ${badge} waiting` : item.label}
+                        className="relative z-10 h-11 font-medium text-body data-[active=true]:bg-transparent data-[active=true]:font-semibold data-[active=true]:text-accent-accessible"
                       >
-                        <Link to={item.to} data-tour={item.tourId}>
-                          <item.icon />
-                          <span>{item.label}</span>
+                        <Link to={item.to} data-tour={`nav-${item.tourId}`} aria-current={active ? 'page' : undefined}>
+                          <span className="relative flex">
+                            <item.icon className="size-5" aria-hidden="true" />
+                            {badge ? (
+                              <span
+                                aria-hidden="true"
+                                className="absolute -right-1 -top-1 hidden size-2.5 rounded-full bg-accent-accessible ring-2 ring-canvas group-data-[collapsible=icon]:block"
+                              />
+                            ) : null}
+                          </span>
+                          <span className="flex-1">{item.label}</span>
+                          {badge ? (
+                            <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-accessible px-1.5 text-[11px] font-bold tabular-nums text-white group-data-[collapsible=icon]:hidden">
+                              {badge}
+                              <span className="sr-only"> phones waiting for approval</span>
+                            </span>
+                          ) : null}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -103,22 +112,21 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className="px-3 py-3 group-data-[collapsible=icon]:hidden">
+        <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
           <button
             onClick={start}
-            className="flex items-center gap-1.5 text-xs text-muted hover:text-ink transition-colors mb-1.5"
+            className="ui-press flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-sm font-medium text-muted hover:bg-surface-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-focus"
           >
-            <HelpCircle className="w-3.5 h-3.5" />
-            Replay tutorial
+            <HelpCircle className="size-4" aria-hidden="true" />
+            Replay the tour
           </button>
-          <p className="text-xs text-muted">v1.0</p>
         </div>
         <button
           onClick={start}
-          aria-label="Replay tutorial"
-          className="hidden group-data-[collapsible=icon]:flex items-center justify-center w-full py-2 text-muted hover:text-ink transition-colors"
+          aria-label="Replay the tour"
+          className="hidden w-full items-center justify-center rounded-md py-3 text-muted hover:text-ink group-data-[collapsible=icon]:flex focus-visible:outline-2 focus-visible:outline-focus"
         >
-          <HelpCircle className="w-4 h-4" />
+          <HelpCircle className="size-5" aria-hidden="true" />
         </button>
       </SidebarFooter>
     </Sidebar>

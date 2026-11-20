@@ -1,142 +1,235 @@
 import { useState } from 'react'
-import { formatDateTime, isoForDateTimeLocal } from '#/utils/dateTime'
+import { ListChecks, Pencil, Trash2 } from 'lucide-react'
+import { formatDateTime, formatTime, isoForDateTimeLocal } from '#/utils/dateTime'
 import { EmptyState } from '#/components/EmptyState'
-import { Badge } from '#/components/Badge'
-import type { SessionRow } from '#/routes/admin/-types'
-import { SessionEditForm } from '#/routes/admin/-components/SessionEditForm'
-import { Pencil, Trash2 } from 'lucide-react'
+import { cn } from '#/lib/utils'
+import { needsReview, subjectFromSession, type EvidenceSubject, type SessionRow } from '#/routes/admin/-types'
+import { SessionEditForm } from './SessionEditForm'
+import { duration, FilterChips, linkButtonClass, Panel, StaffAvatar } from './kit'
+import { ReasonList, VerificationChip } from './verification'
+
+type Filter = 'all' | 'review' | 'verified' | 'accepted'
+
+function matches(s: EvidenceSubject, f: Filter) {
+  if (f === 'review') return needsReview(s)
+  if (f === 'verified') return s.verified && !s.accepted
+  if (f === 'accepted') return s.accepted
+  return true
+}
 
 export function SessionSection({
   sessions,
   onUpdate,
   onDelete,
+  onDetails,
+  savingId,
 }: {
   sessions: SessionRow[]
   onUpdate: (sessionId: number, form: { checkInAt: string; checkOutAt: string | undefined }) => Promise<void> | void
   onDelete: (sessionId: number) => Promise<void> | void
+  onDetails: (s: EvidenceSubject) => void
+  savingId: number | null
 }) {
-  const [editingSession, setEditingSession] = useState<number | null>(null)
-  const [editForm, setEditForm] = useState<{ checkInAt: string; checkOutAt: string }>({ checkInAt: '', checkOutAt: '' })
+  const [editing, setEditing] = useState<number | null>(null)
+  const [form, setForm] = useState({ checkInAt: '', checkOutAt: '' })
+  const [filter, setFilter] = useState<Filter>('all')
+  const subjects = sessions.map(subjectFromSession)
+  const visible = subjects.filter((s) => matches(s, filter))
+  const count = (f: Filter) => subjects.filter((s) => matches(s, f)).length
 
-  const startEdit = (session: SessionRow) => {
-    setEditingSession(session.id)
-    setEditForm({
-      checkInAt: isoForDateTimeLocal(session.check_in_at),
-      checkOutAt: isoForDateTimeLocal(session.check_out_at),
-    })
-  }
-
-  const handleChange = (field: 'checkInAt' | 'checkOutAt', value: string) => {
-    setEditForm((prev) => ({ ...prev, [field]: value }))
+  const startEdit = (s: EvidenceSubject) => {
+    setEditing(s.sessionId)
+    setForm({ checkInAt: isoForDateTimeLocal(s.checkInAt), checkOutAt: isoForDateTimeLocal(s.checkOutAt) })
   }
 
   const save = async (sessionId: number) => {
-    await onUpdate(sessionId, {
-      checkInAt: new Date(editForm.checkInAt).toISOString(),
-      checkOutAt: editForm.checkOutAt ? new Date(editForm.checkOutAt).toISOString() : '',
-    })
-    setEditingSession(null)
+    try {
+      await onUpdate(sessionId, {
+        checkInAt: new Date(form.checkInAt).toISOString(),
+        checkOutAt: form.checkOutAt ? new Date(form.checkOutAt).toISOString() : '',
+      })
+      setEditing(null)
+    } catch {
+      // The page shows the error; keep the form open so nothing typed is lost.
+    }
   }
 
+  const editor = (s: EvidenceSubject) => (
+    <SessionEditForm
+      checkInAt={form.checkInAt}
+      checkOutAt={form.checkOutAt}
+      onChange={(field, value) => setForm((prev) => ({ ...prev, [field]: value }))}
+      onSave={() => save(s.sessionId)}
+      onCancel={() => setEditing(null)}
+      saving={savingId === s.sessionId}
+    />
+  )
+
   return (
-    <section id="sessions" data-tour="session-history" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className="font-semibold text-neutral-900">Session history</h2>
-        <Badge variant="neutral">{sessions.length}</Badge>
-      </div>
+    <Panel
+      tour="session-history"
+      title="Sessions"
+      count={sessions.length}
+      icon={<ListChecks />}
+      description="Every check-in and checkout for this date. Edits are saved as admin corrections and logged; the original evidence stays on record."
+      flush
+    >
       {sessions.length === 0 ? (
-        <EmptyState title="No sessions" description="Sessions will appear here once staff check in for this date." />
+        <EmptyState title="No sessions for this date" description="Sessions appear here once staff check in." icon="calendar" />
       ) : (
         <>
-          {/* Desktop table */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-neutral-200">
-                  <th className="pb-2 font-medium text-neutral-600">Name</th>
-                  <th className="pb-2 font-medium text-neutral-600">In</th>
-                  <th className="pb-2 font-medium text-neutral-600">Out</th>
-                  <th className="pb-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((s) => (
-                  <tr key={s.id} className="border-b border-neutral-100">
-                    <td className="py-2 text-neutral-900">{s.name}</td>
-                    <td className="py-2 text-neutral-600">{formatDateTime(s.check_in_at)}</td>
-                    <td className="py-2 text-neutral-600">{s.check_out_at ? formatDateTime(s.check_out_at) : '-'}</td>
-                    <td className="py-2">
-                      <div className="flex items-center gap-2">
-                        <button className="text-sm text-primary-600 hover:text-primary-700" onClick={() => startEdit(s)}>
-                          <Pencil className="w-3.5 h-3.5 inline mr-0.5" />
-                          Edit
+          <div className="relative -mx-1 overflow-x-auto border-b border-hairline-soft px-6 py-3">
+            <FilterChips
+              label="Filter sessions"
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: 'all', label: 'All', count: count('all') },
+                { value: 'review', label: 'Needs review', count: count('review') },
+                { value: 'verified', label: 'Verified', count: count('verified') },
+                { value: 'accepted', label: 'Accepted', count: count('accepted') },
+              ]}
+            />
+          </div>
+          {visible.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-muted">No sessions match this filter.</p>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="relative hidden overflow-x-auto md:block">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-hairline-soft text-xs font-semibold uppercase tracking-wide text-muted">
+                      <th scope="col" className="px-5 py-3 font-semibold">Name</th>
+                      <th scope="col" className="px-3 py-3 font-semibold">In</th>
+                      <th scope="col" className="px-3 py-3 font-semibold">Out</th>
+                      <th scope="col" className="px-3 py-3 text-right font-semibold">Hours</th>
+                      <th scope="col" className="px-3 py-3 font-semibold">Verification</th>
+                      <th scope="col" className="px-5 py-3"><span className="sr-only">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-hairline-soft">
+                    {visible.map((s) => (
+                      <SessionRowDesktop
+                        key={s.sessionId}
+                        s={s}
+                        editing={editing === s.sessionId}
+                        editor={editor(s)}
+                        onEdit={() => startEdit(s)}
+                        onDelete={() => onDelete(s.sessionId)}
+                        onDetails={() => onDetails(s)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Phone cards */}
+              <ul className="divide-y divide-hairline-soft md:hidden">
+                {visible.map((s) => (
+                  <li key={s.sessionId} className="flex flex-col gap-3 px-5 py-4">
+                    <div className="flex items-start gap-3">
+                      <StaffAvatar name={s.name} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-ink">{s.name}</p>
+                        <p className="text-sm tabular-nums text-muted">
+                          {formatTime(s.checkInAt)} – {s.checkOutAt ? formatTime(s.checkOutAt) : 'still in'}
+                          {s.checkOutAt ? ` · ${duration(s.checkInAt, s.checkOutAt)}` : ''}
+                        </p>
+                      </div>
+                      <VerificationChip subject={s} onOpen={() => onDetails(s)} />
+                    </div>
+                    {needsReview(s) ? <ReasonList reasons={s.reasons} compact className="pl-11" /> : null}
+                    {editing === s.sessionId ? (
+                      editor(s)
+                    ) : (
+                      <div className="flex gap-1 pl-9">
+                        <button type="button" className={linkButtonClass} onClick={() => startEdit(s)}>
+                          <Pencil aria-hidden="true" />
+                          Edit times
                         </button>
-                        <button className="text-sm text-danger-600 hover:text-danger-700" onClick={() => onDelete(s.id)}>
-                          <Trash2 className="w-3.5 h-3.5 inline mr-0.5" />
+                        <button type="button" className={cn(linkButtonClass, 'text-danger-700 hover:bg-danger-50')} onClick={() => onDelete(s.sessionId)}>
+                          <Trash2 aria-hidden="true" />
                           Delete
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    )}
+                  </li>
                 ))}
-                {editingSession !== null && (
-                  <tr className="bg-neutral-50">
-                    <td colSpan={4} className="p-3">
-                      <SessionEditForm
-                        checkInAt={editForm.checkInAt}
-                        checkOutAt={editForm.checkOutAt}
-                        onChange={handleChange}
-                        onSave={() => save(editingSession)}
-                        onCancel={() => setEditingSession(null)}
-                        className="flex flex-wrap gap-2 items-center"
-                      />
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile cards */}
-          <div className="sm:hidden space-y-3">
-            {sessions.map((s) => (
-              <div key={s.id} className="p-3 rounded-lg border border-neutral-200 bg-neutral-50">
-                <p className="font-medium text-neutral-900">{s.name}</p>
-                <div className="mt-2 space-y-1 text-sm">
-                  <p className="text-neutral-600">
-                    <span className="text-neutral-400">In:</span> {formatDateTime(s.check_in_at)}
-                  </p>
-                  <p className="text-neutral-600">
-                    <span className="text-neutral-400">Out:</span> {s.check_out_at ? formatDateTime(s.check_out_at) : '-'}
-                  </p>
-                </div>
-                {editingSession === s.id ? (
-                  <SessionEditForm
-                    checkInAt={editForm.checkInAt}
-                    checkOutAt={editForm.checkOutAt}
-                    onChange={handleChange}
-                    onSave={() => save(s.id)}
-                    onCancel={() => setEditingSession(null)}
-                    className="space-y-2 mt-3"
-                    inputClassName="w-full"
-                  />
-                ) : (
-                  <div className="flex gap-3 mt-3">
-                    <button className="text-sm text-primary-600" onClick={() => startEdit(s)}>
-                      <Pencil className="w-3.5 h-3.5 inline mr-0.5" />
-                      Edit
-                    </button>
-                    <button className="text-sm text-danger-600" onClick={() => onDelete(s.id)}>
-                      <Trash2 className="w-3.5 h-3.5 inline mr-0.5" />
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+              </ul>
+            </>
+          )}
         </>
       )}
-    </section>
+    </Panel>
+  )
+}
+
+function SessionRowDesktop({
+  s,
+  editing,
+  editor,
+  onEdit,
+  onDelete,
+  onDetails,
+}: {
+  s: EvidenceSubject
+  editing: boolean
+  editor: React.ReactNode
+  onEdit: () => void
+  onDelete: () => void
+  onDetails: () => void
+}) {
+  return (
+    <>
+      <tr className={cn('align-top', editing ? 'bg-surface-soft' : 'hover:bg-surface-soft/60')}>
+        <td className="px-5 py-3">
+          <div className="flex items-center gap-3">
+            <StaffAvatar name={s.name} size="sm" />
+            <div className="min-w-0">
+              <p className="font-semibold text-ink">{s.name}</p>
+              {s.role ? <p className="text-xs text-muted">{s.role}</p> : null}
+            </div>
+          </div>
+        </td>
+        <td className="px-3 py-3 tabular-nums text-body" title={formatDateTime(s.checkInAt)}>
+          <span className="leading-8">{formatTime(s.checkInAt)}</span>
+        </td>
+        <td className="px-3 py-3 tabular-nums text-body" title={s.checkOutAt ? formatDateTime(s.checkOutAt) : undefined}>
+          <span className="leading-8">{s.checkOutAt ? formatTime(s.checkOutAt) : <span className="text-muted">Still in</span>}</span>
+        </td>
+        <td className="px-3 py-3 text-right tabular-nums text-body">
+          <span className="leading-8">{s.checkOutAt ? duration(s.checkInAt, s.checkOutAt) : '—'}</span>
+        </td>
+        <td className="px-3 py-3">
+          <div className="flex flex-col items-start gap-1.5 pt-0.5">
+            <VerificationChip subject={s} onOpen={onDetails} />
+            {needsReview(s) ? <ReasonList reasons={s.reasons} compact className="max-w-72 flex-col" /> : null}
+            {s.accepted && s.reviewNote ? <p className="max-w-72 truncate text-xs text-muted" title={s.reviewNote}>“{s.reviewNote}”</p> : null}
+          </div>
+        </td>
+        <td className="px-5 py-3">
+          <div className="flex justify-end gap-1">
+            <button type="button" className={linkButtonClass} onClick={onDetails}>
+              Details
+            </button>
+            <button type="button" className={linkButtonClass} onClick={onEdit} aria-label={`Edit ${s.name}'s times`}>
+              <Pencil aria-hidden="true" />
+              Edit
+            </button>
+            <button type="button" className={cn(linkButtonClass, 'text-danger-700 hover:bg-danger-50')} onClick={onDelete} aria-label={`Delete ${s.name}'s session`}>
+              <Trash2 aria-hidden="true" />
+            </button>
+          </div>
+        </td>
+      </tr>
+      {editing ? (
+        <tr className="bg-surface-soft">
+          <td colSpan={6} className="px-5 pb-4 pt-1">
+            {editor}
+          </td>
+        </tr>
+      ) : null}
+    </>
   )
 }

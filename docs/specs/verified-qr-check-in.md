@@ -1,6 +1,6 @@
 # Verified QR check-in: passkey identity and a location check
 
-Status: specification prepared for implementation planning, 20 November 2026. This is a specification, not a claim that passkeys, stable staff records or location checks are implemented. No application code changed as part of drafting it.
+Status: implementation in progress on branch `feat/verified-check-in` (20 November 2026). The backend is implemented and covered by Workers/D1 tests: stable staff records and rota-import linking, passkey enrolment and approval, passkey-signed check-in/checkout/undo with the name-selection fallback, the location outcome and area settings, evidence in the dashboard, export and weekly rollup, and session acceptance. Staff and admin screens, browser tests with a virtual authenticator, and physical-device tuning are not yet done. Where the implementation contract settled a detail differently (any passkey provider, not only platform authenticators; one shared admin PIN approves enrolments), the implementation follows the contract.
 
 Related: [Secure NFC attendance](secure-nfc-attendance.md) (tracker issue #72). This specification covers the ED pilot that runs before NFC. It shares the stable staff record with that specification and amends two of its decisions; see "Relationship to the secure NFC specification".
 

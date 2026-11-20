@@ -1,388 +1,237 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
-import { ChevronRight, ChevronLeft, Loader2, Clock, LogOut } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogAction,
-  AlertDialogCancel,
-} from '#/components/ui/alert-dialog'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-const THUMB = 48
+/**
+ * Slide-to-confirm control for check-in (slide right) and checkout (slide left).
+ *
+ * `onComplete` runs synchronously inside the releasing pointer/key event, so the caller can open
+ * the Face ID sheet while the browser still counts the gesture as a user activation (Safari is
+ * strict about this). `onArm` fires as the thumb is grabbed (used to warm up location) and
+ * `onDisarm` if it is let go short of the end.
+ */
+
+const THUMB = 56
 const PAD = 4
-const SPRING = 'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-const EASE_SMOOTH = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-const ANIM_MS = 450
-const SNAP_MS = 380
-const THRESHOLD = 0.72
+const THRESHOLD = 0.78
+const SNAP = 'cubic-bezier(0.2, 0, 0, 1)'
+const LAND = 'cubic-bezier(0.34, 1.4, 0.64, 1)'
 
-type Status = 'idle' | 'dragging' | 'completing' | 'loading' | 'confirming'
+type Phase = 'idle' | 'dragging' | 'done'
 
-// ── Live elapsed-time hook ────────────────────────────────────────────────────
-function useElapsed(checkInAt: string | null) {
-  const compute = () => {
-    if (!checkInAt) return ''
-    const ms = Date.now() - new Date(checkInAt).getTime()
-    const m = Math.floor(ms / 60_000)
-    const h = Math.floor(m / 60)
-    const rm = m % 60
-    return h === 0 ? `${m}m` : rm === 0 ? `${h}h` : `${h}h ${rm}m`
-  }
-  const [t, setT] = useState(compute)
-  useEffect(() => {
-    if (!checkInAt) return
-    setT(compute())
-    const id = setInterval(() => setT(compute()), 30_000)
-    return () => clearInterval(id)
-  }, [checkInAt])
-  return t
-}
-
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-}
-
-// ── Component ─────────────────────────────────────────────────────────────────
 type Props = {
   mode: 'in' | 'out'
-  checkInAt?: string | null
-  onCheckIn: () => Promise<void>
-  onCheckOut: () => Promise<void>
+  onComplete: () => void
+  onArm?: () => void
+  onDisarm?: () => void
   disabled?: boolean
+  /** Visible label, e.g. "Slide to check in". */
+  label?: string
+  /** Accessible name for the button alternative (screen readers), e.g. "Check in with Face ID". */
+  actionLabel?: string
 }
 
-export function SlideToAction({ mode, checkInAt, onCheckIn, onCheckOut, disabled = false }: Props) {
+export function SlideToAction({ mode, onComplete, onArm, onDisarm, disabled = false, label, actionLabel }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
-
-  // Mutable mirror of offset so pointer handlers always read the latest value
+  const startX = useRef(0)
+  const startOffset = useRef(0)
   const offsetRef = useRef(0)
-  // Track where the pointer and thumb were when the drag started (relative drag)
-  const pointerStartXRef = useRef(0)
-  const thumbStartRef = useRef(0)
-
-  const elapsed = useElapsed(mode === 'out' ? (checkInAt ?? null) : null)
-
-  const [offset, setOffset] = useState(0)
+  const phaseRef = useRef<Phase>('idle')
   const [trackW, setTrackW] = useState(0)
-  const [status, setStatus] = useState<Status>('idle')
-  const [anim, setAnim] = useState<'spring' | 'smooth' | false>(false)
-  const [confirm, setConfirm] = useState(false)
+  const [offset, setOffset] = useState(0)
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [animate, setAnimate] = useState<false | 'snap' | 'land'>(false)
 
   const maxDrag = Math.max(0, trackW - THUMB - 2 * PAD)
-  const natural = mode === 'out' ? maxDrag : 0
+  // Check-in travels left→right; checkout right→left. `progress` is 0 at rest, 1 at the end.
+  const rest = mode === 'in' ? 0 : maxDrag
+  const end = mode === 'in' ? maxDrag : 0
+  const progress = maxDrag > 0 ? Math.abs(offset - rest) / maxDrag : 0
+  const interactive = !disabled && phase !== 'done'
 
-  // ── Measure track ───────────────────────────────────────────────────────────
   useEffect(() => {
     const el = trackRef.current
     if (!el) return
-    const ro = new ResizeObserver(() => setTrackW(el.offsetWidth))
-    ro.observe(el)
-    setTrackW(el.offsetWidth)
-    return () => ro.disconnect()
+    const measure = () => setTrackW(el.offsetWidth)
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(el)
+    return () => ro?.disconnect()
   }, [])
 
-  // ── Sync thumb to natural position on mode change or first measure ──────────
-  const prevModeRef = useRef(mode)
-  const initializedRef = useRef(false)
-
+  // Reset to rest when the mode changes or the track is measured.
   useEffect(() => {
-    if (maxDrag === 0) return
+    phaseRef.current = 'idle'
+    setPhase('idle')
+    offsetRef.current = rest
+    setOffset(rest)
+  }, [mode, rest])
 
-    if (!initializedRef.current) {
-      initializedRef.current = true
-      offsetRef.current = natural
-      setOffset(natural)
-      return
-    }
-
-    if (prevModeRef.current !== mode) {
-      prevModeRef.current = mode
-      setConfirm(false)
-      setStatus('idle')
-      setAnim('smooth')
-      offsetRef.current = natural
-      setOffset(natural)
-      setTimeout(() => setAnim(false), SNAP_MS)
-    }
-  }, [mode, natural, maxDrag])
-
-  // ── Derived values ──────────────────────────────────────────────────────────
-  const thumbLeft = PAD + offset
-  const progress = maxDrag > 0
-    ? mode === 'in' ? offset / maxDrag : (maxDrag - offset) / maxDrag
-    : 0
-  const labelOpacity = Math.max(0, 1 - progress / 0.45)
-
-  // Fill sweeps L→R for check-in (green), R→L for check-out (red).
-  // Width extends to thumb's far edge + matching border-radius so the fill arc
-  // sits exactly behind the thumb circle — no visible seam.
-  const fillStyle: React.CSSProperties = mode === 'in'
-    ? { left: 0, width: PAD + offset + THUMB }
-    : { right: 0, width: Math.max(0, trackW - thumbLeft) }
-
-  const transition = anim === 'spring'
-    ? `all ${ANIM_MS}ms ${SPRING}`
-    : anim === 'smooth'
-    ? `all ${SNAP_MS}ms ${EASE_SMOOTH}`
-    : 'none'
-
-  const interactive = !disabled && status !== 'completing' && status !== 'loading' && status !== 'confirming'
-
-  // ── Pointer handlers ────────────────────────────────────────────────────────
-  const onDown = useCallback((e: React.PointerEvent) => {
-    if (!interactive) return
-    e.preventDefault()
-    const track = trackRef.current
-    if (!track) return
-    track.setPointerCapture(e.pointerId)
-    // Relative drag: record where we started
-    pointerStartXRef.current = e.clientX
-    thumbStartRef.current = offsetRef.current
-    setAnim(false)
-    setStatus('dragging')
-  }, [interactive])
-
-  const onMove = useCallback((e: React.PointerEvent) => {
-    if (status !== 'dragging') return
-    const dx = e.clientX - pointerStartXRef.current
-    const next = Math.max(0, Math.min(thumbStartRef.current + dx, maxDrag))
+  const move = (next: number) => {
     offsetRef.current = next
     setOffset(next)
-  }, [status, maxDrag])
+  }
 
-  const onUp = useCallback(async (e?: React.PointerEvent) => {
-    if (status !== 'dragging') return
-    const track = trackRef.current
-    if (!track) return
-    if (e && track.hasPointerCapture(e.pointerId)) track.releasePointerCapture(e.pointerId)
+  const settle = (to: number, how: 'snap' | 'land') => {
+    setAnimate(how)
+    move(to)
+    window.setTimeout(() => setAnimate(false), 420)
+  }
 
-    const cur = offsetRef.current
-    const prog = mode === 'in' ? cur / maxDrag : (maxDrag - cur) / maxDrag
-
-    if (prog >= THRESHOLD) {
-      if (mode === 'in') {
-        // ── Complete check-in ───────────────────────────────────────────────
-        setStatus('completing')
-        setAnim('spring')
-        offsetRef.current = maxDrag
-        setOffset(maxDrag)
-        await new Promise(r => setTimeout(r, ANIM_MS))
-        setAnim(false)
-        setStatus('loading')
-        try {
-          await onCheckIn()
-          // mode prop will flip to 'out', effect handles thumb position
-        } catch {
-          setStatus('idle')
-          setAnim('smooth')
-          offsetRef.current = 0
-          setOffset(0)
-          setTimeout(() => setAnim(false), SNAP_MS)
-        }
-      } else {
-        // ── Threshold reached → snap left and show confirmation ─────────────
-        setStatus('completing')
-        setAnim('spring')
-        offsetRef.current = 0
-        setOffset(0)
-        await new Promise(r => setTimeout(r, ANIM_MS))
-        setAnim(false)
-        setStatus('confirming')
-        setConfirm(true)
-      }
-    } else {
-      // ── Below threshold → ease back to natural position (no overshoot) ─────
-      setStatus('idle')
-      setAnim('smooth')
-      offsetRef.current = natural
-      setOffset(natural)
-      setTimeout(() => setAnim(false), SNAP_MS)
-    }
-  }, [status, mode, maxDrag, natural, onCheckIn])
-
-  // ── Keyboard ────────────────────────────────────────────────────────────────
-  const onKey = useCallback((e: React.KeyboardEvent) => {
-    if (!interactive) return
-    const STEP = 24
-    let next = offsetRef.current
-    if (e.key === 'ArrowRight') { e.preventDefault(); next = Math.min(next + STEP, maxDrag) }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); next = Math.max(next - STEP, 0) }
-    else if (e.key === 'Home') { e.preventDefault(); next = 0 }
-    else if (e.key === 'End') { e.preventDefault(); next = maxDrag }
-    else return
-    offsetRef.current = next
-    setOffset(next)
-    setStatus('dragging')
-  }, [interactive, maxDrag])
-
-  // ── Confirmation actions ────────────────────────────────────────────────────
-  const onCancel = useCallback(() => {
-    setConfirm(false)
-    setStatus('idle')
-    setAnim('smooth')
-    offsetRef.current = maxDrag
-    setOffset(maxDrag)
-    setTimeout(() => setAnim(false), SNAP_MS)
-  }, [maxDrag])
-
-  const onConfirmOut = useCallback(async () => {
-    setConfirm(false)
-    setStatus('loading')
+  const complete = useCallback(() => {
+    if (phaseRef.current === 'done') return
+    phaseRef.current = 'done'
+    setPhase('done')
+    settle(end, 'land')
     try {
-      await onCheckOut()
-      // mode flips to 'in', effect resets thumb
+      navigator.vibrate?.(12)
     } catch {
-      setStatus('idle')
-      setAnim('smooth')
-      offsetRef.current = maxDrag
-      setOffset(maxDrag)
-      setTimeout(() => setAnim(false), SNAP_MS)
+      // Not supported.
     }
-  }, [onCheckOut, maxDrag])
+    onComplete()
+  }, [end, onComplete])
 
-  // ── Thumb icon ───────────────────────────────────────────────────────────────
-  const thumbIcon = (() => {
-    if (status === 'loading') return <Loader2 className="w-5 h-5 text-neutral-400 animate-spin" />
-    if (status === 'confirming') return <LogOut className="w-5 h-5 text-danger-500" />
-    if (mode === 'out') {
-      if (progress > 0.2) return <ChevronLeft className="w-5 h-5 text-danger-500" />
-      return <ChevronLeft className="w-5 h-5 text-neutral-400" />
+  const release = useCallback(() => {
+    if (phaseRef.current !== 'dragging') return
+    const prog = maxDrag > 0 ? Math.abs(offsetRef.current - rest) / maxDrag : 0
+    if (prog >= THRESHOLD) {
+      complete()
+    } else {
+      phaseRef.current = 'idle'
+      setPhase('idle')
+      settle(rest, 'snap')
+      onDisarm?.()
     }
-    if (progress > 0.2) return <ChevronRight className="w-5 h-5 text-success-600" />
-    return <ChevronRight className="w-5 h-5 text-neutral-400" />
-  })()
+  }, [complete, maxDrag, rest, onDisarm])
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!interactive || maxDrag === 0) return
+    e.preventDefault()
+    trackRef.current?.setPointerCapture(e.pointerId)
+    startX.current = e.clientX
+    startOffset.current = offsetRef.current
+    phaseRef.current = 'dragging'
+    setPhase('dragging')
+    setAnimate(false)
+    onArm?.()
+  }
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (phaseRef.current !== 'dragging') return
+    move(Math.max(0, Math.min(startOffset.current + e.clientX - startX.current, maxDrag)))
+  }
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    const track = trackRef.current
+    if (track?.hasPointerCapture(e.pointerId)) track.releasePointerCapture(e.pointerId)
+    release()
+  }
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (!interactive) return
+    const STEP = Math.max(24, maxDrag / 6)
+    let next = offsetRef.current
+    switch (e.key) {
+      case 'ArrowRight': next += STEP; break
+      case 'ArrowLeft': next -= STEP; break
+      case 'Home': next = 0; break
+      case 'End': next = maxDrag; break
+      case 'Enter':
+      case ' ':
+        e.preventDefault()
+        if (!e.repeat) {
+          onArm?.()
+          complete()
+        }
+        return
+      default: return
+    }
+    e.preventDefault()
+    if (phaseRef.current !== 'dragging') {
+      phaseRef.current = 'dragging'
+      setPhase('dragging')
+      onArm?.()
+    }
+    move(Math.max(0, Math.min(next, maxDrag)))
+  }
+
+  const onKeyUp = (e: React.KeyboardEvent) => {
+    if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) release()
+  }
+
+  const inMode = mode === 'in'
+  const text = label ?? (inMode ? 'Slide to check in' : 'Slide to check out')
+  const transition = animate === 'land'
+    ? `left 420ms ${LAND}, width 420ms ${LAND}`
+    : animate === 'snap'
+      ? `left 360ms ${SNAP}, width 360ms ${SNAP}`
+      : 'none'
+  const thumbLeft = PAD + offset
+  const fill = inMode
+    ? { left: PAD, width: offset + THUMB }
+    : { left: thumbLeft, width: maxDrag - offset + THUMB }
+  const Arrow = inMode ? ArrowRight : ArrowLeft
+
   return (
-    <div className="flex flex-col gap-2 select-none touch-none">
-
-      {/* ── Checked-in status row ─────────────────────────────────────────────── */}
-      <AnimatePresence initial={false}>
-        {mode === 'out' && checkInAt && (
-          <motion.div
-            key="checkin-status"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="flex items-center gap-2 px-1"
-          >
-            <Clock className="w-3.5 h-3.5 shrink-0 text-success-600" />
-            <span className="text-sm font-medium text-success-700">
-              Since {fmtTime(checkInAt)}
-            </span>
-            <span className="text-neutral-300">·</span>
-            <span className="text-sm font-bold tabular-nums text-success-700">{elapsed}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Slider track ──────────────────────────────────────────────────────── */}
+    <div className="select-none">
       <div
         ref={trackRef}
         role="slider"
         tabIndex={interactive ? 0 : -1}
-        aria-label={mode === 'in' ? 'Slide right to check in' : 'Slide left to check out'}
-        aria-valuenow={Math.round(progress * 100)}
+        aria-label={text}
         aria-valuemin={0}
         aria-valuemax={100}
-        onPointerDown={onDown}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerCancel={onUp}
-        onKeyDown={onKey}
-        onKeyUp={(e) => {
-          const keyboardProgress = mode === 'in' ? offsetRef.current / maxDrag : (maxDrag - offsetRef.current) / maxDrag
-          if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key) && keyboardProgress >= THRESHOLD) void onUp()
-        }}
-        aria-disabled={!interactive}
+        aria-valuenow={Math.round(progress * 100)}
+        aria-valuetext={phase === 'done' ? 'Done' : `${Math.round(progress * 100)}%`}
+        aria-disabled={!interactive || undefined}
+        aria-keyshortcuts="Enter"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
         className={[
-          'relative h-14 rounded-full overflow-hidden',
-          'bg-neutral-100 border border-neutral-200 shadow-sm',
+          'relative h-16 touch-none overflow-hidden rounded-full bg-surface-strong',
+          'shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06),inset_0_2px_4px_rgba(0,0,0,0.05)]',
+          'focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-focus',
           interactive ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
           disabled ? 'opacity-50' : '',
         ].join(' ')}
       >
-        {/* Color fill — extends to thumb far edge with matching border-radius */}
+        {/* Fill trails the thumb. */}
         <div
-          className={`absolute ${mode === 'in' ? 'bg-success-500' : 'bg-danger-500'}`}
-          style={{
-            ...fillStyle,
-            top: PAD,
-            bottom: PAD,
-            borderRadius: mode === 'in'
-              ? `0 ${THUMB / 2}px ${THUMB / 2}px 0`
-              : `${THUMB / 2}px 0 0 ${THUMB / 2}px`,
-            opacity: 0.9,
-            transition,
-          }}
+          aria-hidden="true"
+          className={`absolute rounded-full ${inMode ? 'bg-success-accessible' : 'bg-ink'}`}
+          style={{ ...fill, top: PAD, bottom: PAD, transition, opacity: Math.min(1, 0.25 + progress) }}
         />
 
-        {/* Center label — fades as thumb travels */}
+        {/* Label fades as the thumb travels. */}
         <div
-          className="absolute inset-0 flex items-center justify-center gap-1.5 text-sm font-medium text-neutral-500 pointer-events-none"
-          style={{ opacity: labelOpacity, transition: 'opacity 80ms linear' }}
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-[0.9375rem] font-semibold ${inMode ? 'pl-12' : 'pr-12'}`}
+          style={{ opacity: phase === 'done' ? 0 : Math.max(0, 1 - progress / 0.4) }}
         >
-          {mode === 'out'
-            ? <><Clock className="w-3.5 h-3.5" /><span>slide left to check out</span></>
-            : <><span>slide to check in</span><ChevronRight className="w-3.5 h-3.5 opacity-40" /></>
-          }
+          <span className="ck-shimmer text-body">{text}</span>
         </div>
 
         {/* Thumb */}
         <div
-          className="absolute top-1/2 -translate-y-1/2 rounded-full bg-white shadow-md flex items-center justify-center pointer-events-none"
-          style={{
-            width: THUMB,
-            height: THUMB,
-            left: thumbLeft,
-            transition: anim ? transition.replace('all', 'left') : 'none',
-          }}
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full bg-canvas shadow-[0_1px_2px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.18)]"
+          style={{ width: THUMB, height: THUMB, left: thumbLeft, transition }}
         >
-          {thumbIcon}
+          {phase === 'done' ? (
+            <Check className={`size-6 ${inMode ? 'text-success-accessible' : 'text-ink'}`} strokeWidth={2.75} />
+          ) : (
+            <Arrow className={`size-6 ${inMode ? 'text-success-accessible' : 'text-ink'}`} strokeWidth={2.5} />
+          )}
         </div>
       </div>
 
-      {/* ── Confirmation dialog ───────────────────────────────────────────────── */}
-      <AlertDialog open={confirm} onOpenChange={(open) => { if (!open) onCancel() }}>
-        <AlertDialogContent>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-full bg-danger-50 flex items-center justify-center shrink-0">
-              <LogOut className="w-5 h-5 text-danger-600" />
-            </div>
-            <AlertDialogHeader className="gap-0.5">
-              <AlertDialogTitle>Check out?</AlertDialogTitle>
-              {checkInAt && (
-                <AlertDialogDescription>
-                  Checked in at {fmtTime(checkInAt)} · {elapsed} ago
-                </AlertDialogDescription>
-              )}
-            </AlertDialogHeader>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={onCancel}
-              className="flex-1 py-2.5 text-sm font-medium text-ink border border-hairline rounded-xl hover:bg-surface-soft transition-colors"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={onConfirmOut}
-              disabled={status === 'loading'}
-              className="flex-1 py-2.5 text-sm font-medium text-white bg-danger-600 rounded-xl hover:bg-danger-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
-            >
-              {status === 'loading'
-                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Checking out…</>
-                : 'Check out'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Screen readers: a plain button alternative (not in the tab order; the slider handles Enter). */}
+      <button type="button" tabIndex={-1} className="sr-only" disabled={!interactive} onClick={() => { onArm?.(); complete() }}>
+        {actionLabel ?? (inMode ? 'Check in' : 'Check out')}
+      </button>
     </div>
   )
 }

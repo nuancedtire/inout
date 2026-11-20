@@ -19,6 +19,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminRosterRouteImport } from './routes/admin/roster'
 import { Route as AdminSessionsRouteImport } from './routes/admin/sessions'
+import { Route as AdminStaffRouteImport } from './routes/admin/staff'
 import { Route as ApiExportDotcsvRouteImport } from './routes/api/export[.]csv'
 
 const IndexRoute = IndexRouteImport.update({
@@ -71,6 +72,11 @@ const AdminSessionsRoute = AdminSessionsRouteImport.update({
   path: '/sessions',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminStaffRoute = AdminStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ApiExportDotcsvRoute = ApiExportDotcsvRouteImport.update({
   id: '/api/export.csv',
   path: '/api/export.csv',
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/roster': typeof AdminRosterRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/staff': typeof AdminStaffRoute
   '/api/export.csv': typeof ApiExportDotcsvRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/roster': typeof AdminRosterRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/staff': typeof AdminStaffRoute
   '/api/export.csv': typeof ApiExportDotcsvRoute
   '/admin': typeof AdminIndexRoute
 }
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/roster': typeof AdminRosterRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/staff': typeof AdminStaffRoute
   '/api/export.csv': typeof ApiExportDotcsvRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/roster'
     | '/admin/sessions'
+    | '/admin/staff'
     | '/api/export.csv'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/roster'
     | '/admin/sessions'
+    | '/admin/staff'
     | '/api/export.csv'
     | '/admin'
   id:
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/roster'
     | '/admin/sessions'
+    | '/admin/staff'
     | '/api/export.csv'
     | '/admin/'
   fileRoutesById: FileRoutesById
@@ -239,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSessionsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/staff': {
+      id: '/admin/staff'
+      path: '/staff'
+      fullPath: '/admin/staff'
+      preLoaderRoute: typeof AdminStaffRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/api/export.csv': {
       id: '/api/export.csv'
       path: '/api/export.csv'
@@ -253,6 +272,7 @@ interface AdminRouteChildren {
   AdminAuditRoute: typeof AdminAuditRoute
   AdminRosterRoute: typeof AdminRosterRoute
   AdminSessionsRoute: typeof AdminSessionsRoute
+  AdminStaffRoute: typeof AdminStaffRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -260,6 +280,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAuditRoute: AdminAuditRoute,
   AdminRosterRoute: AdminRosterRoute,
   AdminSessionsRoute: AdminSessionsRoute,
+  AdminStaffRoute: AdminStaffRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 

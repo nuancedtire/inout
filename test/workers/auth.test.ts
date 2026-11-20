@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createSessionToken, deriveTokenForDate, requireAdmin, verifyAdminPin, verifySessionToken } from '#/utils/auth'
+import { createSessionToken, createStaffToken, deriveTokenForDate, requireAdmin, verifyAdminPin, verifySessionToken, verifyStaffToken } from '#/utils/auth'
 
 afterEach(() => { vi.useRealTimers() })
 
@@ -46,5 +46,34 @@ describe('admin authentication in Workers', () => {
     expect(token).toMatch(/^[A-Z2-7]{12}$/)
     expect(await deriveTokenForDate('2026-10-16')).toBe(token)
     expect(await deriveTokenForDate('2026-10-17')).not.toBe(token)
+  })
+})
+
+describe('staff device tokens', () => {
+  it('round-trips staff and credential IDs', async () => {
+    const token = await createStaffToken(42, 'Y3JlZC1pZA')
+    expect(await verifyStaffToken(token)).toEqual({ staffId: 42, credentialId: 'Y3JlZC1pZA' })
+  })
+
+  it('never validates an admin token as a staff token, or a staff token as an admin token', async () => {
+    const admin = await createSessionToken()
+    const staffToken = await createStaffToken(1, 'abc')
+    expect(await verifyStaffToken(admin)).toBeNull()
+    expect(await verifySessionToken(staffToken)).toBe(false)
+    expect(await verifySessionToken(staffToken.split('.').slice(1).join('.'))).toBe(false)
+    expect(await verifyStaffToken(`st1.${admin}`)).toBeNull()
+    await expect(requireAdmin({ token: staffToken })).rejects.toThrow('Unauthorized')
+  })
+
+  it('rejects tampered and expired staff tokens', async () => {
+    const token = await createStaffToken(1, 'abc')
+    const [prefix, payload, sig] = token.split('.')
+    const forged = btoa(atob(payload.replace(/-/g, '+').replace(/_/g, '/')).replace(/:1:/, ':2:')).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    expect(await verifyStaffToken(`${prefix}.${forged}.${sig}`)).toBeNull()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    const old = await createStaffToken(1, 'abc')
+    vi.setSystemTime(new Date('2026-04-02T00:00:00Z'))
+    expect(await verifyStaffToken(old)).toBeNull()
   })
 })

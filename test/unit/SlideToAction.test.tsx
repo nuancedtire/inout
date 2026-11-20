@@ -15,40 +15,63 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('keyboard attendance actions', () => {
-  it('submits a check-in when End is released and prevents a duplicate submission', async () => {
-    const onCheckIn = vi.fn().mockResolvedValue(undefined)
-    render(<SlideToAction mode="in" onCheckIn={onCheckIn} onCheckOut={vi.fn()} />)
+describe('slide to check in / out', () => {
+  it('completes synchronously on End release (inside the gesture) and only once', () => {
+    const onComplete = vi.fn()
+    const onArm = vi.fn()
+    render(<SlideToAction mode="in" onComplete={onComplete} onArm={onArm} />)
     const slider = screen.getByRole('slider')
     fireEvent.keyDown(slider, { key: 'End' })
+    expect(onArm).toHaveBeenCalledOnce()
     fireEvent.keyUp(slider, { key: 'End' })
+    // No timers advanced: the action must run in the same event so Face ID can open.
+    expect(onComplete).toHaveBeenCalledOnce()
     fireEvent.keyDown(slider, { key: 'End' })
     fireEvent.keyUp(slider, { key: 'End' })
-    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
-    expect(onCheckIn).toHaveBeenCalledOnce()
+    fireEvent.keyDown(slider, { key: 'Enter' })
+    expect(onComplete).toHaveBeenCalledOnce()
   })
 
-  it('requires confirmation for keyboard checkout and allows cancellation', async () => {
-    const onCheckOut = vi.fn()
-    render(<SlideToAction mode="out" onCheckIn={vi.fn()} onCheckOut={onCheckOut} />)
+  it('checkout travels the other way (Home) and Enter is a keyboard shortcut', () => {
+    const onComplete = vi.fn()
+    const { unmount } = render(<SlideToAction mode="out" onComplete={onComplete} />)
     const slider = screen.getByRole('slider')
+    fireEvent.keyDown(slider, { key: 'End' })
+    fireEvent.keyUp(slider, { key: 'End' })
+    expect(onComplete).not.toHaveBeenCalled()
     fireEvent.keyDown(slider, { key: 'Home' })
     fireEvent.keyUp(slider, { key: 'Home' })
-    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
-    expect(screen.getByRole('alertdialog')).toBeTruthy()
-    expect(onCheckOut).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
-    expect(onCheckOut).not.toHaveBeenCalled()
-    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(onComplete).toHaveBeenCalledOnce()
+    unmount()
+
+    const onEnter = vi.fn()
+    render(<SlideToAction mode="out" onComplete={onEnter} />)
+    fireEvent.keyDown(screen.getByRole('slider'), { key: 'Enter' })
+    expect(onEnter).toHaveBeenCalledOnce()
   })
 
-  it('ignores keyboard actions while disabled', async () => {
-    const onCheckIn = vi.fn()
-    render(<SlideToAction mode="in" disabled onCheckIn={onCheckIn} onCheckOut={vi.fn()} />)
+  it('a short drag snaps back and disarms', async () => {
+    const onComplete = vi.fn()
+    const onDisarm = vi.fn()
+    render(<SlideToAction mode="in" onComplete={onComplete} onDisarm={onDisarm} />)
+    const slider = screen.getByRole('slider')
+    fireEvent.keyDown(slider, { key: 'ArrowRight' })
+    fireEvent.keyUp(slider, { key: 'ArrowRight' })
+    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+    expect(onComplete).not.toHaveBeenCalled()
+    expect(onDisarm).toHaveBeenCalledOnce()
+    expect(slider.getAttribute('aria-valuenow')).toBe('0')
+  })
+
+  it('offers a screen-reader button alternative and ignores input while disabled', () => {
+    const onComplete = vi.fn()
+    render(<SlideToAction mode="in" disabled onComplete={onComplete} actionLabel="Check in with Face ID" />)
     const slider = screen.getByRole('slider')
     fireEvent.keyDown(slider, { key: 'End' })
     fireEvent.keyUp(slider, { key: 'End' })
-    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
-    expect(onCheckIn).not.toHaveBeenCalled()
+    fireEvent.keyDown(slider, { key: 'Enter' })
+    const button = screen.getByRole('button', { name: 'Check in with Face ID' }) as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    expect(onComplete).not.toHaveBeenCalled()
   })
 })

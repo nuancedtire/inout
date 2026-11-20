@@ -19,6 +19,21 @@ describe('attendance mutations', () => {
     expect(await db.select().from(sessions)).toMatchObject([{ checkInAt: '2026-10-17T08:00:00Z', checkOutAt: '2026-10-17T16:00:00Z' }])
   })
 
+  it('marks only the corrected end as admin, ignoring minute-precision resubmission of the other', async () => {
+    const { db, entry } = await seed()
+    const [session] = await db.insert(sessions).values({
+      rosterEntryId: entry.id, checkInAt: '2026-10-17T09:03:27.123Z', identityIn: 'passkey', credentialIdIn: 'cred', locationIn: 'inside', accuracyInM: 8,
+    }).returning()
+    await updateAttendanceSession(db, { sessionId: session.id, checkInAt: '2026-10-17T09:03:00.000Z', checkOutAt: '2026-10-17T17:00:00.000Z' })
+    expect(await db.select().from(sessions)).toMatchObject([{
+      checkInAt: '2026-10-17T09:03:27.123Z', identityIn: 'passkey', credentialIdIn: 'cred', locationIn: 'inside', accuracyInM: 8,
+      checkOutAt: '2026-10-17T17:00:00.000Z', identityOut: 'admin',
+    }])
+    await updateAttendanceSession(db, { sessionId: session.id, checkInAt: '2026-10-17T08:00:00.000Z', checkOutAt: '' })
+    expect(await db.select().from(sessions)).toMatchObject([{ checkInAt: '2026-10-17T08:00:00.000Z', identityIn: 'admin', locationIn: 'inside', checkOutAt: null, identityOut: null }])
+    await expect(updateAttendanceSession(db, { sessionId: 999_999, checkInAt: '2026-10-17T08:00:00.000Z' })).rejects.toThrow('Session not found')
+  })
+
   it('checks out the open session by roster entry without changing a closed session', async () => {
     const { db, entry } = await seed()
     await db.insert(sessions).values({ rosterEntryId: entry.id, checkInAt: '2026-10-17T08:00:00Z', checkOutAt: '2026-10-17T09:00:00Z' })

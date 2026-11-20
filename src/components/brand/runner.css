@@ -1,0 +1,252 @@
+/*
+ * RunnerMark + Wordmark motion (see src/components/brand/RunnerMark.tsx).
+ *
+ * Rig, in the mark's 1024-unit viewBox. Every animated group uses `transform-box: view-box` with a 0 0
+ * origin and bakes its pivot into the keyframe (translate → rotate → translate back), so pivots never
+ * depend on browser transform-origin quirks inside the artwork's scaled group.
+ *   front knee  (729.84, 640.14)  shin swings back under the body during stance (0 → 24°)
+ *   rear knee   (478.18, 728.74)  rear foot kicks up through recovery          (0 → 24°)
+ *   shoulder    (647.30, 408.86)  front arm drives forward                       (0 → -16°)
+ *   neck        (669.17, 238.24)  head lags the body slightly (follow-through)
+ * The body lifts exactly enough to keep the planted front foot on the ground line, then settles back to
+ * contact at 0%/100%. Every keyframe at 0% and 100% is the untouched artwork, so a stride can start or
+ * stop on any cycle boundary without a jump. Curves are sampled every 5% from that model; timing between
+ * samples is linear, which keeps the motion continuous.
+ */
+:root {
+  --rm-cycle: 620ms;
+}
+
+.rm {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+.rm-part {
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
+
+.rm-trail-0 { --rm-ox: 368.66px; }
+.rm-trail-1 { --rm-ox: 508.74px; }
+.rm-trail-2 { --rm-ox: 278.06px; }
+
+:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-part {
+  animation-duration: var(--rm-cycle);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.rm[data-animate='idle'][data-playing] .rm-part { animation-iteration-count: 1; }
+:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-body { animation-name: rm-body; }
+:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-leg { animation-name: rm-leg; }
+:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-shin { animation-name: rm-shin; }
+:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-arm { animation-name: rm-arm; }
+:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-head { animation-name: rm-head; }
+:is(.rm[data-animate='run'], .rm[data-animate='idle'][data-playing]) .rm-trail { animation-name: rm-trail; }
+/* Speed lines are staggered while running so two are always visible; an idle stride sweeps them together. */
+.rm[data-animate='run'] .rm-trail-0 { animation-delay: calc(var(--rm-cycle) * -0.62); }
+.rm[data-animate='run'] .rm-trail-2 { animation-delay: calc(var(--rm-cycle) * -0.31); }
+.rm[data-offscreen] .rm-part { animation-play-state: paused; }
+
+/* A speed line streams back off the runner, thins and fades, then re-forms from its thick end. */
+@keyframes rm-trail {
+  0% {
+    transform: translateX(0) translateX(var(--rm-ox)) scaleX(1) translateX(calc(-1 * var(--rm-ox)));
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  }
+  48% {
+    transform: translateX(-84px) translateX(var(--rm-ox)) scaleX(0.55) translateX(calc(-1 * var(--rm-ox)));
+    opacity: 0;
+    animation-timing-function: step-end;
+  }
+  52% {
+    transform: translateX(36px) translateX(var(--rm-ox)) scaleX(0.2) translateX(calc(-1 * var(--rm-ox)));
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+  100% {
+    transform: translateX(0) translateX(var(--rm-ox)) scaleX(1) translateX(calc(-1 * var(--rm-ox)));
+    opacity: 1;
+  }
+}
+
+/* Reduced motion: nothing moves. A running mark still signals work by gently breathing its speed lines. */
+@keyframes rm-trail-calm {
+  from { opacity: 1; }
+  to { opacity: 0.2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rm .rm-part { animation: none !important; }
+  .rm[data-animate='run'] .rm-trail {
+    animation: rm-trail-calm 1.4s ease-in-out infinite alternate !important;
+  }
+  .rm[data-animate='run'] .rm-trail-0 { animation-delay: -0.47s !important; }
+  .rm[data-animate='run'] .rm-trail-2 { animation-delay: -0.93s !important; }
+}
+@media print {
+  .rm .rm-part { animation: none !important; }
+}
+
+/* ── Wordmark: In [runner] Out ─────────────────────────────────────────── */
+.wm {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+  color: var(--color-ink);
+  font-kerning: normal;
+}
+.wm[data-tone='white'] { color: #fff; }
+.wm-sm { font-size: 1.5rem; }
+.wm-md { font-size: 2rem; }
+.wm-lg { font-size: 3.25rem; }
+.wm-word { display: inline-flex; }
+.wm-letter {
+  display: inline-block;
+  transform-origin: 50% 100%;
+}
+/*
+ * The ampersand torso is treated as a glyph: its height matches the cap height and its lower bowl sits
+ * on the baseline, so head and feet hang above and below the text like ascender and descender.
+ */
+.wm .rm {
+  width: 1.62em;
+  height: 1.62em;
+  margin: 0 -0.1em -0.5em -0.04em;
+}
+/* Footfall: a small ripple travels out from the planted foot through the letters, once per stride. */
+@keyframes wm-footfall {
+  0% { transform: none; animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }
+  9% { transform: translateY(0.035em) scaleY(0.965); animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1); }
+  26% { transform: translateY(-0.012em) scaleY(1.008); animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }
+  42%, 100% { transform: none; }
+}
+:is(.wm:has(.rm[data-animate='run']), .wm:has(.rm[data-playing])) .wm-letter {
+  animation: wm-footfall var(--rm-cycle) linear var(--wm-delay, 0ms) infinite;
+}
+.wm:has(.rm[data-playing]) .wm-letter { animation-iteration-count: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .wm .wm-letter { animation: none !important; }
+}
+
+/* ── Pose curves ───────────────────────────────────────────────────────── */
+@keyframes rm-body {
+  0% { transform: translateY(0px); }
+  5% { transform: translateY(-2.4px); }
+  10% { transform: translateY(-7.76px); }
+  15% { transform: translateY(-13.55px); }
+  20% { transform: translateY(-18.97px); }
+  25% { transform: translateY(-24.49px); }
+  30% { transform: translateY(-29.34px); }
+  35% { transform: translateY(-32.91px); }
+  40% { transform: translateY(-35px); }
+  45% { transform: translateY(-35.68px); }
+  50% { transform: translateY(-35.02px); }
+  55% { transform: translateY(-34.4px); }
+  60% { transform: translateY(-34.71px); }
+  65% { transform: translateY(-34.84px); }
+  70% { transform: translateY(-33.61px); }
+  75% { transform: translateY(-30.3px); }
+  80% { transform: translateY(-24.57px); }
+  85% { transform: translateY(-16.53px); }
+  90% { transform: translateY(-8.21px); }
+  95% { transform: translateY(-2.01px); }
+  100% { transform: translateY(0px); }
+}
+@keyframes rm-shin {
+  0% { transform: translate(729.84px,640.14px) rotate(0deg) translate(-729.84px,-640.14px); }
+  5% { transform: translate(729.84px,640.14px) rotate(1.28deg) translate(-729.84px,-640.14px); }
+  10% { transform: translate(729.84px,640.14px) rotate(4.09deg) translate(-729.84px,-640.14px); }
+  15% { transform: translate(729.84px,640.14px) rotate(7.77deg) translate(-729.84px,-640.14px); }
+  20% { transform: translate(729.84px,640.14px) rotate(11.8deg) translate(-729.84px,-640.14px); }
+  25% { transform: translate(729.84px,640.14px) rotate(15.72deg) translate(-729.84px,-640.14px); }
+  30% { transform: translate(729.84px,640.14px) rotate(19.15deg) translate(-729.84px,-640.14px); }
+  35% { transform: translate(729.84px,640.14px) rotate(21.8deg) translate(-729.84px,-640.14px); }
+  40% { transform: translate(729.84px,640.14px) rotate(23.44deg) translate(-729.84px,-640.14px); }
+  45% { transform: translate(729.84px,640.14px) rotate(24deg) translate(-729.84px,-640.14px); }
+  50% { transform: translate(729.84px,640.14px) rotate(23.46deg) translate(-729.84px,-640.14px); }
+  55% { transform: translate(729.84px,640.14px) rotate(21.92deg) translate(-729.84px,-640.14px); }
+  60% { transform: translate(729.84px,640.14px) rotate(19.54deg) translate(-729.84px,-640.14px); }
+  65% { transform: translate(729.84px,640.14px) rotate(16.56deg) translate(-729.84px,-640.14px); }
+  70% { transform: translate(729.84px,640.14px) rotate(13.22deg) translate(-729.84px,-640.14px); }
+  75% { transform: translate(729.84px,640.14px) rotate(9.82deg) translate(-729.84px,-640.14px); }
+  80% { transform: translate(729.84px,640.14px) rotate(6.63deg) translate(-729.84px,-640.14px); }
+  85% { transform: translate(729.84px,640.14px) rotate(3.87deg) translate(-729.84px,-640.14px); }
+  90% { transform: translate(729.84px,640.14px) rotate(1.76deg) translate(-729.84px,-640.14px); }
+  95% { transform: translate(729.84px,640.14px) rotate(0.45deg) translate(-729.84px,-640.14px); }
+  100% { transform: translate(729.84px,640.14px) rotate(0deg) translate(-729.84px,-640.14px); }
+}
+@keyframes rm-leg {
+  0% { transform: translate(478.18px,728.74px) rotate(0deg) translate(-478.18px,-728.74px); }
+  5% { transform: translate(478.18px,728.74px) rotate(0.59deg) translate(-478.18px,-728.74px); }
+  10% { transform: translate(478.18px,728.74px) rotate(2.29deg) translate(-478.18px,-728.74px); }
+  15% { transform: translate(478.18px,728.74px) rotate(4.95deg) translate(-478.18px,-728.74px); }
+  20% { transform: translate(478.18px,728.74px) rotate(8.29deg) translate(-478.18px,-728.74px); }
+  25% { transform: translate(478.18px,728.74px) rotate(12deg) translate(-478.18px,-728.74px); }
+  30% { transform: translate(478.18px,728.74px) rotate(15.71deg) translate(-478.18px,-728.74px); }
+  35% { transform: translate(478.18px,728.74px) rotate(19.05deg) translate(-478.18px,-728.74px); }
+  40% { transform: translate(478.18px,728.74px) rotate(21.71deg) translate(-478.18px,-728.74px); }
+  45% { transform: translate(478.18px,728.74px) rotate(23.41deg) translate(-478.18px,-728.74px); }
+  50% { transform: translate(478.18px,728.74px) rotate(24deg) translate(-478.18px,-728.74px); }
+  55% { transform: translate(478.18px,728.74px) rotate(23.41deg) translate(-478.18px,-728.74px); }
+  60% { transform: translate(478.18px,728.74px) rotate(21.71deg) translate(-478.18px,-728.74px); }
+  65% { transform: translate(478.18px,728.74px) rotate(19.05deg) translate(-478.18px,-728.74px); }
+  70% { transform: translate(478.18px,728.74px) rotate(15.71deg) translate(-478.18px,-728.74px); }
+  75% { transform: translate(478.18px,728.74px) rotate(12deg) translate(-478.18px,-728.74px); }
+  80% { transform: translate(478.18px,728.74px) rotate(8.29deg) translate(-478.18px,-728.74px); }
+  85% { transform: translate(478.18px,728.74px) rotate(4.95deg) translate(-478.18px,-728.74px); }
+  90% { transform: translate(478.18px,728.74px) rotate(2.29deg) translate(-478.18px,-728.74px); }
+  95% { transform: translate(478.18px,728.74px) rotate(0.59deg) translate(-478.18px,-728.74px); }
+  100% { transform: translate(478.18px,728.74px) rotate(0deg) translate(-478.18px,-728.74px); }
+}
+@keyframes rm-arm {
+  0% { transform: translate(647.3px,408.86px) rotate(0deg) translate(-647.3px,-408.86px); }
+  5% { transform: translate(647.3px,408.86px) rotate(-0.54deg) translate(-647.3px,-408.86px); }
+  10% { transform: translate(647.3px,408.86px) rotate(-1.95deg) translate(-647.3px,-408.86px); }
+  15% { transform: translate(647.3px,408.86px) rotate(-4deg) translate(-647.3px,-408.86px); }
+  20% { transform: translate(647.3px,408.86px) rotate(-6.44deg) translate(-647.3px,-408.86px); }
+  25% { transform: translate(647.3px,408.86px) rotate(-9deg) translate(-647.3px,-408.86px); }
+  30% { transform: translate(647.3px,408.86px) rotate(-11.44deg) translate(-647.3px,-408.86px); }
+  35% { transform: translate(647.3px,408.86px) rotate(-13.51deg) translate(-647.3px,-408.86px); }
+  40% { transform: translate(647.3px,408.86px) rotate(-15.03deg) translate(-647.3px,-408.86px); }
+  45% { transform: translate(647.3px,408.86px) rotate(-15.86deg) translate(-647.3px,-408.86px); }
+  50% { transform: translate(647.3px,408.86px) rotate(-15.94deg) translate(-647.3px,-408.86px); }
+  55% { transform: translate(647.3px,408.86px) rotate(-15.27deg) translate(-647.3px,-408.86px); }
+  60% { transform: translate(647.3px,408.86px) rotate(-13.92deg) translate(-647.3px,-408.86px); }
+  65% { transform: translate(647.3px,408.86px) rotate(-12.04deg) translate(-647.3px,-408.86px); }
+  70% { transform: translate(647.3px,408.86px) rotate(-9.79deg) translate(-647.3px,-408.86px); }
+  75% { transform: translate(647.3px,408.86px) rotate(-7.39deg) translate(-647.3px,-408.86px); }
+  80% { transform: translate(647.3px,408.86px) rotate(-5.06deg) translate(-647.3px,-408.86px); }
+  85% { transform: translate(647.3px,408.86px) rotate(-2.99deg) translate(-647.3px,-408.86px); }
+  90% { transform: translate(647.3px,408.86px) rotate(-1.38deg) translate(-647.3px,-408.86px); }
+  95% { transform: translate(647.3px,408.86px) rotate(-0.35deg) translate(-647.3px,-408.86px); }
+  100% { transform: translate(647.3px,408.86px) rotate(0deg) translate(-647.3px,-408.86px); }
+}
+@keyframes rm-head {
+  0% { transform: translate(669.17px,238.24px) translateY(0px) rotate(0deg) translate(-669.17px,-238.24px); }
+  5% { transform: translate(669.17px,238.24px) translateY(0px) rotate(0.16deg) translate(-669.17px,-238.24px); }
+  10% { transform: translate(669.17px,238.24px) translateY(0px) rotate(0.44deg) translate(-669.17px,-238.24px); }
+  15% { transform: translate(669.17px,238.24px) translateY(0.02px) rotate(0.74deg) translate(-669.17px,-238.24px); }
+  20% { transform: translate(669.17px,238.24px) translateY(0.06px) rotate(1.03deg) translate(-669.17px,-238.24px); }
+  25% { transform: translate(669.17px,238.24px) translateY(0.14px) rotate(1.27deg) translate(-669.17px,-238.24px); }
+  30% { transform: translate(669.17px,238.24px) translateY(0.3px) rotate(1.45deg) translate(-669.17px,-238.24px); }
+  35% { transform: translate(669.17px,238.24px) translateY(0.57px) rotate(1.56deg) translate(-669.17px,-238.24px); }
+  40% { transform: translate(669.17px,238.24px) translateY(0.96px) rotate(1.6deg) translate(-669.17px,-238.24px); }
+  45% { transform: translate(669.17px,238.24px) translateY(1.51px) rotate(1.57deg) translate(-669.17px,-238.24px); }
+  50% { transform: translate(669.17px,238.24px) translateY(2.21px) rotate(1.47deg) translate(-669.17px,-238.24px); }
+  55% { transform: translate(669.17px,238.24px) translateY(3.02px) rotate(1.32deg) translate(-669.17px,-238.24px); }
+  60% { transform: translate(669.17px,238.24px) translateY(3.84px) rotate(1.14deg) translate(-669.17px,-238.24px); }
+  65% { transform: translate(669.17px,238.24px) translateY(4.55px) rotate(0.94deg) translate(-669.17px,-238.24px); }
+  70% { transform: translate(669.17px,238.24px) translateY(4.96px) rotate(0.73deg) translate(-669.17px,-238.24px); }
+  75% { transform: translate(669.17px,238.24px) translateY(4.9px) rotate(0.53deg) translate(-669.17px,-238.24px); }
+  80% { transform: translate(669.17px,238.24px) translateY(4.27px) rotate(0.35deg) translate(-669.17px,-238.24px); }
+  85% { transform: translate(669.17px,238.24px) translateY(3.13px) rotate(0.2deg) translate(-669.17px,-238.24px); }
+  90% { transform: translate(669.17px,238.24px) translateY(1.72px) rotate(0.09deg) translate(-669.17px,-238.24px); }
+  95% { transform: translate(669.17px,238.24px) translateY(0.5px) rotate(0.02deg) translate(-669.17px,-238.24px); }
+  100% { transform: translate(669.17px,238.24px) translateY(0px) rotate(0deg) translate(-669.17px,-238.24px); }
+}

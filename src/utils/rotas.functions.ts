@@ -5,11 +5,20 @@ import type { Rota } from '#/db/schema'
 import { rotas, rosterEntries, sessions } from '#/db/schema'
 import { eq, asc, desc, inArray } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import * as schema from '#/db/schema'
+import type * as schema from '#/db/schema'
 import { parseRota } from './rotaParser'
 import { requireAdmin, deriveTokenForDate } from './auth'
 import { logAudit } from './audit'
 import { todayDate } from './dateTime'
+import { planRotaLinks, summariseRotaLinks } from '#/db/staff'
+import { getSiteSettings } from '#/db/passkeys'
+import { isSiteConfigured } from './location'
+import {
+  validateAddAdHocStaff,
+  validateQrDate,
+  validateUpdateRosterEntry,
+  validateUploadRota,
+} from './validation'
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -39,9 +48,13 @@ async function ensureRotaForDate(db: Db, date: string): Promise<Rota> {
 export const getTodayRoster = createServerFn({ method: 'GET' }).handler(async () => {
   const db = await getDb()
   const date = todayDate()
+  // Public boolean only: whether a department area is set, so the check-in page can skip the
+  // location prompt entirely when there is nothing to compare against. Never the coordinates.
+  const locationCheck = isSiteConfigured(await getSiteSettings(db))
 
+  // Public endpoint: never return the rota's QR token here.
   const rota = await db
-    .select()
+    .select({ id: rotas.id, date: rotas.date })
     .from(rotas)
     .where(eq(rotas.date, date))
     .get()
@@ -49,6 +62,7 @@ export const getTodayRoster = createServerFn({ method: 'GET' }).handler(async ()
   if (!rota) {
     return {
       rota: null,
+      locationCheck,
       entries: [] as { id: number; name: string; role: string | null; shiftStart: string | null; shiftEnd: string | null; source: string }[],
       statusByEntryId: {} as Record<number, { checkedIn: boolean; sessionId: number | null; checkInAt: string | null; hasUndoableAction: boolean }>,
     }
@@ -103,11 +117,11 @@ export const getTodayRoster = createServerFn({ method: 'GET' }).handler(async ()
     }
   }
 
-  return { rota, entries, statusByEntryId }
+  return { rota, locationCheck, entries, statusByEntryId }
 })
 
 export const getQrTokenOrSeed = createServerFn({ method: 'GET' })
-  .validator((data: { date: string }) => data)
+  .validator(validateQrDate)
   .handler(async ({ data }) => {
     const db = await getDb()
     const rota = await ensureRotaForDate(db, data.date)
@@ -119,17 +133,7 @@ export const getQrTokenOrSeed = createServerFn({ method: 'GET' })
 // ══════════════════════════════════════════════════════════════════
 
 export const uploadRota = createServerFn({ method: 'POST' })
-  .validator(
-    (data: {
-      date: string
-      fileBase64: string
-      fileName: string
-      authToken: string
-      nameHeader?: string
-      roleHeader?: string
-      shiftHeader?: string
-    }) => data,
-  )
+  .validator(validateUploadRota)
   .handler(async ({ data }) => {
     await requireAdmin({ token: data.authToken })
 
@@ -162,32 +166,29 @@ export const uploadRota = createServerFn({ method: 'POST' })
     // Upsert rota (keeps deterministic token)
     const rota = await ensureRotaForDate(db, data.date)
 
-    const rows = parsed.map((entry) => ({
+    // Link to stable staff records only on an exact, unambiguous normalised-name match among
+    // active staff. Links are written with the entries in the same atomic batch.
+    const { staffIds, reasons } = await planRotaLinks(db, parsed.map((entry) => entry.name))
+    const rows = parsed.map((entry, i) => ({
       rotaId: rota.id,
       name: entry.name,
       role: entry.role || null,
       shiftStart: entry.shiftStart,
       shiftEnd: entry.shiftEnd,
       source: 'rota' as const,
+      staffId: staffIds[i],
     }))
 
     await replaceRotaEntries(db, rota.id, rows)
+    const links = await summariseRotaLinks(db, rota.id, reasons)
 
-    await logAudit('rota_uploaded', { date: data.date, staffCount: parsed.length }, 'admin')
+    await logAudit('rota_uploaded', { date: data.date, staffCount: parsed.length, linked: links.linked, unlinked: links.unlinked.length }, 'admin')
 
-    return { ok: true, count: parsed.length, unparseableShifts, token: rota.token, date: data.date }
+    return { ok: true, count: parsed.length, unparseableShifts, token: rota.token, date: data.date, linked: links.linked, unlinked: links.unlinked }
   })
 
 export const addAdHocStaff = createServerFn({ method: 'POST' })
-  .validator(
-    (data: {
-      name: string
-      role?: string
-      shiftStart?: string
-      shiftEnd?: string
-      authToken: string
-    }) => data,
-  )
+  .validator(validateAddAdHocStaff)
   .handler(async ({ data }) => {
     await requireAdmin({ token: data.authToken })
 
@@ -220,16 +221,7 @@ export const addAdHocStaff = createServerFn({ method: 'POST' })
   })
 
 export const adminUpdateRosterEntry = createServerFn({ method: 'POST' })
-  .validator(
-    (data: {
-      entryId: number
-      name?: string
-      role?: string
-      shiftStart?: string
-      shiftEnd?: string
-      authToken: string
-    }) => data,
-  )
+  .validator(validateUpdateRosterEntry)
   .handler(async ({ data }) => {
     await requireAdmin({ token: data.authToken })
     const db = await getDb()

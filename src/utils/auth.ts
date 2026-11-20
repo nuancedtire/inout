@@ -73,11 +73,13 @@ export async function createSessionToken(): Promise<string> {
 
 export async function verifySessionToken(token: string): Promise<boolean> {
   try {
-    const [payloadB64, sigB64] = token.split('.')
-    if (!payloadB64 || !sigB64) return false
+    const [payloadB64, sigB64, extra] = token.split('.')
+    if (!payloadB64 || !sigB64 || extra !== undefined) return false
 
     const payload = fromB64url(payloadB64)
-    const [expiryStr] = payload.split(':')
+    // Admin payloads are exactly `<expiry>:<uuid>`; anything else (e.g. a staff token) is rejected.
+    const [expiryStr, random, ...rest] = payload.split(':')
+    if (!/^\d+$/.test(expiryStr ?? '') || !random || rest.length) return false
     const expiry = Number(expiryStr)
     if (isNaN(expiry) || Date.now() > expiry) return false
 
@@ -90,6 +92,49 @@ export async function verifySessionToken(token: string): Promise<boolean> {
     )
   } catch {
     return false
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Staff device tokens (display hint only — never authorises attendance)
+// ═══════════════════════════════════════════════════════════════
+
+const STAFF_TOKEN_PREFIX = 'st1'
+const STAFF_TOKEN_PURPOSE = 'inout-staff-device-v1'
+const STAFF_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000 // 90 days
+
+/**
+ * Remembers which staff member and passkey this device last used. Signed with the same key as
+ * admin tokens, but the HMAC input is domain-separated by purpose and the format differs, so an
+ * admin token never validates as a staff token or vice versa. Every attendance action still
+ * requires a fresh passkey assertion.
+ */
+export async function createStaffToken(staffId: number, credentialId: string): Promise<string> {
+  const expiry = Date.now() + STAFF_TOKEN_TTL_MS
+  const payload = `${expiry}:${staffId}:${credentialId}`
+  const sig = await hmacSign(await deriveSigningKey(), `${STAFF_TOKEN_PURPOSE}:${payload}`)
+  return `${STAFF_TOKEN_PREFIX}.${b64url(payload)}.${b64url(String.fromCharCode(...new Uint8Array(sig)))}`
+}
+
+export async function verifyStaffToken(token: string): Promise<{ staffId: number; credentialId: string } | null> {
+  try {
+    const [prefix, payloadB64, sigB64, extra] = token.split('.')
+    if (prefix !== STAFF_TOKEN_PREFIX || !payloadB64 || !sigB64 || extra !== undefined) return null
+    const payload = fromB64url(payloadB64)
+    const match = /^(\d+):(\d+):([A-Za-z0-9_-]+)$/.exec(payload)
+    if (!match) return null
+    const expiry = Number(match[1])
+    if (!Number.isFinite(expiry) || Date.now() > expiry) return null
+    const sig = await hmacSign(await deriveSigningKey(), `${STAFF_TOKEN_PURPOSE}:${payload}`)
+    const valid = timingSafeEqual(
+      new TextEncoder().encode(sigB64),
+      new TextEncoder().encode(b64url(String.fromCharCode(...new Uint8Array(sig)))),
+    )
+    if (!valid) return null
+    const staffId = Number(match[2])
+    return Number.isSafeInteger(staffId) && staffId > 0 ? { staffId, credentialId: match[3] } : null
+  } catch {
+    return null
   }
 }
 

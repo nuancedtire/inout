@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { createFileRoute, Outlet, useRouterState } from '@tanstack/react-router'
+import { useRef, useState } from 'react'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { SidebarProvider } from '#/components/ui/sidebar'
 import { AppSidebar } from '#/routes/admin/-components/AppSidebar'
 import { AdminDock } from '#/routes/admin/-components/AdminDock'
@@ -8,21 +8,13 @@ import { usePersistentAdminAuth, useAutoDismiss } from '#/routes/admin/-hooks'
 import { useLoading } from '#/hooks/useLoading'
 import { ErrorFallback } from '#/components/ErrorFallback'
 import { EmptyState } from '#/components/EmptyState'
-import { Lock, LogOut } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '#/components/Button'
-import { Logo } from '#/components/Logo'
-import { DatePicker } from '#/components/DatePicker'
+import { Wordmark } from '#/components/brand/Wordmark'
 import { addDays, todayDate } from '#/utils/dateTime'
 import { TourProvider } from '#/lib/tour/TourContext'
 import { TourOverlay } from '#/components/TourOverlay'
-import { TourFab } from '#/routes/admin/-components/TourFab'
-
-const PAGE_TITLES: Record<string, string> = {
-  '/admin': 'Dashboard',
-  '/admin/roster': 'Roster',
-  '/admin/sessions': 'Sessions',
-  '/admin/audit': 'Audit',
-}
+import { AdminTopBar, MobileDateBar } from '#/routes/admin/-components/AdminTopBar'
 
 export const Route = createFileRoute('/admin')({
   component: AdminLayout,
@@ -44,7 +36,7 @@ function NotFound() {
 function AdminLayout() {
   const { date: today } = Route.useLoaderData()
   const { authToken, authenticated, pin, setPin, login, logout } = usePersistentAdminAuth()
-  const { message, show } = useAutoDismiss()
+  const { message, show, clear } = useAutoDismiss()
   const { loading, withLoading } = useLoading()
   const [viewDate, setViewDate] = useState(today)
 
@@ -53,52 +45,27 @@ function AdminLayout() {
   // ─── PIN login gate ──────────────────────────────────────────────
   if (!authenticated) {
     const handleUnlock = async () => {
-      await withLoading('unlock', async () => login(pin)).catch((err) =>
-        show(err instanceof Error ? err.message : 'Invalid PIN'),
-      )
+      try {
+        await withLoading('unlock', async () => login(pin))
+        return true
+      } catch (err) {
+        const text = err instanceof Error ? err.message : ''
+        show(!text || /invalid.*pin/i.test(text) ? 'Incorrect PIN. Please try again.' : text)
+        return false
+      }
     }
 
     return (
-      <main className="min-h-screen flex items-center justify-center bg-surface-soft p-4">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-50 mb-5">
-              <Logo size={52} variant="rausch" glow />
-            </div>
-            <h1 className="text-2xl font-bold text-ink">InOut Admin</h1>
-            <p className="text-sm text-muted mt-1">Enter your PIN to continue</p>
-          </div>
-          <div
-            className="bg-canvas rounded-2xl p-6"
-            style={{ boxShadow: 'var(--shadow-card)' }}
-          >
-            <label className="block text-sm font-medium text-body mb-2" htmlFor="pin-input">
-              Admin PIN
-            </label>
-            <input
-              id="pin-input"
-              type="password"
-              placeholder="••••"
-              aria-label="Admin PIN"
-              className="w-full px-4 py-3 text-lg tracking-widest border border-hairline rounded-xl mb-4 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none text-center transition-all"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              onKeyDown={async (e) => {
-                if (e.key === 'Enter') await handleUnlock()
-              }}
-            />
-            <Button fullWidth loading={loading['unlock']} onClick={handleUnlock}>
-              Unlock
-            </Button>
-            {message && (
-              <div className="mt-3 flex items-center gap-2 p-3 bg-danger-50 rounded-xl border border-danger-100">
-                <Lock className="w-4 h-4 text-danger-600 shrink-0" />
-                <p className="text-sm text-danger-700">{message}</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
+      <PinGate
+        pin={pin}
+        onPinChange={(value) => {
+          setPin(value)
+          if (message) clear()
+        }}
+        verifying={Boolean(loading['unlock'])}
+        error={message}
+        onUnlock={handleUnlock}
+      />
     )
   }
 
@@ -113,28 +80,28 @@ function AdminLayout() {
     today,
   }
 
+  const dateNav = {
+    viewDate,
+    isToday,
+    onPrev: () => setViewDate(addDays(viewDate, -1)),
+    onNext: () => setViewDate(addDays(viewDate, 1)),
+    onDateChange: setViewDate,
+    onToday: () => setViewDate(today),
+  }
+
   return (
     <AdminContext.Provider value={contextValue}>
       <TourProvider>
         <SidebarProvider>
           <AppSidebar />
-          <main className="w-full min-h-svh bg-surface-soft flex flex-col">
-            <TopBar
-              viewDate={viewDate}
-              isToday={isToday}
-              today={today}
-              onPrev={() => setViewDate(addDays(viewDate, -1))}
-              onNext={() => setViewDate(addDays(viewDate, 1))}
-              onDateChange={(d) => setViewDate(d)}
-              onToday={() => setViewDate(today)}
-              onLogout={logout}
-            />
-            <div className="flex-1 p-4 sm:p-6 pb-24 sm:pb-6">
+          <main className="flex min-h-svh w-full min-w-0 flex-col bg-surface-soft">
+            <AdminTopBar {...dateNav} onLogout={logout} />
+            <div className="flex-1 px-4 pb-28 pt-4 sm:px-6 sm:pt-6 md:pb-10">
+              <MobileDateBar {...dateNav} />
               <Outlet />
             </div>
           </main>
           <AdminDock />
-          <TourFab />
           <TourOverlay />
         </SidebarProvider>
       </TourProvider>
@@ -142,65 +109,121 @@ function AdminLayout() {
   )
 }
 
-type TopBarProps = {
-  viewDate: string
-  isToday: boolean
-  today: string
-  onPrev: () => void
-  onNext: () => void
-  onDateChange: (d: string) => void
-  onToday: () => void
-  onLogout: () => void
+type PinGateProps = {
+  pin: string
+  onPinChange: (pin: string) => void
+  verifying: boolean
+  error: string
+  onUnlock: () => Promise<boolean>
 }
 
-function TopBar({ viewDate, isToday, onPrev, onNext, onDateChange, onToday, onLogout }: TopBarProps) {
-  const router = useRouterState()
-  const pageTitle = PAGE_TITLES[router.location.pathname] ?? 'Admin'
+function PinGate({ pin, onPinChange, verifying, error, onUnlock }: PinGateProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [reveal, setReveal] = useState(false)
+  const [localError, setLocalError] = useState('')
+  const [shaking, setShaking] = useState(false)
+  const feedback = localError || error
+
+  const shake = () => {
+    setShaking(false)
+    requestAnimationFrame(() => setShaking(true))
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  }
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (verifying) return
+    if (!pin.trim()) {
+      setLocalError('Enter your PIN to continue.')
+      shake()
+      return
+    }
+    setLocalError('')
+    if (!(await onUnlock())) shake()
+  }
 
   return (
-    <header className="flex items-center gap-3 px-5 h-16 border-b border-hairline bg-canvas sticky top-0 z-20 shrink-0">
-      <h1 className="text-sm font-semibold text-ink">{pageTitle}</h1>
+    <main className="min-h-svh flex items-center justify-center bg-surface-soft px-4 py-12 pt-safe">
+      <section className="w-full max-w-[420px] text-center">
+        <div className="animate-reveal">
+          <Wordmark
+            as="h1"
+            size="lg"
+            label="InOut admin"
+            animate={verifying ? 'run' : 'idle'}
+            className="mx-auto"
+          />
+          <p className="mx-auto mt-6 mb-8 max-w-[34ch] text-base text-muted">Enter your PIN to continue</p>
+        </div>
 
-      <div className="flex-1" />
-
-      {/* Date navigation */}
-      <div className="flex items-center gap-1">
-        <button
-          aria-label="Previous day"
-          className="p-1.5 rounded-full hover:bg-surface-soft text-muted hover:text-ink transition-all"
-          onClick={onPrev}
+        <form
+          noValidate
+          onSubmit={submit}
+          className="animate-reveal rounded-lg border border-hairline-soft bg-canvas p-6 text-left shadow-card [animation-delay:60ms]"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-        <DatePicker value={viewDate} onChange={onDateChange} />
-        <button
-          aria-label="Next day"
-          className="p-1.5 rounded-full hover:bg-surface-soft text-muted hover:text-ink transition-all"
-          onClick={onNext}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-      </div>
+          <label htmlFor="pin-input" className="mb-3 block text-base font-semibold text-ink">
+            Admin PIN
+          </label>
+          <div
+            onAnimationEnd={() => setShaking(false)}
+            className={[
+              'flex items-center gap-1 rounded-control border bg-canvas pr-1 transition-[border-color,box-shadow]',
+              feedback
+                ? 'border-danger-600 focus-within:shadow-[0_0_0_1px_var(--color-danger-600)]'
+                : 'border-hairline hover:border-neutral-400 focus-within:border-ink focus-within:shadow-[0_0_0_1px_var(--color-ink)]',
+              shaking ? 'animate-shake' : '',
+            ].join(' ')}
+          >
+            <input
+              ref={inputRef}
+              id="pin-input"
+              name="pin"
+              type={reveal ? 'text' : 'password'}
+              autoComplete="current-password"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              autoFocus
+              aria-invalid={feedback ? true : undefined}
+              aria-describedby="pin-feedback"
+              className="block min-h-14 w-full min-w-0 rounded-control bg-transparent px-4 text-lg text-ink outline-none placeholder:text-muted-soft focus-visible:outline-none"
+              value={pin}
+              onChange={(e) => {
+                setLocalError('')
+                onPinChange(e.target.value)
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Show PIN"
+              aria-pressed={reveal}
+              aria-controls="pin-input"
+              onClick={() => setReveal((v) => !v)}
+              className="ui-press flex size-11 shrink-0 items-center justify-center rounded-[10px] text-muted hover:bg-surface-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-focus"
+            >
+              {reveal ? <EyeOff className="size-5" aria-hidden="true" /> : <Eye className="size-5" aria-hidden="true" />}
+            </button>
+          </div>
 
-      {!isToday && (
-        <button
-          onClick={onToday}
-          className="px-3 py-1.5 text-xs font-semibold rounded-full border border-hairline bg-canvas text-ink hover:bg-surface-soft transition-colors"
-        >
-          Today
-        </button>
-      )}
+          <div id="pin-feedback" aria-live="polite" className="h-14 pt-3 text-sm leading-5">
+            {verifying ? (
+              <div>
+                <p className="text-muted">Checking PIN…</p>
+                <div className="mt-2.5 h-0.5 overflow-hidden rounded-full bg-hairline-soft" aria-hidden="true">
+                  <div className="animate-progress h-full w-full origin-left rounded-full bg-ink" />
+                </div>
+              </div>
+            ) : feedback ? (
+              <p className="text-danger-700">{feedback}</p>
+            ) : null}
+          </div>
 
-      <div className="w-px h-5 bg-hairline" />
-
-      <button
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted hover:text-ink hover:bg-surface-soft rounded-full transition-colors"
-        onClick={onLogout}
-        title="Lock admin"
-      >
-        <LogOut className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Lock</span>
-      </button>
-    </header>
+          <Button type="submit" size="lg" fullWidth loading={verifying}>
+            Unlock
+          </Button>
+        </form>
+      </section>
+    </main>
   )
 }

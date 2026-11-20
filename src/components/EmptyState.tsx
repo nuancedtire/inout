@@ -17,13 +17,16 @@ export function EmptyState({ title, description, icon = 'alert', children }: Emp
   const IconComponent = typeof icon === 'string' ? iconMap[icon] ?? AlertCircle : null
 
   return (
-    <div className="text-center py-8 px-4">
-      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-neutral-100 text-neutral-400 mb-3">
-        {IconComponent ? <IconComponent className="w-6 h-6" /> : icon}
+    <div className="animate-reveal mx-auto max-w-sm py-10 px-4 text-center">
+      <div
+        aria-hidden="true"
+        className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-canvas text-muted ring-1 ring-hairline-soft shadow-card [&_svg]:size-6"
+      >
+        {IconComponent ? <IconComponent strokeWidth={1.75} /> : icon}
       </div>
-      <p className="text-neutral-800 font-medium">{title}</p>
-      {description ? <p className="text-sm text-neutral-500 mt-1">{description}</p> : null}
-      {children ? <div className="mt-4">{children}</div> : null}
+      <p className="text-base font-semibold text-ink text-balance">{title}</p>
+      {description ? <p className="mt-1.5 text-sm leading-relaxed text-muted text-pretty">{description}</p> : null}
+      {children ? <div className="mt-5 flex justify-center">{children}</div> : null}
     </div>
   )
 }

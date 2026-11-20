@@ -1,6 +1,7 @@
 
 @import "tailwindcss";
 @import "./theme.css";
+@import "./components/brand/runner.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -27,10 +28,53 @@ body {
   color: var(--color-ink);
 }
 
-/* Focus ring consistent with design system */
-:focus-visible {
-  outline: 2px solid var(--color-primary-500);
-  outline-offset: 2px;
+/* Focus ring: 2px ink, offset so it reads on any fill. In the base layer so component utilities
+   (e.g. an input whose wrapper draws the ring) can override it. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* Standalone (home-screen) launches: keep content clear of the notch and home indicator */
+.pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+/* Pressable controls: tactile press, with transform included in the transition (class beats the element rule above) */
+.ui-press {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--ease-standard);
+}
+.ui-press:active:not(:disabled):not([aria-disabled='true']) {
+  transform: scale(0.97);
+}
+
+/* Button spinner */
+@keyframes spinner-turn {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  animation: spinner-turn 700ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1.6s;
+  }
+  .ui-press:active:not(:disabled) {
+    transform: none;
+  }
+  .animate-reveal,
+  .animate-pop,
+  .animate-shake {
+    animation: none;
+  }
+  .animate-progress {
+    animation-duration: 3s;
+  }
 }
 
 /* Smooth transitions for interactive elements */

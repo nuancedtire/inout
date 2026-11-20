@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { adminExportSessions } from '#/utils/sessions.functions'
-import Papa from 'papaparse'
+import { buildAttendanceCsv } from '#/utils/exportCsv'
 
 /**
  * Authenticated CSV export endpoint.
@@ -25,20 +25,7 @@ export const Route = createFileRoute('/api/export.csv')({
             data: { startDate, endDate, authToken },
           })
 
-          const rows = [
-            ['Name', 'Role', 'Check in', 'Check out', 'Hours'],
-            ...(
-              sessionRows as { name: string; role: string | null; check_in_at: string; check_out_at: string | null; hours: number | null }[]
-            ).map((r) => [
-              r.name,
-              r.role || '',
-              r.check_in_at,
-              r.check_out_at || '',
-              r.hours?.toFixed(2) || '',
-            ]),
-          ]
-
-          const csv = Papa.unparse(rows)
+          const csv = buildAttendanceCsv(sessionRows)
 
           return new Response(csv, {
             headers: {
@@ -51,7 +38,8 @@ export const Route = createFileRoute('/api/export.csv')({
           if (msg.includes('expired') || msg.includes('Invalid admin')) {
             return new Response('Session expired', { status: 401 })
           }
-          return new Response(msg, { status: 500 })
+          if (msg === 'Invalid date') return new Response(msg, { status: 400 })
+          return new Response('Export failed', { status: 500 })
         }
       },
     },

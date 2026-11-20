@@ -1,108 +1,82 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAdminContext } from '#/routes/admin/-context'
-import { adminGetDashboard, adminUpdateSession, adminDeleteSession } from '#/utils/sessions.functions'
-import { useLoading } from '#/hooks/useLoading'
-import { useAutoDismiss } from '#/routes/admin/-hooks'
-import { MessageBanner } from '#/routes/admin/-components/MessageBanner'
+import { adminUpdateSession, adminDeleteSession } from '#/utils/sessions.functions'
 import { SessionSection } from '#/routes/admin/-components/SessionSection'
+import { EvidenceDialog } from '#/routes/admin/-components/verification'
+import { acceptInDashboard, useDashboard } from '#/routes/admin/-components/useDashboard'
+import { errorText, LoadError, Notice, Page, PanelSkeleton } from '#/routes/admin/-components/kit'
 import { ConfirmDialog, type ConfirmDialogState } from '#/components/ConfirmDialog'
-import type { SessionRow } from '#/routes/admin/-types'
+import type { EvidenceSubject } from '#/routes/admin/-types'
 
 export const Route = createFileRoute('/admin/sessions')({
   component: AdminSessions,
 })
 
 function AdminSessions() {
-  const { authToken, viewDate } = useAdminContext()
-  const { withLoading } = useLoading()
-  const { message, show, clear } = useAutoDismiss()
-  const [sessions, setSessions] = useState<SessionRow[]>([])
-  const [dataLoading, setDataLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(null)
+  const { authToken } = useAdminContext()
+  const { data, loading, error, reload, retry, patch } = useDashboard()
+  const [notice, setNotice] = useState<{ text: string; tone: 'success' | 'error' } | null>(null)
+  const [confirm, setConfirm] = useState<ConfirmDialogState>(null)
+  const [details, setDetails] = useState<EvidenceSubject | null>(null)
+  const [savingId, setSavingId] = useState<number | null>(null)
 
-  const refresh = async () => {
-    if (!authToken) return
-    setError(null)
+  if (loading && !data) return <Page><PanelSkeleton rows={6} /></Page>
+  if (error && !data) return <Page><LoadError title="Could not load sessions" message={error} onRetry={retry} /></Page>
+  if (!data) return null
+
+  const handleUpdate = async (sessionId: number, form: { checkInAt: string; checkOutAt: string | undefined }) => {
+    setSavingId(sessionId)
     try {
-      const dashboard = await adminGetDashboard({
-        data: { date: viewDate, authToken },
-      })
-      setSessions((dashboard as { sessions: SessionRow[] }).sessions ?? [])
+      await adminUpdateSession({ data: { sessionId, checkInAt: form.checkInAt, checkOutAt: form.checkOutAt, authToken } })
+      setNotice({ text: 'Session times saved.', tone: 'success' })
+      await reload()
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to load sessions'
-      setError(msg)
+      setNotice({ text: errorText(e, 'Could not save the session.'), tone: 'error' })
       throw e
+    } finally {
+      setSavingId(null)
     }
   }
 
-  useEffect(() => {
-    let cancelled = false
-    setDataLoading(true)
-    refresh()
-      .finally(() => {
-        if (!cancelled) setDataLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [viewDate, authToken])
-
-  const handleUpdateSession = async (
-    sessionId: number,
-    form: { checkInAt: string; checkOutAt: string | undefined },
-  ) => {
-    await withLoading(`saveSession-${sessionId}`, async () => {
-      await adminUpdateSession({
-        data: {
-          sessionId,
-          checkInAt: form.checkInAt,
-          checkOutAt: form.checkOutAt,
-          authToken,
-        },
-      })
-      show('Session updated')
-      await refresh()
-    })
-  }
-
-  const handleDeleteSession = (sessionId: number) => {
-    setConfirmDialog({
-      title: 'Delete Session',
-      message: 'Delete this session permanently?',
-      confirmLabel: 'Delete',
+  const handleDelete = (sessionId: number) => {
+    const s = data.sessions.find((r) => r.id === sessionId)
+    setConfirm({
+      title: 'Delete this session?',
+      message: `${s ? `${s.name}'s` : 'This'} check-in and checkout will be removed permanently. The deletion is recorded in the audit log.`,
+      confirmLabel: 'Delete session',
       confirmVariant: 'danger',
-      onConfirm: () =>
-        withLoading(`delSession-${sessionId}`, async () => {
+      onConfirm: async () => {
+        try {
           await adminDeleteSession({ data: { sessionId, authToken } })
-          show('Session deleted')
-          await refresh()
-        }),
+          setNotice({ text: 'Session deleted.', tone: 'success' })
+          await reload()
+        } catch (e) {
+          setNotice({ text: errorText(e, 'Could not delete the session.'), tone: 'error' })
+        }
+      },
     })
-  }
-
-  if (dataLoading) {
-    return (
-      <div className="animate-pulse">
-        <div className="h-64 bg-neutral-200 rounded-xl" />
-      </div>
-    )
   }
 
   return (
-    <div className="space-y-6">
-      <MessageBanner message={message} onClose={clear} />
-      {error && (
-        <div className="p-4 bg-danger-50 text-danger-800 rounded-lg border border-danger-200">
-          <p className="font-medium">Failed to load sessions</p>
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
-
-      <SessionSection sessions={sessions} onUpdate={handleUpdateSession} onDelete={handleDeleteSession} />
-
-      <ConfirmDialog state={confirmDialog} onClose={() => setConfirmDialog(null)} />
-    </div>
+    <Page>
+      {notice ? <Notice message={notice.text} tone={notice.tone} onClose={() => setNotice(null)} /> : null}
+      <SessionSection
+        sessions={data.sessions}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
+        onDetails={setDetails}
+        savingId={savingId}
+      />
+      <EvidenceDialog
+        subject={details}
+        onClose={() => setDetails(null)}
+        onAccepted={(sessionId, note) => {
+          patch((d) => acceptInDashboard(d, sessionId, note))
+          setNotice({ text: 'Session accepted.', tone: 'success' })
+        }}
+      />
+      <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
+    </Page>
   )
 }

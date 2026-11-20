@@ -1,43 +1,55 @@
+import type { ComponentType } from 'react'
 import type { RosterEntryWithStatus } from '#/routes/admin/-types'
 import { formatTime, parseShiftTime } from '#/utils/dateTime'
-import { AlertCircle, Clock, UserX, Timer } from 'lucide-react'
+import { cn } from '#/lib/utils'
+import { AlertCircle, Clock, UserX, Timer, Check, type LucideProps } from 'lucide-react'
+import { Panel } from './kit'
 
 const LATE_THRESHOLD_MS = 15 * 60 * 1000
 
-type StatusCellProps = {
-  icon: React.ElementType
-  title: string
-  count: number
-  emptyMsg: string
-  items: { id: number; name: string; role?: string | null; detail?: string }[]
-  accentColor: string
-  bgColor: string
+type Tone = 'danger' | 'warning' | 'neutral'
+
+const TONE: Record<Tone, { icon: string; count: string }> = {
+  danger: { icon: 'bg-danger-50 text-danger-700', count: 'bg-danger-600 text-white' },
+  warning: { icon: 'bg-warning-50 text-warning-800', count: 'bg-warning-700 text-white' },
+  neutral: { icon: 'bg-surface-strong text-body', count: 'bg-neutral-700 text-white' },
 }
 
-function StatusCell({ icon: Icon, title, count, emptyMsg, items, accentColor, bgColor }: StatusCellProps) {
+type StatusCellProps = {
+  icon: ComponentType<LucideProps>
+  title: string
+  emptyMsg: string
+  items: { id: number; name: string; role?: string | null; detail?: string }[]
+  tone: Tone
+}
+
+function StatusCell({ icon: Icon, title, emptyMsg, items, tone }: StatusCellProps) {
+  const empty = items.length === 0
   return (
-    <div className="p-4 rounded-2xl flex flex-col gap-3" style={{ background: bgColor }}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4" style={{ color: accentColor }} />
-          <span className="text-sm font-semibold" style={{ color: accentColor }}>{title}</span>
-        </div>
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border border-hairline-soft p-4">
+      <div className="flex items-center gap-2.5">
+        <span aria-hidden="true" className={cn('flex size-8 items-center justify-center rounded-full', empty ? 'bg-success-50 text-success-800' : TONE[tone].icon)}>
+          {empty ? <Check className="size-4" /> : <Icon className="size-4" />}
+        </span>
+        <h3 className="flex-1 text-sm font-semibold text-ink">{title}</h3>
         <span
-          className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
-          style={{ background: accentColor }}
+          className={cn(
+            'inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold tabular-nums',
+            empty ? 'bg-surface-strong text-muted' : TONE[tone].count,
+          )}
         >
-          {count}
+          {items.length}
         </span>
       </div>
-      {items.length === 0 ? (
-        <p className="text-xs text-muted">{emptyMsg}</p>
+      {empty ? (
+        <p className="text-sm text-muted">{emptyMsg}</p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="flex flex-col gap-2">
           {items.map((p) => (
-            <li key={p.id} className="text-xs">
+            <li key={p.id} className="min-w-0 text-sm leading-snug">
               <span className="font-medium text-ink">{p.name}</span>
               {p.role && <span className="text-muted"> · {p.role}</span>}
-              {p.detail && <span className="text-muted block">{p.detail}</span>}
+              {p.detail && <span className="block text-xs tabular-nums text-muted">{p.detail}</span>}
             </li>
           ))}
         </ul>
@@ -51,11 +63,13 @@ export function DailySummary({
   missingCheckOut,
   entries,
   viewDate,
+  isToday,
 }: {
   missingCheckIn: RosterEntryWithStatus[]
   missingCheckOut: RosterEntryWithStatus[]
   entries: RosterEntryWithStatus[]
   viewDate: string
+  isToday: boolean
 }) {
   const lateArrivals = entries.filter((e) => {
     if (!e.checkInAt || !e.shift_start) return false
@@ -72,72 +86,61 @@ export function DailySummary({
   })
 
   return (
-    <div
-      className="bg-canvas rounded-2xl p-5"
-      style={{ boxShadow: 'var(--shadow-card)' }}
-      data-tour="daily-summary"
+    <Panel
+      tour="daily-summary"
+      title="Daily summary"
+      description={isToday ? 'Compared with each person’s rota’d shift. Late or early means more than 15 minutes out.' : 'Missing check-ins and check-outs are worked out for today only.'}
     >
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className="font-semibold text-ink">Daily summary</h2>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <StatusCell
           icon={AlertCircle}
           title="Missing check-in"
-          count={missingCheckIn.length}
-          emptyMsg="Everyone has checked in."
+          emptyMsg={isToday ? 'Everyone due has checked in.' : 'Not tracked for past dates.'}
           items={missingCheckIn.map((p) => ({
             id: p.id,
             name: p.name,
             role: p.role,
-            detail: p.shift_start ? `shift ${p.shift_start}` : undefined,
+            detail: p.shift_start ? `Shift from ${p.shift_start}` : undefined,
           }))}
-          accentColor="#dc2626"
-          bgColor="#fef2f2"
+          tone="danger"
         />
         <StatusCell
           icon={Clock}
           title="Missing check-out"
-          count={missingCheckOut.length}
-          emptyMsg="No one is overdue."
+          emptyMsg={isToday ? 'No one is overdue.' : 'Not tracked for past dates.'}
           items={missingCheckOut.map((p) => ({
             id: p.id,
             name: p.name,
             role: p.role,
-            detail: p.checkInAt ? `in at ${formatTime(p.checkInAt)}` : undefined,
+            detail: p.checkInAt ? `In at ${formatTime(p.checkInAt)}` : undefined,
           }))}
-          accentColor="#d97706"
-          bgColor="#fffbeb"
+          tone="warning"
         />
         <StatusCell
           icon={Timer}
           title="Late arrivals"
-          count={lateArrivals.length}
           emptyMsg="Everyone was on time."
           items={lateArrivals.map((p) => ({
             id: p.id,
             name: p.name,
             role: p.role,
-            detail: p.checkInAt ? `in at ${formatTime(p.checkInAt)}` : undefined,
+            detail: p.checkInAt ? `In at ${formatTime(p.checkInAt)} (shift ${p.shift_start})` : undefined,
           }))}
-          accentColor="#d97706"
-          bgColor="#fffbeb"
+          tone="warning"
         />
         <StatusCell
           icon={UserX}
           title="Early departures"
-          count={earlyDepartures.length}
           emptyMsg="No one left early."
           items={earlyDepartures.map((p) => ({
             id: p.id,
             name: p.name,
             role: p.role,
-            detail: p.checkOutAt ? `out at ${formatTime(p.checkOutAt)}` : undefined,
+            detail: p.checkOutAt ? `Out at ${formatTime(p.checkOutAt)} (shift to ${p.shift_end})` : undefined,
           }))}
-          accentColor="#6a6a6a"
-          bgColor="#f7f7f7"
+          tone="neutral"
         />
       </div>
-    </div>
+    </Panel>
   )
 }

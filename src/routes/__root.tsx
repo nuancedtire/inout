@@ -2,14 +2,23 @@ import { HeadContent, Scripts, createRootRoute, Link } from '@tanstack/react-rou
 
 import appCss from '../styles.css?url'
 import { ErrorFallback } from '../components/ErrorFallback'
+import { RunnerMark } from '../components/brand/RunnerMark'
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
       { title: 'InOut' },
-      { name: 'theme-color', content: '#e00b41' },
+      { name: 'description', content: 'Staff check-in and check-out.' },
+      { name: 'application-name', content: 'InOut' },
+      // Matches the light app surface so the browser chrome and home-screen launch blend in.
+      { name: 'theme-color', content: '#f7f7f7' },
+      { name: 'mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-title', content: 'InOut' },
+      { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+      { name: 'format-detection', content: 'telephone=no' },
     ],
     links: [
       { rel: 'stylesheet', href: appCss },
@@ -26,15 +35,18 @@ export const Route = createRootRoute({
 
 function NotFoundPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-surface-soft">
-      <div className="max-w-md w-full bg-canvas rounded-xl shadow-md p-6 text-center">
-        <h1 className="text-4xl font-bold text-muted-soft mb-2">404</h1>
-        <p className="text-lg font-medium text-ink mb-2">Page not found</p>
-        <p className="text-muted mb-6">The page you are looking for does not exist.</p>
+    <main className="min-h-svh flex items-center justify-center bg-surface-soft px-4 py-12 pt-safe">
+      <div className="animate-reveal w-full max-w-sm text-center">
+        <div className="relative mx-auto mb-6 w-fit">
+          <RunnerMark size={96} animate="idle" />
+        </div>
+        <p className="text-sm font-semibold tracking-wide text-accent-accessible">404</p>
+        <h1 className="mt-1 text-2xl font-semibold text-ink text-balance">This page has checked out</h1>
+        <p className="mt-2 text-muted text-pretty">The page you are looking for does not exist or has moved.</p>
         <Link
           to="/"
           search={{ token: '' }}
-          className="inline-block px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          className="ui-press mt-8 inline-flex min-h-11 items-center justify-center rounded-control bg-accent-accessible px-6 text-sm font-semibold text-white hover:bg-accent-accessible-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           Go home
         </Link>
@@ -49,7 +61,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body className="bg-canvas text-ink">
+      <body className="bg-surface-soft text-ink antialiased">
         {children}
         <Scripts />
         <script

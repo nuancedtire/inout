@@ -1,75 +1,35 @@
-/**
- * InOut logo mark — inline SVG so we can apply gradient fills and CSS effects.
- * variant="rausch"  → Rausch gradient (default, for light backgrounds)
- * variant="white"   → solid white (for dark / Rausch backgrounds)
- * variant="dark"    → near-black ink (for monochrome use)
- */
+import { RunnerMark, type RunnerTone } from './brand/RunnerMark'
 
+/**
+ * InOut logo mark (static). Kept for existing call sites; new code can use `brand/RunnerMark` directly.
+ * variant="rausch"  → brand gradient (default, for light backgrounds)
+ * variant="white"   → solid white (for dark / brand backgrounds)
+ * variant="dark"    → ink (for monochrome use)
+ */
 type LogoVariant = 'rausch' | 'white' | 'dark'
 
 type LogoProps = {
   size?: number
   variant?: LogoVariant
   className?: string
-  /** adds a hover glow pulse — good for the login page mark */
+  /** Adds a soft brand glow. */
   glow?: boolean
 }
 
-const GRADIENT_ID = 'logo-rausch-gradient'
-const FILTER_ID = 'logo-glow-filter'
-
-const fillMap: Record<LogoVariant, string> = {
-  rausch: `url(#${GRADIENT_ID})`,
-  white: '#ffffff',
-  dark: '#222222',
+const toneMap: Record<LogoVariant, RunnerTone> = {
+  rausch: 'brand',
+  white: 'white',
+  dark: 'ink',
 }
 
 export function Logo({ size = 32, variant = 'rausch', className = '', glow = false }: LogoProps) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 1024 1024"
-      xmlns="http://www.w3.org/2000/svg"
+    <RunnerMark
+      size={size}
+      tone={toneMap[variant]}
       className={className}
-      style={{
-        filter: glow ? `drop-shadow(0 0 12px rgba(255,56,92,0.55))` : undefined,
-        transition: 'filter 0.3s ease',
-      }}
-      aria-label="InOut logo"
-      role="img"
-    >
-      <defs>
-        {/* Rausch gradient — top to bottom, slightly more vivid at top */}
-        <linearGradient id={GRADIENT_ID} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#ff6b81" />
-          <stop offset="100%" stopColor="#e00b41" />
-        </linearGradient>
-        {/* Soft glow filter used programmatically via the style prop */}
-        <filter id={FILTER_ID} x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="18" result="blur" />
-          <feColorMatrix
-            in="blur"
-            type="matrix"
-            values="1 0 0 0 1  0 0 0 0 0.22  0 0 0 0 0.36  0 0 0 0.7 0"
-            result="coloredBlur"
-          />
-          <feMerge>
-            <feMergeNode in="coloredBlur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-
-      <g
-        transform="matrix(3.60352,0,0,3.29193,-1240.7,-1180.58)"
-        style={{ fillRule: 'evenodd', clipRule: 'evenodd' }}
-      >
-        <path
-          fill={fillMap[variant]}
-          d="M445.778,498.223C446.924,498.332 446.834,501.032 445.818,501.082C427.451,501.983 376.784,499.803 376.784,499.803C376.784,499.803 434.323,497.128 445.778,498.223ZM484.65,423.336C485.796,423.446 485.706,426.145 484.69,426.195C466.323,427.097 415.656,424.917 415.656,424.917C415.656,424.917 473.195,422.242 484.65,423.336ZM420.637,551.227C421.782,551.336 421.693,554.036 420.676,554.086C402.309,554.988 351.642,552.808 351.642,552.808C351.642,552.808 409.181,550.133 420.637,551.227ZM514.762,489.606C514.762,489.606 508.747,484.612 509.739,475.242C513.187,442.656 472.438,462.602 500.956,487.698C500.87,487.725 475.87,498.918 475.87,498.918C475.87,498.918 446.247,452.409 489.858,438.119C528.653,425.406 533.102,476.051 533.102,476.051L514.762,489.606ZM551.013,484.799C551.013,484.799 570.57,462.787 576.815,468.735C588.061,479.448 573.736,493.501 551.302,511.199C537.962,521.723 514.762,489.606 514.762,489.606L533.102,476.051C533.102,476.051 538.776,494.929 551.013,484.799ZM500.91,487.718L557.879,545.64L535.795,560.534L475.869,498.918L500.91,487.718ZM517.633,541.86L535.795,560.534C535.795,560.534 499.513,586.933 470.631,566.694C433.243,540.493 474.037,498.617 475.869,498.918L491.054,514.532C472.331,530.473 486.853,561.769 517.633,541.86ZM535.795,560.534L557.879,545.64L592.753,627.458C592.753,627.458 620.868,621.756 620.071,630.207C618.365,648.323 580.894,653.47 580.894,653.47L535.795,560.534ZM461.112,561.95C463.485,567.142 481.67,580.693 495.853,576.807C497.795,576.274 479.833,605.845 464.778,609.262C450.755,612.445 409.459,593.413 409.459,593.413C399.327,618.237 378.531,627.607 388.723,579.144C392.48,561.277 402.657,562.829 402.657,562.829C402.657,562.829 446.606,575.974 449.113,576.157C453.584,576.484 456.344,574.268 461.112,561.95ZM507.276,392.329L555.374,405.089C550.72,422.634 536.179,434 522.897,430.476C509.615,426.953 502.621,409.873 507.276,392.329ZM509.072,384.989L513.942,366.655L561.582,379.309L556.712,397.643L509.072,384.989ZM580.894,653.47L356.956,650.224L579.032,649.632L580.894,653.47Z"
-        />
-      </g>
-    </svg>
+      label="InOut logo"
+      style={glow ? { filter: 'drop-shadow(0 0 12px rgba(255,56,92,0.45))' } : undefined}
+    />
   )
 }

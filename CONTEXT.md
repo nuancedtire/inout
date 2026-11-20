@@ -1,14 +1,20 @@
 # InOut — Domain Model and Architecture
 
-Reviewed against the local application on 17 October 2026. Setup, routes, commands, and deployment steps are in [README.md](README.md). Historical maintenance reports are in [AUDIT.md](AUDIT.md) and [POLISH_LOG.md](POLISH_LOG.md).
+Reviewed against the local application on 17 October 2026; verified QR check-in backend (staff records, passkeys, location outcome, evidence) added 20 November 2026 on branch `feat/verified-check-in`, specified in [docs/specs/verified-qr-check-in.md](docs/specs/verified-qr-check-in.md). Setup, routes, commands, and deployment steps are in [README.md](README.md). Historical maintenance reports are in [AUDIT.md](AUDIT.md) and [POLISH_LOG.md](POLISH_LOG.md).
 
 ## Domain model
 
 | Term | Current meaning |
 | --- | --- |
 | Rota | One row per date, with a stored deterministic QR token. QR generation or an admin ad-hoc addition can create an empty rota before upload. |
-| Roster entry | A daily staff record with name, optional role/shift, and source `rota` or `manual`. No stable staff ID connects entries across days. |
-| Session | A check-in with optional checkout. A partial unique index permits at most one open session per roster entry. |
+| Staff | A stable person record (`staff`): name, normalised name (lowercase, trimmed, whitespace collapsed, accents stripped), optional role, active flag. Created by passkey enrolment; never deleted, only deactivated. Shared with the secure NFC specification. |
+| Roster entry | A daily rota row with name, optional role/shift, source `rota` or `manual`, and a nullable `staff_id`. Rota import links an entry only on an exact, unambiguous normalised-name match among active staff (and only when the name appears once in the file); existing rows stay unlinked. A partial unique index allows a staff record at most once per rota. |
+| Credential | A WebAuthn passkey (`staff_credentials`): credential ID, public key, counter, transports, device type/backup state, AAGUID and friendly label. Status `pending` → `approved`/`rejected`, `pending`/`approved` → `revoked`; rejected and revoked are final. Pending credentials work immediately but their sessions are flagged. Approval by the shared admin PIN records `reviewed_by = 'admin'`. |
+| WebAuthn challenge | A random, single-use, five-minute challenge stored in D1 (`webauthn_challenges`) and taken with one atomic `DELETE … RETURNING`. Expired rows are pruned when a new challenge is issued. |
+| Session | A check-in with optional checkout. A partial unique index permits at most one open session per roster entry. Evidence per end: identity (`passkey`, `passkey_pending`, `self_selected`, `admin`), credential used, location outcome (`inside`, `outside`, `denied`, `unavailable`, `not_requested`) and reported accuracy in metres; plus an optional admin review (`accepted`, note). Legacy NULL evidence reads as `self_selected` / `not_requested`. Coordinates are never stored. |
+| Verification | Derived, not stored (`src/utils/verification.ts`): verified when identity is `passkey` and location `inside` at check-in, and at checkout once closed; `admin` ends are never flagged. Otherwise flagged with reasons derived from the evidence. Admin acceptance is reported alongside the reasons and does not alter evidence. "Location check passed" never means presence is proven. |
+| Site area | One `site_settings` row: department centre, radius (25–2000 m, default 150) and accuracy ceiling (10–500 m, default 100). Inside iff haversine distance − reported accuracy ≤ radius; worse accuracy than the ceiling is `unavailable`. Without a configured centre the outcome is `not_requested`. |
+| Staff device token | HMAC-signed (same key as admin tokens, domain-separated purpose and format) token naming a staff ID and credential, valid 90 days. A display hint only: every attendance action needs a fresh passkey assertion. Admin and staff tokens never validate as each other. |
 | Daily QR token | A custom 12-character encoding derived from SHA-256 of `QR_SEED:date`, stored in `rotas.token` and placed in `/?token=…`. This is distinct from admin HMAC signing. |
 | Admin session token | A stateless token containing expiry and a UUID, HMAC-SHA256 signed with `QR_SEED`, valid for 12 hours and saved in browser localStorage. |
 | Audit event | A database row with event, JSON details, actor, and creation time. The dashboard reads the latest 50 events globally. Events can be pruned; the log is not immutable storage. |
@@ -22,7 +28,7 @@ Admin is a layout with nested Dashboard, Roster, Sessions, and Audit routes. Aut
 
 Rota replacement uses one D1 batch with ten-row insert statements. It refuses replacement once sessions exist, preserving attendance and roster IDs. Confirmed roster deletion explicitly deletes linked sessions and the entry in one batch. Session correction updates both timestamps together; admin checkout can locate an open session by roster entry. Browser datetime inputs are converted to ISO timestamps before saving.
 
-Staff select an entry and persist that ID in localStorage. QR-gated check-in, checkout, undo, and locum self-entry write sessions and audit events. A locum submission creates a manual roster entry and opens its session. `/history` returns completed sessions for the selected entry ID; it does not match people by name across rotas.
+Staff select an entry and persist that ID in localStorage, or enrol a passkey (see ADR-009) and check in with it. QR-gated check-in, checkout, undo, and locum self-entry write sessions with evidence and audit events. Every staff and admin server function validates its input at runtime (`src/utils/validation.ts`). A locum submission creates a manual roster entry and opens its session. `/history` returns completed sessions for the selected entry ID; it does not match people by name across rotas.
 
 Manual check-in uses runtime input validation and a separate bounded burst limiter: ten well-formed attempts per client IP per 60 seconds, checked before database access. It reads Cloudflare's `CF-Connecting-IP`, shares a fallback bucket when absent, and shares allowances among users behind the same address. State is per-isolate and best-effort, with at most 2,048 active buckets; expired buckets are reclaimed and capacity exhaustion fails closed. It does not enforce a distributed limit. See `src/utils/manualCheckIn.ts` and README for validation limits.
 
@@ -36,7 +42,7 @@ Admin PIN verification issues HMAC-signed tokens with a 12-hour TTL. No admin-se
 
 Daily tokens are generated from a seeded SHA-256 digest with custom encoding and are saved on rota creation. Uploads keep the stored token stable, allowing pre-printing. New dates use the current seed; existing dates retain the stored token after a seed change.
 
-QR display and generation are public. The print page's admin login protects its UI only. The public roster response also includes the rota/token. QR possession therefore supports the attendance workflow rather than proving physical presence or staff identity. See the security follow-ups in AUDIT.md.
+QR display and generation are public. The print page's admin login protects its UI only. Since 20 November 2026 the public roster response returns only the rota's ID and date, not its token. QR possession therefore supports the attendance workflow rather than proving physical presence or staff identity. See the security follow-ups in AUDIT.md.
 
 ### ADR-003: Daily roster with explicit checkout
 
@@ -63,6 +69,12 @@ See [the full ADR](docs/adr/0006-self-upgrading-cron.md). The historical design 
 The October 2026 refresh uses a committed `pnpm-lock.yaml`, Node 24/pnpm 12 runtime constraints, explicit dependency-build permissions, and the official SheetJS 0.20.3 tarball. The earlier npm setup was superseded by the requested pnpm-only migration. `package.json` pins pnpm 12.11.2; `pnpm-workspace.yaml` records permissions and overrides, and a preinstall guard rejects other package managers. Dependencies stay on stable releases. Node type definitions match the supported Node major. A scoped esbuild override addresses Drizzle Kit's legacy transitive dependency without downgrading the CLI.
 
 TanStack Intent is a project dev dependency. Allowed package skill sources are explicit in `package.json`, and AGENTS.md uses the installed CLI. Skills update with their owning dependencies rather than as copied local manuals. The app uses ordinary React SSR; shadcn configuration records `rsc: false`.
+
+### ADR-009: Passkey identity and a single location check (pilot)
+
+Implements [the verified QR check-in specification](docs/specs/verified-qr-check-in.md). `@simplewebauthn/server` 14 runs in the Worker (smoke-tested under workerd with real ES256 assertions). Registration requires a resident key, offers EdDSA/ES256/RS256 only (v14's ML-DSA default is unavailable in workerd WebCrypto), requests no attestation, sets no authenticator attachment or hints, and always verifies with user verification required. The RP ID and origin come from `WEBAUTHN_RP_ID`/`WEBAUTHN_ORIGIN`, or from the request URL when unset; HTTPS is required except on localhost. Passkeys are bound to the RP ID, so changing the production hostname forces re-enrolment.
+
+Each passkey action writes the session change with its evidence, the audit row, and the credential counter/last-used update in one D1 batch; audit rows inside batches use `INSERT … SELECT … WHERE changes() > 0` (or `last_insert_rowid()` for inserts) so they only record writes that happened. The challenge is consumed atomically before verification rather than inside that batch, which guarantees single use under concurrency. Name-picked undo cannot reverse a passkey action; no staff undo can reverse an admin change. Flags never block attendance.
 
 ## Retention, offline behavior, and verification
 

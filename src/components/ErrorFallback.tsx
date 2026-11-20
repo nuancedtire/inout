@@ -1,29 +1,36 @@
 import type { ErrorComponentProps } from '@tanstack/react-router'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, RotateCcw } from 'lucide-react'
+import { Wordmark } from './brand/Wordmark'
 
 export function ErrorFallback({ error, reset }: ErrorComponentProps) {
-  const message = error instanceof Error ? error.message : 'Something went wrong'
+  const message = error instanceof Error && error.message ? error.message : 'Something went wrong'
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-canvas">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg border border-hairline p-6 text-center">
-        <div className="mx-auto w-12 h-12 rounded-full bg-danger-100 text-danger-600 flex items-center justify-center mb-4">
-          <AlertCircle className="w-6 h-6" />
+    <main className="min-h-svh flex flex-col items-center justify-center gap-8 bg-surface-soft px-4 py-12 pt-safe">
+      <Wordmark size="sm" animate="none" />
+      <div
+        role="alert"
+        className="animate-reveal w-full max-w-sm rounded-lg border border-hairline-soft bg-canvas p-6 text-center shadow-card"
+      >
+        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-danger-50 text-danger-700 ring-1 ring-inset ring-danger-100">
+          <AlertCircle className="size-6" strokeWidth={1.75} aria-hidden="true" />
         </div>
-        <h1 className="text-xl font-bold text-ink mb-2">Oops</h1>
-        <p className="text-muted mb-6">{message}</p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <h1 className="text-xl font-semibold text-ink">Something went wrong</h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted text-pretty break-words">{message}</p>
+        <div className="mt-6 flex flex-col gap-2">
           {reset ? (
             <button
+              type="button"
               onClick={reset}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              className="ui-press inline-flex min-h-11 items-center justify-center gap-2 rounded-control bg-accent-accessible px-5 text-sm font-semibold text-white hover:bg-accent-accessible-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             >
+              <RotateCcw className="size-4" aria-hidden="true" />
               Try again
             </button>
           ) : null}
           <a
             href="/"
-            className="px-4 py-2 bg-surface-soft text-body rounded-lg hover:bg-surface-strong transition-colors"
+            className="ui-press inline-flex min-h-11 items-center justify-center rounded-control border border-hairline bg-canvas px-5 text-sm font-semibold text-ink hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             Go home
           </a>

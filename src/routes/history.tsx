@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { readStoredToken, storeToken } from '#/lib/checkinStorage'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { getTodayRoster } from '#/utils/rotas.functions'
 import { getStaffHistory } from '#/utils/sessions.functions'
@@ -9,7 +10,9 @@ import { Card } from '#/components/Card'
 import { Badge } from '#/components/Badge'
 import { IdentityBar } from '#/components/IdentityBar'
 import { useStaffIdentity } from '#/routes/-hooks'
-import { Clock, User, ArrowLeft } from 'lucide-react'
+import { User, ArrowLeft, AlertCircle } from 'lucide-react'
+import { WorkingIndicator } from '#/components/brand/WorkingIndicator'
+import { RunnerMark } from '#/components/brand/RunnerMark'
 import { IdentityPickerModal } from '#/components/IdentityPickerModal'
 type SessionRow = {
   date: string
@@ -30,8 +33,21 @@ export const Route = createFileRoute('/history')({
 })
 
 function HistoryPage() {
-  const { entries } = Route.useLoaderData()
-  const { token } = Route.useSearch()
+  const { entries, rota } = Route.useLoaderData()
+  const { token: searchToken } = Route.useSearch()
+  // Keep the daily code out of the address bar: read it once, keep it for this tab only.
+  const [token, setToken] = useState(searchToken)
+  const [tokenResolved, setTokenResolved] = useState(false)
+  useEffect(() => {
+    if (!rota) return
+    const t = searchToken || readStoredToken(rota.date) || ''
+    if (searchToken) {
+      storeToken(rota.date, searchToken)
+      window.history.replaceState(window.history.state, '', '/history')
+    }
+    setToken(t)
+    setTokenResolved(true)
+  }, [searchToken, rota])
 
   const {
     staffId, showIdentityPicker,
@@ -61,22 +77,34 @@ function HistoryPage() {
 
   // ── No token state ────────────────────────────────────────────
 
+  if (!token && rota && !tokenResolved) {
+    return (
+      <main className="min-h-svh bg-surface-soft px-4 py-12 pt-safe">
+        <div className="mx-auto flex max-w-md justify-center pt-16">
+          <WorkingIndicator label="Loading…" size={56} />
+        </div>
+      </main>
+    )
+  }
+
   if (!token) {
     return (
-      <main className="max-w-md mx-auto p-6">
-        <EmptyState
-          title="Scan the QR code"
-          description="Scan the daily QR code on the notice board to view your check-in history."
-          icon="scan"
-        />
-        <div className="mt-4 text-center">
-          <Link
-            to="/"
-            search={{ token: '' }}
-            className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
+      <main className="min-h-svh bg-surface-soft px-4 py-12 pt-safe">
+        <div className="mx-auto max-w-md">
+          <EmptyState
+            title="Scan the QR code"
+            description="Scan the daily QR code on the notice board to view your check-in history."
+            icon="scan"
           >
-            &larr; Back to check-in
-          </Link>
+            <Link
+              to="/"
+              search={{ token: '' }}
+              className="inline-flex min-h-11 items-center gap-2 rounded-control px-4 text-sm font-semibold text-accent-accessible hover:bg-primary-50"
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              Back to check-in
+            </Link>
+          </EmptyState>
         </div>
       </main>
     )
@@ -85,19 +113,24 @@ function HistoryPage() {
   // ── Main UI ───────────────────────────────────────────────────
 
   return (
-    <main className="max-w-md mx-auto p-4 sm:p-6 flex flex-col gap-5 min-h-screen">
+    <main className="min-h-svh bg-surface-soft">
+      <div className="mx-auto flex max-w-md flex-col gap-5 px-4 pb-10 pt-safe">
       {/* Header */}
-      <div className="flex items-center gap-2 pt-4">
+      <header className="flex items-center gap-2 pt-2">
         <Link
           to="/"
-          search={{ token }}
-          className="p-1 -ml-1 rounded-lg hover:bg-neutral-100 text-neutral-500 hover:text-neutral-700 transition-colors"
+          search={{ token: '' }}
+          aria-label="Back to check-in"
+          className="ui-press -ml-2 flex size-11 items-center justify-center rounded-full text-ink hover:bg-surface-strong"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="size-5" aria-hidden="true" />
         </Link>
-        <Clock className="w-6 h-6 text-primary-600" />
-        <h1 className="text-2xl font-bold text-neutral-900">Your History</h1>
-      </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-semibold leading-tight text-ink">Session history</h1>
+          <p className="text-sm text-muted">Completed sessions for the selected name</p>
+        </div>
+        <RunnerMark size={36} animate="idle" />
+      </header>
 
       {/* Identity bar */}
       <IdentityBar
@@ -121,12 +154,13 @@ function HistoryPage() {
       {staffId && (
         <>
           {loadError && (
-            <div className="p-3 rounded-lg text-sm bg-danger-100 text-danger-800 border border-danger-200">
-              {loadError}
+            <div role="alert" className="flex items-start gap-3 rounded-control border border-danger-100 bg-danger-50 p-4 text-sm text-danger-700">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <p>{loadError}</p>
             </div>
           )}
           {loading ? (
-            <div className="text-center py-8 text-neutral-500 text-sm">Loading...</div>
+            <WorkingIndicator label="Loading history…" size={56} className="py-10" />
           ) : sessions.length === 0 ? (
             <EmptyState
               title="No sessions found"
@@ -134,7 +168,7 @@ function HistoryPage() {
               icon="calendar"
             />
           ) : (
-            <div className="flex flex-col gap-3">
+            <ol className="flex flex-col gap-3">
               {sessions.map((s, i) => {
                 const dateLabel = (() => {
                   try {
@@ -160,37 +194,30 @@ function HistoryPage() {
                   : '–'
 
                 return (
-                  <Card key={i}>
-                    <div className="flex flex-col gap-2">
-                      {/* Date + hours */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-neutral-800">
-                          {dateLabel}
-                        </span>
+                  <li key={i} className="animate-reveal" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}>
+                    <Card>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink">{dateLabel}</p>
+                          <p className="mt-0.5 text-sm text-muted">Shift {shiftLabel}</p>
+                        </div>
                         <Badge variant="info">{hoursLabel}</Badge>
                       </div>
-
-                      {/* Shift */}
-                      <div className="text-xs text-neutral-500">
-                        Shift: {shiftLabel}
-                      </div>
-
-                      {/* Times */}
-                      <div className="grid grid-cols-2 gap-2 text-xs text-neutral-500">
+                      <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-hairline-soft pt-4 text-sm">
                         <div>
-                          <span className="text-neutral-400">In: </span>
-                          {formatDateTime(s.check_in_at)}
+                          <dt className="text-xs font-medium uppercase tracking-wide text-muted">In</dt>
+                          <dd className="mt-0.5 font-medium tabular-nums text-ink">{formatDateTime(s.check_in_at)}</dd>
                         </div>
                         <div>
-                          <span className="text-neutral-400">Out: </span>
-                          {formatDateTime(s.check_out_at)}
+                          <dt className="text-xs font-medium uppercase tracking-wide text-muted">Out</dt>
+                          <dd className="mt-0.5 font-medium tabular-nums text-ink">{formatDateTime(s.check_out_at)}</dd>
                         </div>
-                      </div>
-                    </div>
-                  </Card>
+                      </dl>
+                    </Card>
+                  </li>
                 )
               })}
-            </div>
+            </ol>
           )}
         </>
       )}
@@ -205,7 +232,7 @@ function HistoryPage() {
           onReset={() => { localStorage.clear(); window.location.reload() }}
         />
       )}
-
+      </div>
     </main>
   )
 }

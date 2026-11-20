@@ -1,15 +1,40 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader } from '@tanstack/react-start/server'
 import { getDb } from '#/db/client'
-import { updateAttendanceSession, deleteAttendanceEntry } from '#/db/attendance'
+import { updateAttendanceSession, deleteAttendanceEntry, getEntryStatus, performAttendanceAction } from '#/db/attendance'
+import { countPendingEnrolments, getSiteSettings } from '#/db/passkeys'
 import { rotas, rosterEntries, sessions, auditLog } from '#/db/schema'
 import { eq, and, isNull, isNotNull, sql, desc, asc, gte, lte, inArray } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import * as schema from '#/db/schema'
+import type * as schema from '#/db/schema'
 import { verifyAdminPin, createSessionToken, requireAdmin } from './auth'
 import { logAudit } from './audit'
 import { todayDate } from './dateTime'
+import { evaluateLocation, type LocationReading } from './location'
 import { createManualCheckInLimiter, validateManualCheckIn } from './manualCheckIn'
+import {
+  validateAdminDate,
+  validateAdminAuth,
+  validateAdminEntryId,
+  validateAdminSessionId,
+  validateAdminUpdateSession,
+  validateEntryAction,
+  validateEntryId,
+  validateEntryWithToken,
+  validateExportRange,
+  validatePin,
+  validatePrune,
+  validateWeekRange,
+} from './validation'
+import {
+  deriveEndReasons,
+  deriveVerification,
+  readIdentity,
+  readLocation,
+  type FlagReason,
+  type Identity,
+  type LocationOutcome,
+} from './verification'
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -40,23 +65,12 @@ async function getRotaForDate(date: string) {
     .get()
 }
 
-async function getCurrentSessionForEntry(entryId: number) {
-  const db = await getDb()
-  return db
-    .select()
-    .from(sessions)
-    .where(and(eq(sessions.rosterEntryId, entryId), isNull(sessions.checkOutAt)))
-    .orderBy(desc(sessions.id))
-    .limit(1)
-    .get()
-}
-
 // ═══════════════════════════════════════════════════════════════════
 // Auth endpoint — returns a session token (not the PIN)
 // ═══════════════════════════════════════════════════════════════════
 
 export const adminVerifyPin = createServerFn({ method: 'POST' })
-  .validator((data: { pin: string }) => data)
+  .validator(validatePin)
   .handler(async ({ data }) => {
     if (!(await verifyAdminPin(data.pin))) throw new Error('Invalid admin PIN')
     const token = await createSessionToken()
@@ -67,159 +81,76 @@ export const adminVerifyPin = createServerFn({ method: 'POST' })
 // Staff-facing functions (QR-token gated — no admin auth needed)
 // ═══════════════════════════════════════════════════════════════════
 
+/** Evidence-bearing result for a name-picked ("Use without Face ID") action. */
+export type FallbackActionResult = {
+  action: 'check_in' | 'check_out' | 'checkin_undone' | 'checkout_undone'
+  at: string
+  identity: Identity
+  location: LocationOutcome
+  verified: boolean
+  reasons: FlagReason[]
+}
+
+async function evaluateReading(db: Db, reading: LocationReading | undefined) {
+  return evaluateLocation(reading, reading ? await getSiteSettings(db) : null)
+}
+
+async function selfSelectedAction(
+  data: { rosterEntryId: number; token: string; location?: LocationReading },
+  action: 'check_in' | 'check_out' | 'undo',
+) {
+  const db = await getDb()
+  const rota = await getRotaForDate(todayDate())
+  if (!rota || rota.token !== data.token) throw new Error('Invalid or expired QR code')
+  const entry = await db.select({ id: rosterEntries.id, name: rosterEntries.name }).from(rosterEntries)
+    .where(and(eq(rosterEntries.id, data.rosterEntryId), eq(rosterEntries.rotaId, rota.id))).get()
+  if (!entry) throw new Error('Staff not found')
+  const location = action === 'undo'
+    ? { outcome: 'not_requested' as const, accuracyM: null }
+    : await evaluateReading(db, data.location)
+  const outcome = await performAttendanceAction(db, {
+    entry,
+    action,
+    token: data.token,
+    evidence: { identity: 'self_selected', credentialId: null, location: location.outcome, accuracyM: location.accuracyM },
+  })
+  const reasons = action === 'undo' ? [] : deriveEndReasons('self_selected', location.outcome)
+  const result: FallbackActionResult = {
+    action: outcome.action, at: outcome.at, identity: 'self_selected', location: location.outcome, verified: reasons.length === 0, reasons,
+  }
+  return { outcome, result }
+}
+
 export const checkIn = createServerFn({ method: 'POST' })
-  .validator((data: { rosterEntryId: number; token: string }) => data)
+  .validator(validateEntryAction)
   .handler(async ({ data }) => {
     checkRateLimit(`checkin:${data.rosterEntryId}`)
-    const db = await getDb()
-    const date = todayDate()
-    const rota = await getRotaForDate(date)
-
-    if (!rota || rota.token !== data.token) {
-      throw new Error('Invalid or expired QR code')
-    }
-
-    const entry = await db
-      .select()
-      .from(rosterEntries)
-      .where(eq(rosterEntries.id, data.rosterEntryId))
-      .get()
-
-    if (!entry) throw new Error('Staff not found')
-
-    const now = new Date().toISOString()
-
-    // INSERT first — let the partial unique index catch duplicates
-    // instead of SELECT-then-INSERT (race condition prone)
-    try {
-      const [inserted] = await db
-        .insert(sessions)
-        .values({
-          rosterEntryId: entry.id,
-          checkInAt: now,
-          qrTokenIn: data.token,
-        })
-        .returning({ id: sessions.id })
-
-      await logAudit(
-        'checked_in',
-        { entryId: entry.id, name: entry.name, sessionId: inserted.id },
-        'staff',
-      )
-
-      return { ok: true, at: now, sessionId: inserted.id }
-    } catch (e: unknown) {
-      // Unique constraint violation → already checked in
-      if (e instanceof Error && (e.message.includes('UNIQUE') || e.message.includes('unique'))) {
-        throw new Error('Already checked in')
-      }
-      throw e
-    }
+    const { outcome, result } = await selfSelectedAction(data, 'check_in')
+    return { ok: true, at: outcome.at, sessionId: outcome.sessionId, result }
   })
 
 export const checkOut = createServerFn({ method: 'POST' })
-  .validator((data: { rosterEntryId: number; token: string }) => data)
+  .validator(validateEntryAction)
   .handler(async ({ data }) => {
     checkRateLimit(`checkout:${data.rosterEntryId}`)
-    const db = await getDb()
-    const date = todayDate()
-    const rota = await getRotaForDate(date)
-
-    if (!rota || rota.token !== data.token) {
-      throw new Error('Invalid or expired QR code')
-    }
-
-    const session = await getCurrentSessionForEntry(data.rosterEntryId)
-    if (!session) {
-      throw new Error('Not checked in')
-    }
-
-    const now = new Date().toISOString()
-    await db
-      .update(sessions)
-      .set({ checkOutAt: now, qrTokenOut: data.token })
-      .where(eq(sessions.id, session.id))
-
-    const entry = await db
-      .select({ name: rosterEntries.name })
-      .from(rosterEntries)
-      .where(eq(rosterEntries.id, session.rosterEntryId))
-      .get()
-
-    await logAudit(
-      'checked_out',
-      { entryId: session.rosterEntryId, name: entry?.name, sessionId: session.id },
-      'staff',
-    )
-
-    return { ok: true, at: now }
+    const { outcome, result } = await selfSelectedAction(data, 'check_out')
+    return { ok: true, at: outcome.at, result }
   })
 
+/** Name-picked undo cannot reverse a passkey action or an administrator change. */
 export const undoLastAction = createServerFn({ method: 'POST' })
-  .validator((data: { rosterEntryId: number; token: string }) => data)
+  .validator(validateEntryWithToken)
   .handler(async ({ data }) => {
     checkRateLimit(`undo:${data.rosterEntryId}`)
-    const db = await getDb()
-    const date = todayDate()
-    const rota = await getRotaForDate(date)
-
-    // Require a valid QR token for undo — prevents unauthorized undo
-    if (!rota || rota.token !== data.token) {
-      throw new Error('Invalid or expired QR code')
-    }
-
-    const session = await getCurrentSessionForEntry(data.rosterEntryId)
-
-    if (!session) {
-      // Undo last checkout: find the most recent closed session
-      const lastClosed = await db
-        .select()
-        .from(sessions)
-        .where(and(eq(sessions.rosterEntryId, data.rosterEntryId), isNotNull(sessions.checkOutAt)))
-        .orderBy(desc(sessions.id))
-        .limit(1)
-        .get()
-
-      if (!lastClosed) throw new Error('Nothing to undo')
-
-      await db
-        .update(sessions)
-        .set({ checkOutAt: null, qrTokenOut: null })
-        .where(eq(sessions.id, lastClosed.id))
-
-      await logAudit('checkout_undone', { entryId: data.rosterEntryId, sessionId: lastClosed.id }, 'staff')
-      return { ok: true, action: 'checkout_undone' }
-    }
-
-    // Undo check-in: delete the open session
-    await db.delete(sessions).where(eq(sessions.id, session.id))
-    await logAudit('checkin_undone', { entryId: data.rosterEntryId, sessionId: session.id }, 'staff')
-    return { ok: true, action: 'checkin_undone' }
+    const { outcome } = await selfSelectedAction(data, 'undo')
+    return { ok: true, action: outcome.action as 'checkin_undone' | 'checkout_undone' }
   })
 
 export const getStatus = createServerFn({ method: 'GET' })
-  .validator((data: { rosterEntryId: number }) => data)
+  .validator(validateEntryId)
   .handler(async ({ data }) => {
     checkRateLimit(`status:${data.rosterEntryId}`)
-    const session = await getCurrentSessionForEntry(data.rosterEntryId)
-    let hasUndoableAction = !!session
-    if (!session) {
-      const db = await getDb()
-      const lastClosed = await db
-        .select({ id: sessions.id })
-        .from(sessions)
-        .where(and(eq(sessions.rosterEntryId, data.rosterEntryId), isNotNull(sessions.checkOutAt)))
-        .orderBy(desc(sessions.id))
-        .limit(1)
-        .get()
-      hasUndoableAction = !!lastClosed
-    }
-    return {
-      checkedIn: !!session,
-      sessionId: session?.id ?? null,
-      checkInAt: session?.checkInAt ?? null,
-      hasUndoableAction,
-    }
+    return getEntryStatus(await getDb(), data.rosterEntryId)
   })
 
 const checkManualCheckInLimit = createManualCheckInLimiter()
@@ -255,6 +186,7 @@ export const manualCheckIn = createServerFn({ method: 'POST' })
 
     const entryId = entryInserted.id
     const now = new Date().toISOString()
+    const location = await evaluateReading(db, data.location)
 
     const [sessInserted] = await db
       .insert(sessions)
@@ -262,20 +194,27 @@ export const manualCheckIn = createServerFn({ method: 'POST' })
         rosterEntryId: entryId,
         checkInAt: now,
         qrTokenIn: data.token,
+        identityIn: 'self_selected',
+        locationIn: location.outcome,
+        accuracyInM: location.accuracyM,
       })
       .returning({ id: sessions.id })
 
     await logAudit(
       'manual_checkin',
-      { entryId, name: data.name, role: data.role, sessionId: sessInserted.id },
+      { entryId, name: data.name, role: data.role, sessionId: sessInserted.id, identity: 'self_selected', location: location.outcome },
       'staff',
     )
 
-    return { ok: true, entryId, sessionId: sessInserted.id }
+    const reasons = deriveEndReasons('self_selected', location.outcome)
+    const result: FallbackActionResult = {
+      action: 'check_in', at: now, identity: 'self_selected', location: location.outcome, verified: reasons.length === 0, reasons,
+    }
+    return { ok: true, entryId, sessionId: sessInserted.id, result }
   })
 
 export const getStaffHistory = createServerFn({ method: 'POST' })
-  .validator((data: { rosterEntryId: number; token: string }) => data)
+  .validator(validateEntryWithToken)
   .handler(async ({ data }) => {
     const db = await getDb()
     const date = todayDate()
@@ -337,7 +276,7 @@ function safeJsonParse(raw: string | null | undefined): Record<string, Serializa
 }
 
 export const adminGetDashboard = createServerFn({ method: 'POST' })
-  .validator((data: { date: string; authToken: string }) => data)
+  .validator(validateAdminDate)
   .handler(async ({ data }) => {
     await requireAdmin({ token: data.authToken })
 
@@ -345,11 +284,12 @@ export const adminGetDashboard = createServerFn({ method: 'POST' })
     const rota = await getRotaForDate(data.date)
 
     // Build all responses in parallel — they're independent reads
-    const [roster, whoIsIn, sessRows, audit] = await Promise.all([
+    const [roster, whoIsIn, sessRows, audit, pendingEnrolments] = await Promise.all([
       getRosterWithStatusImpl(db, rota?.id),
       getWhoIsInImpl(db, rota?.id),
       getSessionHistoryImpl(db, rota?.id),
       getAuditLogImpl(db),
+      countPendingEnrolments(db),
     ])
 
     const isToday = data.date === todayDate()
@@ -369,7 +309,7 @@ export const adminGetDashboard = createServerFn({ method: 'POST' })
       ? roster.filter((e) => e.checkInAt && !e.checkOutAt && e.shift_end && e.shift_end.slice(0, 5) <= ukNow)
       : []
 
-    return { entries: roster, present: whoIsIn, sessions: sessRows, audit, missingCheckIn, missingCheckOut }
+    return { entries: roster, present: whoIsIn, sessions: sessRows, audit, missingCheckIn, missingCheckOut, pendingEnrolments }
   })
 
 // ═══════════════════════════════════════════════════════════════════
@@ -377,20 +317,13 @@ export const adminGetDashboard = createServerFn({ method: 'POST' })
 // ═══════════════════════════════════════════════════════════════════
 
 export const adminUpdateSession = createServerFn({ method: 'POST' })
-  .validator(
-    (data: {
-      sessionId?: number
-      rosterEntryId?: number
-      checkInAt?: string
-      checkOutAt?: string
-      authToken: string
-    }) => data,
-  )
+  .validator(validateAdminUpdateSession)
   .handler(async ({ data }) => {
     await requireAdmin({ token: data.authToken })
     const db = await getDb()
 
-    const result = await updateAttendanceSession(db, data)
+    const { authToken: _authToken, ...change } = data
+    const result = await updateAttendanceSession(db, change)
     await logAudit('admin_session_updated', {
       ...result,
       rosterEntryId: data.rosterEntryId,
@@ -401,7 +334,7 @@ export const adminUpdateSession = createServerFn({ method: 'POST' })
   })
 
 export const adminDeleteSession = createServerFn({ method: 'POST' })
-  .validator((data: { sessionId: number; authToken: string }) => data)
+  .validator(validateAdminSessionId)
   .handler(async ({ data }) => {
     await requireAdmin({ token: data.authToken })
     const db = await getDb()
@@ -411,7 +344,7 @@ export const adminDeleteSession = createServerFn({ method: 'POST' })
   })
 
 export const adminDeleteRosterEntry = createServerFn({ method: 'POST' })
-  .validator((data: { entryId: number; authToken: string }) => data)
+  .validator(validateAdminEntryId)
   .handler(async ({ data }) => {
     await requireAdmin({ token: data.authToken })
     const db = await getDb()
@@ -427,8 +360,62 @@ export const adminDeleteRosterEntry = createServerFn({ method: 'POST' })
     return { ok: true }
   })
 
+/** Evidence columns shared by the export and the weekly rollup. Raw codes plus derived verification. */
+export type SessionEvidenceColumns = {
+  identity_in: Identity
+  location_in: LocationOutcome
+  accuracy_in_m: number | null
+  identity_out: Identity | null
+  location_out: LocationOutcome | null
+  accuracy_out_m: number | null
+  verified: boolean
+  accepted: boolean
+  reasons: FlagReason[]
+  review_state: 'accepted' | null
+  review_note: string | null
+}
+
+const evidenceSelection = {
+  identityIn: sessions.identityIn,
+  identityOut: sessions.identityOut,
+  locationIn: sessions.locationIn,
+  locationOut: sessions.locationOut,
+  accuracyInM: sessions.accuracyInM,
+  accuracyOutM: sessions.accuracyOutM,
+  reviewState: sessions.reviewState,
+  reviewNote: sessions.reviewNote,
+}
+
+function evidenceColumns(r: {
+  checkOutAt: string | null
+  identityIn: string | null
+  identityOut: string | null
+  locationIn: string | null
+  locationOut: string | null
+  accuracyInM: number | null
+  accuracyOutM: number | null
+  reviewState: string | null
+  reviewNote: string | null
+}): SessionEvidenceColumns {
+  const v = deriveVerification(r)
+  const closed = r.checkOutAt !== null
+  return {
+    identity_in: readIdentity(r.identityIn),
+    location_in: readLocation(r.locationIn),
+    accuracy_in_m: r.accuracyInM,
+    identity_out: closed ? readIdentity(r.identityOut) : null,
+    location_out: closed ? readLocation(r.locationOut) : null,
+    accuracy_out_m: closed ? r.accuracyOutM : null,
+    verified: v.verified,
+    accepted: v.accepted,
+    reasons: v.reasons,
+    review_state: r.reviewState === 'accepted' ? 'accepted' : null,
+    review_note: r.reviewNote,
+  }
+}
+
 export const adminExportSessions = createServerFn({ method: 'POST' })
-  .validator((data: { startDate: string; endDate: string; authToken: string }) => data)
+  .validator(validateExportRange)
   .handler(async ({ data }) => {
     await requireAdmin({ token: data.authToken })
     const db = await getDb()
@@ -439,6 +426,7 @@ export const adminExportSessions = createServerFn({ method: 'POST' })
         checkInAt: sessions.checkInAt,
         checkOutAt: sessions.checkOutAt,
         hours: sql<number>`(julianday(${sessions.checkOutAt}) - julianday(${sessions.checkInAt})) * 24`.mapWith(Number),
+        ...evidenceSelection,
       })
       .from(sessions)
       .innerJoin(rosterEntries, eq(rosterEntries.id, sessions.rosterEntryId))
@@ -458,12 +446,13 @@ export const adminExportSessions = createServerFn({ method: 'POST' })
         check_in_at: r.checkInAt,
         check_out_at: r.checkOutAt,
         hours: r.hours,
+        ...evidenceColumns(r),
       })),
     }
   })
 
 export const adminWeeklyRollup = createServerFn({ method: 'POST' })
-  .validator((data: { weekStart: string; weekEnd: string; authToken: string }) => data)
+  .validator(validateWeekRange)
   .handler(async ({ data }) => {
     await requireAdmin({ token: data.authToken })
     const db = await getDb()
@@ -472,6 +461,8 @@ export const adminWeeklyRollup = createServerFn({ method: 'POST' })
         name: rosterEntries.name,
         date: rotas.date,
         hours: sql<number>`ROUND((julianday(${sessions.checkOutAt}) - julianday(${sessions.checkInAt})) * 24, 2)`.mapWith(Number),
+        checkOutAt: sessions.checkOutAt,
+        ...evidenceSelection,
       })
       .from(sessions)
       .innerJoin(rosterEntries, eq(rosterEntries.id, sessions.rosterEntryId))
@@ -484,7 +475,9 @@ export const adminWeeklyRollup = createServerFn({ method: 'POST' })
       .orderBy(asc(rosterEntries.name), asc(rotas.date))
       .all()
 
-    return { rows: result }
+    return {
+      rows: result.map(({ name, date, hours, ...r }) => ({ name, date, hours, ...evidenceColumns(r) })),
+    }
   })
 
 /**
@@ -492,7 +485,7 @@ export const adminWeeklyRollup = createServerFn({ method: 'POST' })
  * Uses per-entry shift_end, not a blanket +1h from check-in.
  */
 export const runAutoCheckout = createServerFn({ method: 'POST' })
-  .validator((data: { authToken: string }) => data)
+  .validator(validateAdminAuth)
   .handler(async ({ data }) => {
     await requireAdmin({ token: data.authToken })
     const db = await getDb()
@@ -505,7 +498,7 @@ export const runAutoCheckout = createServerFn({ method: 'POST' })
     // Update sessions whose owning entry's shift ended >60 min ago
     const updated = await db
       .update(sessions)
-      .set({ checkOutAt: now, qrTokenOut: 'auto' })
+      .set({ checkOutAt: now, qrTokenOut: 'auto', identityOut: 'admin', locationOut: 'not_requested' })
       .where(and(
         isNull(sessions.checkOutAt),
         inArray(
@@ -531,7 +524,7 @@ export const runAutoCheckout = createServerFn({ method: 'POST' })
  * Admin-only. Returns count of deleted rows.
  */
 export const adminPruneAuditLog = createServerFn({ method: 'POST' })
-  .validator((data: { retentionDays?: number; authToken: string }) => data)
+  .validator(validatePrune)
   .handler(async ({ data }) => {
     await requireAdmin({ token: data.authToken })
     const db = await getDb()
@@ -552,11 +545,79 @@ export const adminPruneAuditLog = createServerFn({ method: 'POST' })
 // Internal query implementations (shared, no auth — callers gate)
 // ═══════════════════════════════════════════════════════════════════
 
+/** Evidence fields added to dashboard rows (camelCase, alongside the existing snake_case fields). */
+export type DashboardEvidence = {
+  identityIn: Identity | null
+  identityOut: Identity | null
+  locationIn: LocationOutcome | null
+  locationOut: LocationOutcome | null
+  accuracyInM: number | null
+  accuracyOutM: number | null
+  reviewState: 'accepted' | null
+  reviewNote: string | null
+  verified: boolean
+  accepted: boolean
+  reasons: FlagReason[]
+  staffId: number | null
+}
+
+const dashboardSessionSelection = {
+  sessionId: sessions.id,
+  rosterEntryId: sessions.rosterEntryId,
+  checkInAt: sessions.checkInAt,
+  checkOutAt: sessions.checkOutAt,
+  identityIn: sessions.identityIn,
+  identityOut: sessions.identityOut,
+  locationIn: sessions.locationIn,
+  locationOut: sessions.locationOut,
+  accuracyInM: sessions.accuracyInM,
+  accuracyOutM: sessions.accuracyOutM,
+  reviewState: sessions.reviewState,
+  reviewNote: sessions.reviewNote,
+}
+
+type DashboardSessionFields = {
+  checkOutAt: string | null
+  identityIn: string | null
+  identityOut: string | null
+  locationIn: string | null
+  locationOut: string | null
+  accuracyInM: number | null
+  accuracyOutM: number | null
+  reviewState: string | null
+  reviewNote: string | null
+}
+
+function dashboardEvidence(s: DashboardSessionFields | undefined, staffId: number | null): DashboardEvidence {
+  if (!s) {
+    return {
+      identityIn: null, identityOut: null, locationIn: null, locationOut: null, accuracyInM: null, accuracyOutM: null,
+      reviewState: null, reviewNote: null, verified: false, accepted: false, reasons: [], staffId,
+    }
+  }
+  const v = deriveVerification(s)
+  const closed = s.checkOutAt !== null
+  return {
+    identityIn: readIdentity(s.identityIn),
+    identityOut: closed ? readIdentity(s.identityOut) : null,
+    locationIn: readLocation(s.locationIn),
+    locationOut: closed ? readLocation(s.locationOut) : null,
+    accuracyInM: s.accuracyInM,
+    accuracyOutM: closed ? s.accuracyOutM : null,
+    reviewState: s.reviewState === 'accepted' ? 'accepted' : null,
+    reviewNote: s.reviewNote,
+    verified: v.verified,
+    accepted: v.accepted,
+    reasons: v.reasons,
+    staffId,
+  }
+}
+
 async function getRosterWithStatusImpl(
   db: Db,
   rotaId: number | undefined,
 ): Promise<
-  {
+  ({
     id: number
     rota_id: number
     name: string
@@ -568,7 +629,9 @@ async function getRosterWithStatusImpl(
     checkedIn: boolean
     checkInAt: string | null
     checkOutAt: string | null
-  }[]
+    /** Latest session for the entry, if any. Evidence fields below describe that session. */
+    sessionId: number | null
+  } & DashboardEvidence)[]
 > {
   if (!rotaId) return []
 
@@ -583,11 +646,7 @@ async function getRosterWithStatusImpl(
 
   // Use subquery instead of IN (?,?,?) to avoid binding limits
   const sessionsResult = await db
-    .select({
-      rosterEntryId: sessions.rosterEntryId,
-      checkInAt: sessions.checkInAt,
-      checkOutAt: sessions.checkOutAt,
-    })
+    .select(dashboardSessionSelection)
     .from(sessions)
     .where(inArray(
       sessions.rosterEntryId,
@@ -596,10 +655,7 @@ async function getRosterWithStatusImpl(
     .orderBy(desc(sessions.id))
     .all()
 
-  const latestSessionByEntry = new Map<
-    number,
-    { rosterEntryId: number; checkInAt: string; checkOutAt: string | null }
-  >()
+  const latestSessionByEntry = new Map<number, (typeof sessionsResult)[number]>()
   for (const s of sessionsResult) {
     if (!latestSessionByEntry.has(s.rosterEntryId)) {
       latestSessionByEntry.set(s.rosterEntryId, s)
@@ -621,6 +677,8 @@ async function getRosterWithStatusImpl(
       checkedIn: latest ? latest.checkOutAt === null : false,
       checkInAt: latest?.checkInAt ?? null,
       checkOutAt: latest?.checkOutAt ?? null,
+      sessionId: latest?.sessionId ?? null,
+      ...dashboardEvidence(latest, e.staffId),
     }
   })
 }
@@ -628,7 +686,7 @@ async function getRosterWithStatusImpl(
 async function getWhoIsInImpl(
   db: Db,
   rotaId: number | undefined,
-): Promise<{ id: number; name: string; role: string | null; check_in_at: string }[]> {
+): Promise<({ id: number; name: string; role: string | null; check_in_at: string; sessionId: number } & DashboardEvidence)[]> {
   if (!rotaId) return []
 
   const result = await db
@@ -636,7 +694,8 @@ async function getWhoIsInImpl(
       id: rosterEntries.id,
       name: rosterEntries.name,
       role: rosterEntries.role,
-      checkInAt: sessions.checkInAt,
+      staffId: rosterEntries.staffId,
+      ...dashboardSessionSelection,
     })
     .from(rosterEntries)
     .innerJoin(sessions, eq(sessions.rosterEntryId, rosterEntries.id))
@@ -652,22 +711,23 @@ async function getWhoIsInImpl(
     name: r.name,
     role: r.role,
     check_in_at: r.checkInAt,
+    sessionId: r.sessionId,
+    ...dashboardEvidence(r, r.staffId),
   }))
 }
 
 async function getSessionHistoryImpl(
   db: Db,
   rotaId: number | undefined,
-): Promise<{ id: number; name: string; role: string | null; check_in_at: string; check_out_at: string | null }[]> {
+): Promise<({ id: number; name: string; role: string | null; check_in_at: string; check_out_at: string | null } & DashboardEvidence)[]> {
   if (!rotaId) return []
 
   const result = await db
     .select({
-      id: sessions.id,
       name: rosterEntries.name,
       role: rosterEntries.role,
-      checkInAt: sessions.checkInAt,
-      checkOutAt: sessions.checkOutAt,
+      staffId: rosterEntries.staffId,
+      ...dashboardSessionSelection,
     })
     .from(sessions)
     .innerJoin(rosterEntries, eq(rosterEntries.id, sessions.rosterEntryId))
@@ -676,11 +736,12 @@ async function getSessionHistoryImpl(
     .all()
 
   return result.map((r) => ({
-    id: r.id,
+    id: r.sessionId,
     name: r.name,
     role: r.role,
     check_in_at: r.checkInAt,
     check_out_at: r.checkOutAt,
+    ...dashboardEvidence(r, r.staffId),
   }))
 }
 

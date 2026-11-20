@@ -1,61 +1,68 @@
 import { Link } from '@tanstack/react-router'
-import { Printer } from 'lucide-react'
-import { useState } from 'react'
+import { Printer, QrCode, RefreshCw } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Button } from '#/components/Button'
-import { DatePicker } from '#/components/DatePicker'
+import { formatDate } from '#/utils/dateTime'
+import { errorText, linkButtonClass, Panel } from './kit'
 
 export function QrSection({
   viewDate,
-  onDateChange,
   onGenerate,
 }: {
   viewDate: string
-  onDateChange: (date: string) => void
   onGenerate: (date: string) => Promise<string>
 }) {
-  const [qrUrl, setQrUrl] = useState('')
+  const [qr, setQr] = useState<{ date: string; url: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => setError(''), [viewDate])
 
   const generate = async () => {
     setLoading(true)
+    setError('')
     try {
-      const dataUrl = await onGenerate(viewDate)
-      setQrUrl(dataUrl)
+      setQr({ date: viewDate, url: await onGenerate(viewDate) })
+    } catch (e) {
+      setError(errorText(e, 'Could not make the QR code.'))
     } finally {
       setLoading(false)
     }
   }
 
+  const shown = qr && qr.date === viewDate ? qr : null
+
   return (
-    <section id="qr-code" data-tour="qr-code" className="bg-white p-4 rounded-xl shadow-md border border-neutral-200">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-neutral-900">QR code</h2>
-        <Link
-          to="/print-qr"
-          data-tour="qr-print-link"
-          className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
-        >
-          <Printer className="w-3.5 h-3.5" />
+    <Panel
+      tour="qr-code"
+      title="Check-in QR code"
+      icon={<QrCode />}
+      description={`Staff scan it with their phone camera. It changes every day — this one is for ${formatDate(viewDate)}.`}
+      actions={
+        <Link to="/print-qr" data-tour="qr-print-link" className={linkButtonClass}>
+          <Printer aria-hidden="true" />
           Print
         </Link>
-      </div>
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
-        <div className="w-full sm:w-auto">
-          <label className="text-xs block text-muted mb-1">Date</label>
-          <DatePicker value={viewDate} onChange={onDateChange} className="py-2.5 px-4" />
-        </div>
+      }
+    >
+      <div className="flex flex-col items-center gap-4">
+        {shown ? (
+          <figure className="animate-reveal flex flex-col items-center gap-2">
+            <img src={shown.url} alt={`Check-in QR code for ${formatDate(shown.date)}`} className="size-56 rounded-md border border-hairline-soft" />
+            <figcaption className="text-sm text-muted">Print it for the notice board where staff arrive.</figcaption>
+          </figure>
+        ) : (
+          <div className="flex size-56 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-hairline text-center text-muted">
+            <QrCode className="size-10" strokeWidth={1.5} aria-hidden="true" />
+            <p className="max-w-[18ch] text-sm">Show the code for {formatDate(viewDate)}</p>
+          </div>
+        )}
+        {error ? <p role="alert" className="text-sm text-danger-700">{error}</p> : null}
         <Button onClick={generate} loading={loading} variant="secondary" data-tour="qr-generate-button">
-          Generate / refresh QR
+          {loading ? null : <RefreshCw className="size-4" aria-hidden="true" />}
+          {shown ? 'Refresh QR code' : 'Show QR code'}
         </Button>
       </div>
-      {qrUrl && (
-        <div className="mt-4">
-          <img src={qrUrl} alt="QR code" className="mx-auto max-w-full" />
-          <p className="text-center text-sm text-neutral-600 mt-2">
-            Print this and place it on the notice board.
-          </p>
-        </div>
-      )}
-    </section>
+    </Panel>
   )
 }

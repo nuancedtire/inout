@@ -74,3 +74,24 @@ describe('server input validation', () => {
     expect(() => validateUploadRota({ authToken: 't', date: '2026-13-45', fileBase64: 'AA==', fileName: 'r.csv' })).toThrow('Invalid date')
   })
 })
+
+describe('shift times', () => {
+  it('reads the ways people type times and stores 24-hour HH:MM', async () => {
+    const { normalizeShiftTime } = await import('#/utils/shiftTime')
+    const cases: [string, string | null][] = [
+      ['0800', '08:00'], ['800', '08:00'], ['8', '08:00'], ['08', '08:00'], ['2000', '20:00'], ['8:00', '08:00'],
+      ['08:00', '08:00'], ['8.30', '08:30'], ['08h00', '08:00'], ['20:00:00', '20:00'], ['8am', '08:00'], ['8pm', '20:00'],
+      ['12am', '00:00'], ['12pm', '12:00'], ['7:45 PM', '19:45'], ['0000', '00:00'], ['2400', '24:00'], ['', ''], ['  ', ''],
+      ['2500', null], ['0860', null], ['24:30', null], ['13pm', null], ['abc', null], ['12345', null], ['8-20', null],
+    ]
+    for (const [input, expected] of cases) expect([input, normalizeShiftTime(input)]).toEqual([input, expected])
+  })
+
+  it('normalises shift times in the add-staff validator and rejects unreadable ones', async () => {
+    const { validateAddAdHocStaff, validateUpdateRosterEntry } = await import('#/utils/validation')
+    const base = { authToken: 'x'.repeat(40), name: 'Locum' }
+    expect(validateAddAdHocStaff({ ...base, shiftStart: '0800', shiftEnd: '2000' })).toMatchObject({ shiftStart: '08:00', shiftEnd: '20:00' })
+    expect(() => validateAddAdHocStaff({ ...base, shiftStart: '9999' })).toThrow(/08:00 or 0800/)
+    expect(validateUpdateRosterEntry({ authToken: 'x'.repeat(40), entryId: 1, shiftStart: '' }).shiftStart).toBe('')
+  })
+})

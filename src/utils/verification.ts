@@ -21,9 +21,10 @@ export type FlagReason =
 
 /**
  * Reasons for a whole session (dashboard, export, review). Adds `checkout_reported`: the staff
- * member entered their check-out time later, after forgetting to check out.
+ * member entered their check-out time later, after forgetting to check out; and `shared_phone`:
+ * the same phone checked in or out someone else around the same time.
  */
-export type SessionFlagReason = FlagReason | 'checkout_reported'
+export type SessionFlagReason = FlagReason | 'checkout_reported' | 'shared_phone'
 
 export const FLAG_REASON_LABEL: Record<SessionFlagReason, string> = {
   identity_pending: 'Phone awaiting approval',
@@ -33,6 +34,7 @@ export const FLAG_REASON_LABEL: Record<SessionFlagReason, string> = {
   location_unavailable: "Location couldn't be confirmed",
   location_not_checked: 'Location not checked',
   checkout_reported: 'Check-out time entered later',
+  shared_phone: 'Same phone used for someone else',
 }
 
 export const IDENTITY_LABEL: Record<Identity, string> = {
@@ -87,6 +89,8 @@ export type SessionEvidence = {
   reviewState?: string | null
   /** 'reported' when the check-out time was entered later by the staff member. */
   checkoutSource?: string | null
+  /** Other people the same phone checked in or out around this session (src/db/samePhone.ts). */
+  samePhoneWith?: readonly string[] | null
 }
 
 export type Verification = {
@@ -113,6 +117,7 @@ export function deriveVerification(session: SessionEvidence): Verification {
     }
     if (reported) reasons.push('checkout_reported')
   }
+  if (session.samePhoneWith?.length) reasons.push('shared_phone')
   return { verified: reasons.length === 0, accepted: session.reviewState === 'accepted', reasons }
 }
 

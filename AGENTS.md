@@ -47,6 +47,7 @@ src/
     client.ts                Lazy Worker D1 client
     attendance.ts            Session edits, linked deletions, atomic rota replacement
     reminders.ts             Shift-end push reminder job (called by the cron handler)
+    samePhone.ts             Same-phone marker queries (enrolments and the shared_phone flag)
   hooks/                     Loading tracker and mobile breakpoint
   lib/tour/                  Tour state and versioned step definitions
   routes/
@@ -122,6 +123,8 @@ Remote operations are separate: `pnpm run db:migrate:remote` and `pnpm run deplo
 - Admin server functions validate credentials inside their handlers. UI gates are not an authorization boundary. New server inputs need real runtime validation; a typed identity validator alone does not validate input.
 - Admin tokens are HMAC-SHA256 signed using `QR_SEED`, expire in 12 hours, and persist under `inout-admin-token-v2` in localStorage. PIN rotation alone does not revoke issued tokens.
 - The check-in QR is one permanent random 12-character code in `site_settings.qr_token` (see `src/db/checkInCode.ts`), readable and replaceable only by admins. Legacy daily tokens in `rotas.token` are still accepted but never published. Today's rota is auto-created on first use. Open sessions carry over midnight for up to 20 hours.
+- Same-phone marker (ADR-012): the phone sends a random `deviceId` (`src/lib/deviceId.ts`) with enrolment and every staff check-in/out; only its SHA-256 (`src/utils/deviceMarker.ts`) is stored on `staff_credentials.device_hash` and `sessions.device_hash_in/out`. `src/db/samePhone.ts` derives `samePhoneAs` for enrolments and the `shared_phone` session flag (another person, within 12 hours). A signal, not proof; a bad or missing marker never blocks a shift.
+- Admin shift times go through `normalizeShiftTime` (`src/utils/shiftTime.ts`): `0800`, `800`, `8`, `8.00`, `8pm` → `HH:MM`. `ShiftTimeInput` keeps the numeric keypad and tidies on blur.
 - Staff location is required. `getCheckInArea` and `previewLocation` (check-in-code gated, rate limited) expose only the department centre and radius for staff maps; staff coordinates are evaluated and discarded, never stored or logged. Staff maps stay non-interactive and framed on the department. Whether staff may check in without location (flagged `denied`) is the single constant `ALLOW_CHECKIN_WITHOUT_LOCATION` in `src/lib/locationPolicy.ts`.
 - Staff choose a roster entry; there are no staff accounts. History is limited to completed sessions for that entry ID. Do not describe it as cross-day personal history or strong identity verification.
 - Auto-checkout requires an admin action, acts on today's rota, and stamps closure with the action time; the cron never closes sessions. Overnight/BST behavior of auto-checkout remains a known limitation.

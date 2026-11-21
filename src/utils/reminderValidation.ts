@@ -2,6 +2,7 @@
  * Runtime validators for the reminder and reported check-out server functions. Generic messages;
  * submitted values (endpoints are capability URLs) are never echoed.
  */
+import { readDeviceId } from './deviceMarker'
 import { asObject, qrToken, reqInt, reqString, validateAuthenticationResponse } from './validation'
 import { base64UrlBytes, isKnownPushEndpoint, isP256PublicKey, MAX_ENDPOINT_LENGTH } from './push'
 
@@ -49,5 +50,5 @@ export function validateReportForgottenCheckout(data: unknown) {
   const sessionId = reqInt(o, 'sessionId', 1, undefined, "That shift couldn't be found.")
   const leftAt = reqString(o, 'leftAt', { max: 40, pattern: INSTANT, message: 'Choose the time you left.' })
   if (Number.isNaN(Date.parse(leftAt))) throw new Error('Choose the time you left.')
-  return { token, sessionId, leftAt, response: validateAuthenticationResponse(o.response) }
+  return { token, sessionId, leftAt, response: validateAuthenticationResponse(o.response), deviceId: readDeviceId(o) }
 }

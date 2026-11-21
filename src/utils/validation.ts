@@ -7,6 +7,8 @@ import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from '@simplewebauthn/server'
+import { readDeviceId } from './deviceMarker'
+import { normalizeShiftTime, SHIFT_TIME_HINT } from './shiftTime'
 import { validateLocationReading, type LocationReading } from './location'
 
 type Obj = Record<string, unknown>
@@ -83,8 +85,6 @@ function isoDateTime(o: Obj, key: string): string {
   return value
 }
 
-const SHIFT_TIME = /^(\d{1,2}:\d{2}(:\d{2})?)?$/
-
 function optLocation(o: Obj): LocationReading | undefined {
   if (o.location === undefined || o.location === null) return undefined
   return validateLocationReading(o.location)
@@ -94,7 +94,7 @@ function optLocation(o: Obj): LocationReading | undefined {
 
 export function validateEntryAction(data: unknown) {
   const o = asObject(data)
-  return { rosterEntryId: reqInt(o, 'rosterEntryId', 1, undefined, 'Staff not found'), token: qrToken(o), location: optLocation(o) }
+  return { rosterEntryId: reqInt(o, 'rosterEntryId', 1, undefined, 'Staff not found'), token: qrToken(o), location: optLocation(o), deviceId: readDeviceId(o) }
 }
 
 export function validateEntryWithToken(data: unknown) {
@@ -232,7 +232,7 @@ export function validateFinishEnrolment(data: unknown) {
   if (o.checkIn !== undefined && o.checkIn !== null) {
     checkIn = { location: optLocation(asObject(o.checkIn)) }
   }
-  return { token, response, checkIn }
+  return { token, response, checkIn, deviceId: readDeviceId(o) }
 }
 
 export function validateBeginPasskeyAuth(data: unknown) {
@@ -251,6 +251,7 @@ export function validatePasskeyAction(data: unknown) {
     action: o.action as PasskeyActionKind,
     response: validateAuthenticationResponse(o.response),
     location: optLocation(o),
+    deviceId: readDeviceId(o),
   }
 }
 
@@ -338,8 +339,13 @@ export function validateUploadRota(data: unknown) {
   }
 }
 
+/** Accepts "0800", "8", "8:00", "8pm"… and returns "HH:MM"; '' clears the time. */
 function shiftTime(o: Obj, key: string): string | undefined {
-  return optString(o, key, { max: 8, pattern: SHIFT_TIME, message: 'Invalid shift time' })
+  const raw = optString(o, key, { min: 0, max: 16, message: `Couldn't read that shift time. ${SHIFT_TIME_HINT}` })
+  if (raw === undefined) return undefined
+  const time = normalizeShiftTime(raw)
+  if (time === null) throw new Error(`Couldn't read that shift time. ${SHIFT_TIME_HINT}`)
+  return time
 }
 
 export function validateAddAdHocStaff(data: unknown) {

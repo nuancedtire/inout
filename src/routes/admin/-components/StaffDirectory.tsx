@@ -10,6 +10,7 @@ import { useAdminContext } from '#/routes/admin/-context'
 import type { EnrolmentRow, StaffListRow } from '#/routes/admin/-types'
 import { errorText, FilterChips, inputClass, linkButtonClass, Notice, Panel, StaffAvatar } from './kit'
 import { phoneLabel, PhoneStatus, syncText } from './ApprovalsTab'
+import { joinNames } from './verification'
 
 type Filter = 'all' | 'approved' | 'waiting' | 'none' | 'off'
 
@@ -224,6 +225,9 @@ export function StaffDirectory({
                                   {p.lastUsedAt ? ` · last used ${relativeTime(p.lastUsedAt)}` : ''} · {p.sessionsCount}{' '}
                                   {p.sessionsCount === 1 ? 'session' : 'sessions'}
                                 </p>
+                                {p.samePhoneAs.length > 0 ? (
+                                  <p className="mt-1 text-xs font-semibold text-warning-800">Same phone as {joinNames(p.samePhoneAs)}</p>
+                                ) : null}
                               </div>
                               <span className="ml-8 sm:ml-0">
                                 <PhoneStatus status={p.status} />

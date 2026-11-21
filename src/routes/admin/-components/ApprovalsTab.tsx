@@ -9,6 +9,7 @@ import { useAdminContext } from '#/routes/admin/-context'
 import type { EnrolmentRow } from '#/routes/admin/-types'
 import { AdminDialog, DialogCancel } from './AdminDialog'
 import { errorText, Notice, Panel, StaffAvatar } from './kit'
+import { joinNames } from './verification'
 
 export function phoneLabel(e: Pick<EnrolmentRow, 'label'>) {
   return e.label?.trim() || 'Passkey'
@@ -131,8 +132,17 @@ export function ApprovalsTab({
                     <dd className="text-body">{sessionsText(e.sessionsCount)}</dd>
                   </div>
                 </dl>
-                {e.otherApprovedCount > 0 || !e.staffActive ? (
+                {e.otherApprovedCount > 0 || !e.staffActive || e.samePhoneAs.length > 0 ? (
                   <div className="mx-4 mb-3 flex flex-col gap-2">
+                    {e.samePhoneAs.length > 0 ? (
+                      <p className="flex items-start gap-2 rounded-control bg-warning-50 px-3 py-2.5 text-sm text-warning-800">
+                        <Smartphone className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                        <span>
+                          <strong className="font-semibold">Same phone as {joinNames(e.samePhoneAs)}.</strong> It was also
+                          set up for, or used to check in, someone else. Make sure it really is {e.staffName}’s.
+                        </span>
+                      </p>
+                    ) : null}
                     {e.otherApprovedCount > 0 ? (
                       <p className="flex items-start gap-2 rounded-control bg-warning-50 px-3 py-2.5 text-sm text-warning-800">
                         <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -212,6 +222,12 @@ export function ApprovalsTab({
               <CircleCheck className="mt-0.5 size-4 shrink-0 text-success-accessible" aria-hidden="true" />
               Sessions already recorded keep their “awaiting approval” flag. Accept them on the dashboard if you’re happy.
             </li>
+            {approving.samePhoneAs.length > 0 ? (
+              <li className="flex gap-2 font-semibold text-warning-800">
+                <Smartphone className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                This phone is also used for {joinNames(approving.samePhoneAs)}. Approve only if each person uses it for themselves.
+              </li>
+            ) : null}
             {approving.otherApprovedCount > 0 ? (
               <li className="flex gap-2 font-semibold text-warning-800">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />

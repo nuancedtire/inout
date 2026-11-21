@@ -31,6 +31,7 @@ import {
   type StaffSummary,
 } from '#/db/staff'
 import { createStaffToken } from './auth'
+import { hashDeviceId } from './deviceMarker'
 import { assertActive, resolveStaffToken, verifyStaffAssertion, type CredentialStatus } from './passkeyAssertion'
 import { INACTIVE_STAFF_MESSAGE } from './staffMessages'
 import { evaluateLocation, previewLocation as previewReading, publicArea, type LocationPreviewWithArea, type LocationReading, type PublicArea } from './location'
@@ -182,6 +183,7 @@ export const finishEnrolment = createServerFn({ method: 'POST' })
     entry ??= await findOrCreateEntryForStaff(db, rota.id, person)
 
     const label = passkeyLabel(info.aaguid, getRequestHeader('User-Agent'))
+    const deviceHash = await hashDeviceId(data.deviceId)
     const transports = data.response.response.transports ?? info.credential.transports
     const enrolStatements = [
       db.insert(staffCredentials).values({
@@ -195,6 +197,7 @@ export const finishEnrolment = createServerFn({ method: 'POST' })
         aaguid: info.aaguid,
         label,
         status: 'pending',
+        deviceHash,
       }),
       db.insert(auditLog).values({
         event: 'passkey_enrolled',
@@ -215,7 +218,7 @@ export const finishEnrolment = createServerFn({ method: 'POST' })
             entry,
             action: 'check_in',
             token: data.token,
-            evidence: { identity: 'passkey_pending', credentialId, location: location.outcome, accuracyM: location.accuracyM },
+            evidence: { identity: 'passkey_pending', credentialId, location: location.outcome, accuracyM: location.accuracyM, deviceHash },
             auditDetails: { staffId: person.id },
             extra: [...enrolStatements],
           })
@@ -296,7 +299,13 @@ export const passkeyAction = createServerFn({ method: 'POST' })
         entry,
         action: data.action,
         token: data.token,
-        evidence: { identity, credentialId: credential.id, location: location.outcome, accuracyM: location.accuracyM },
+        evidence: {
+          identity,
+          credentialId: credential.id,
+          location: location.outcome,
+          accuracyM: location.accuracyM,
+          deviceHash: data.action === 'undo' ? null : await hashDeviceId(data.deviceId),
+        },
         auditDetails: { staffId: person.id },
         extra: [usage],
       })

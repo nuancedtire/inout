@@ -38,7 +38,7 @@ export async function updateAttendanceSession(db: Db, change: SessionChange) {
       // An admin-set checkout replaces a staff-reported time, so it is no longer 'reported'.
       Object.assign(patch, change.checkOutAt
         ? { identityOut: 'admin', checkoutSource: null }
-        : { qrTokenOut: null, identityOut: null, credentialIdOut: null, locationOut: null, accuracyOutM: null, checkoutSource: null })
+        : { qrTokenOut: null, identityOut: null, credentialIdOut: null, locationOut: null, accuracyOutM: null, checkoutSource: null, deviceHashOut: null })
     }
     if (Object.keys(patch).length === 0) return { sessionId: change.sessionId }
     try {
@@ -107,6 +107,8 @@ export type AttendanceEvidence = {
   credentialId: string | null
   location: LocationOutcome
   accuracyM: number | null
+  /** Hashed same-phone marker (src/utils/deviceMarker.ts), when the phone sent one. */
+  deviceHash?: string | null
 }
 
 export type AttendanceActionKind = 'check_in' | 'check_out' | 'undo'
@@ -183,6 +185,7 @@ export async function performAttendanceAction(db: Db, opts: {
           credentialIdIn: evidence.credentialId,
           locationIn: evidence.location,
           accuracyInM: evidence.accuracyM,
+          deviceHashIn: evidence.deviceHash ?? null,
         }).returning({ id: sessions.id }),
         auditStatement(db, 'checked_in', details, actor, 'insert'),
         ...extra,
@@ -208,6 +211,7 @@ export async function performAttendanceAction(db: Db, opts: {
         credentialIdOut: evidence.credentialId,
         locationOut: evidence.location,
         accuracyOutM: evidence.accuracyM,
+        deviceHashOut: evidence.deviceHash ?? null,
       }).where(and(eq(sessions.id, open.id), isNull(sessions.checkOutAt))).returning({ id: sessions.id }),
       auditStatement(db, 'checked_out', { ...details, sessionId: open.id }, actor, 'changes'),
       ...extra,
@@ -236,7 +240,7 @@ export async function performAttendanceAction(db: Db, opts: {
   try {
     const [reopened] = await db.batch([
       db.update(sessions).set({
-        checkOutAt: null, qrTokenOut: null, identityOut: null, credentialIdOut: null, locationOut: null, accuracyOutM: null, checkoutSource: null,
+        checkOutAt: null, qrTokenOut: null, identityOut: null, credentialIdOut: null, locationOut: null, accuracyOutM: null, checkoutSource: null, deviceHashOut: null,
       }).where(and(eq(sessions.id, lastClosed.id), isNotNull(sessions.checkOutAt))).returning({ id: sessions.id }),
       auditStatement(db, 'checkout_undone', { ...details, sessionId: lastClosed.id }, actor, 'changes'),
       ...extra,

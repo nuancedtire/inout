@@ -5,6 +5,7 @@ import { requireCheckInCode } from '#/db/checkInCode'
 import { CARRY_OVER_MS } from '#/db/staff'
 import { updateAttendanceSession, deleteAttendanceEntry, getEntryStatus, performAttendanceAction } from '#/db/attendance'
 import { countPendingEnrolments, getSiteSettings } from '#/db/passkeys'
+import { parseSamePhoneNames, samePhoneNamesSql } from '#/db/samePhone'
 import { rotas, rosterEntries, sessions, auditLog } from '#/db/schema'
 import { eq, and, isNull, isNotNull, sql, desc, asc, gte, lte, inArray } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
@@ -13,6 +14,7 @@ import { verifyAdminPin, createSessionToken, requireAdmin } from './auth'
 import { logAudit } from './audit'
 import { todayDate } from './dateTime'
 import { evaluateLocation, type LocationReading } from './location'
+import { hashDeviceId } from './deviceMarker'
 import { createManualCheckInLimiter, validateManualCheckIn } from './manualCheckIn'
 import {
   validateAdminDate,
@@ -99,7 +101,7 @@ async function evaluateReading(db: Db, reading: LocationReading | undefined) {
 }
 
 async function selfSelectedAction(
-  data: { rosterEntryId: number; token: string; location?: LocationReading },
+  data: { rosterEntryId: number; token: string; location?: LocationReading; deviceId?: string },
   action: 'check_in' | 'check_out' | 'undo',
 ) {
   const db = await getDb()
@@ -122,7 +124,13 @@ async function selfSelectedAction(
     entry,
     action,
     token: data.token,
-    evidence: { identity: 'self_selected', credentialId: null, location: location.outcome, accuracyM: location.accuracyM },
+    evidence: {
+      identity: 'self_selected',
+      credentialId: null,
+      location: location.outcome,
+      accuracyM: location.accuracyM,
+      deviceHash: action === 'undo' ? null : await hashDeviceId(data.deviceId),
+    },
   })
   const reasons = action === 'undo' ? [] : deriveEndReasons('self_selected', location.outcome)
   const result: FallbackActionResult = {
@@ -199,6 +207,7 @@ export const manualCheckIn = createServerFn({ method: 'POST' })
         identityIn: 'self_selected',
         locationIn: location.outcome,
         accuracyInM: location.accuracyM,
+        deviceHashIn: await hashDeviceId(data.deviceId),
       })
       .returning({ id: sessions.id })
 
@@ -372,6 +381,8 @@ export type SessionEvidenceColumns = {
   checkout_source: 'reported' | null
   review_state: 'accepted' | null
   review_note: string | null
+  /** Other people the same phone checked in or out around this session. */
+  same_phone_with: string[]
 }
 
 const evidenceSelection = {
@@ -384,6 +395,7 @@ const evidenceSelection = {
   reviewState: sessions.reviewState,
   reviewNote: sessions.reviewNote,
   checkoutSource: sessions.checkoutSource,
+  samePhone: samePhoneNamesSql,
 }
 
 function evidenceColumns(r: {
@@ -397,8 +409,10 @@ function evidenceColumns(r: {
   reviewState: string | null
   reviewNote: string | null
   checkoutSource: string | null
+  samePhone: string | null
 }): SessionEvidenceColumns {
-  const v = deriveVerification(r)
+  const samePhoneWith = parseSamePhoneNames(r.samePhone)
+  const v = deriveVerification({ ...r, samePhoneWith })
   const closed = r.checkOutAt !== null
   return {
     identity_in: readIdentity(r.identityIn),
@@ -413,6 +427,7 @@ function evidenceColumns(r: {
     checkout_source: closed && r.checkoutSource === 'reported' ? 'reported' : null,
     review_state: r.reviewState === 'accepted' ? 'accepted' : null,
     review_note: r.reviewNote,
+    same_phone_with: samePhoneWith,
   }
 }
 
@@ -563,6 +578,8 @@ export type DashboardEvidence = {
   /** 'reported' when the staff member entered the check-out time later. */
   checkoutSource: 'reported' | null
   staffId: number | null
+  /** Other people the same phone checked in or out around this session. */
+  samePhoneWith: string[]
 }
 
 const dashboardSessionSelection = {
@@ -579,6 +596,7 @@ const dashboardSessionSelection = {
   reviewState: sessions.reviewState,
   reviewNote: sessions.reviewNote,
   checkoutSource: sessions.checkoutSource,
+  samePhone: samePhoneNamesSql,
 }
 
 type DashboardSessionFields = {
@@ -592,6 +610,7 @@ type DashboardSessionFields = {
   reviewState: string | null
   reviewNote: string | null
   checkoutSource: string | null
+  samePhone: string | null
 }
 
 function dashboardEvidence(s: DashboardSessionFields | undefined, staffId: number | null): DashboardEvidence {
@@ -599,9 +618,11 @@ function dashboardEvidence(s: DashboardSessionFields | undefined, staffId: numbe
     return {
       identityIn: null, identityOut: null, locationIn: null, locationOut: null, accuracyInM: null, accuracyOutM: null,
       reviewState: null, reviewNote: null, verified: false, accepted: false, reasons: [], checkoutSource: null, staffId,
+      samePhoneWith: [],
     }
   }
-  const v = deriveVerification(s)
+  const samePhoneWith = parseSamePhoneNames(s.samePhone)
+  const v = deriveVerification({ ...s, samePhoneWith })
   const closed = s.checkOutAt !== null
   return {
     identityIn: readIdentity(s.identityIn),
@@ -617,6 +638,7 @@ function dashboardEvidence(s: DashboardSessionFields | undefined, staffId: numbe
     reasons: v.reasons,
     checkoutSource: closed && s.checkoutSource === 'reported' ? 'reported' : null,
     staffId,
+    samePhoneWith,
   }
 }
 

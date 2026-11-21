@@ -12,6 +12,7 @@
  * Every function except getPushConfig is gated by the check-in code, validates its input at
  * runtime and is rate limited per client IP (best-effort, per isolate).
  */
+import { hashDeviceId } from './deviceMarker'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader } from '@tanstack/react-start/server'
 import { and, desc, eq, gte, isNull, notInArray } from 'drizzle-orm'
@@ -253,6 +254,7 @@ export const reportForgottenCheckout = createServerFn({ method: 'POST' })
         locationOut: 'not_requested',
         accuracyOutM: null,
         checkoutSource: 'reported',
+        deviceHashOut: await hashDeviceId(data.deviceId),
       }).where(and(eq(sessions.id, session.id), isNull(sessions.checkOutAt))).returning({ id: sessions.id }),
       auditIfChanged(db, 'checkout_reported', {
         sessionId: session.id,

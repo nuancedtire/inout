@@ -10,6 +10,7 @@ import {
   MapPinOff,
   MapPinX,
   ShieldCheck,
+  Smartphone,
   TriangleAlert,
   UserCog,
   UserRound,
@@ -42,6 +43,7 @@ export const REASON_ICON: Record<SessionFlagReason, Icon> = {
   location_unavailable: LocateOff,
   location_not_checked: CircleDashed,
   checkout_reported: ClockAlert,
+  shared_phone: Smartphone,
 }
 
 export type VerificationState = 'verified' | 'flagged' | 'accepted' | 'admin'
@@ -240,6 +242,7 @@ const SUGGESTIONS: Record<SessionFlagReason, string> = {
   identity_pending: 'Phone since approved — it was them',
   identity_self_selected: 'Used name option — confirmed in person',
   checkout_reported: 'Leaving time checked with the rota',
+  shared_phone: 'Phone lent to a colleague — both confirmed in person',
 }
 
 export function suggestionsFor(reasons: SessionFlagReason[]) {
@@ -422,6 +425,7 @@ export function EvidenceDialog({
                 </div>
               )}
             </div>
+            {subject.samePhoneWith.length ? <SamePhoneNote names={subject.samePhoneWith} /> : null}
             {subject.accepted ? (
               <div className="rounded-control bg-surface-soft px-4 py-3">
                 <p className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -441,6 +445,28 @@ export function EvidenceDialog({
       </div>
     </AdminDialog>
   )
+}
+
+/** Who else this phone checked in or out around this session. */
+export function SamePhoneNote({ names }: { names: readonly string[] }) {
+  return (
+    <div className="flex items-start gap-3 rounded-control bg-warning-50 px-4 py-3">
+      <Smartphone className="mt-0.5 size-4 shrink-0 text-warning-700" aria-hidden="true" />
+      <div className="min-w-0 text-sm">
+        <p className="font-semibold text-ink">Same phone as {joinNames(names)}</p>
+        <p className="mt-0.5 text-body">
+          This phone was also used to check in or out within 12 hours of this session. It may be an honest lend, or one
+          person checking in for another — worth a quick word.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+export function joinNames(names: readonly string[]) {
+  if (names.length <= 1) return names[0] ?? ''
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }
 
 function StateGlyph({ state }: { state: VerificationState }) {

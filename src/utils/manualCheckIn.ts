@@ -1,3 +1,4 @@
+import { readDeviceId } from './deviceMarker'
 import { validateLocationReading } from './location'
 
 export function validateManualCheckIn(data: unknown) {
@@ -15,7 +16,13 @@ export function validateManualCheckIn(data: unknown) {
   const location = 'location' in data && data.location !== undefined && data.location !== null
     ? validateLocationReading(data.location)
     : undefined
-  return { name: data.name.trim(), role: typeof role === 'string' ? role.trim() || undefined : undefined, token: data.token, location }
+  return {
+    name: data.name.trim(),
+    role: typeof role === 'string' ? role.trim() || undefined : undefined,
+    token: data.token,
+    location,
+    deviceId: readDeviceId(data as Record<string, unknown>),
+  }
 }
 
 /** Per-isolate, best-effort burst protection; not a distributed abuse boundary.

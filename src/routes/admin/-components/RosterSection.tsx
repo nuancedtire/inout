@@ -7,6 +7,7 @@ import { subjectFromEntry, type EvidenceSubject, type RosterEntryWithStatus } fr
 import { Pencil, Trash2, LogOut, FileDown, Clock, AlertTriangle, ClipboardList, Link2 } from 'lucide-react'
 import { inputClass, linkButtonClass, Panel, StaffAvatar } from './kit'
 import { VerificationChip } from './verification'
+import { ShiftTimeInput } from './ShiftTimeInput'
 
 const LATE_THRESHOLD_MS = 15 * 60 * 1000
 
@@ -102,10 +103,10 @@ export function RosterSection({
         <input className={inputClass} value={form.role} onChange={(ev) => setForm({ ...form, role: ev.target.value })} />
       </Field>
       <Field label="Shift start">
-        <input className={inputClass} value={form.shiftStart} placeholder="08:00" inputMode="numeric" onChange={(ev) => setForm({ ...form, shiftStart: ev.target.value })} />
+        <ShiftTimeInput value={form.shiftStart} placeholder="08:00" onValueChange={(v) => setForm((f) => ({ ...f, shiftStart: v }))} />
       </Field>
       <Field label="Shift end">
-        <input className={inputClass} value={form.shiftEnd} placeholder="20:00" inputMode="numeric" onChange={(ev) => setForm({ ...form, shiftEnd: ev.target.value })} />
+        <ShiftTimeInput value={form.shiftEnd} placeholder="20:00" onValueChange={(v) => setForm((f) => ({ ...f, shiftEnd: v }))} />
       </Field>
       <div className="col-span-2 flex gap-2 lg:col-span-1">
         <button

@@ -4,6 +4,7 @@ import { RunnerMark } from '#/components/brand/RunnerMark'
 import { beginEnrolment, beginPasskeyAuth, finishEnrolment, getStaffStatus, passkeyAction } from '#/utils/passkeys.functions'
 import type { ActionResult, StaffStatus } from '#/utils/passkeys.functions'
 import { checkIn, checkOut, getStatus, manualCheckIn, undoLastAction } from '#/utils/sessions.functions'
+import { deviceField } from '#/lib/deviceId'
 import { getForgottenCheckout, reportForgottenCheckout, type ForgottenCheckout } from '#/utils/reminders.functions'
 import type { LocationReading } from '#/utils/location'
 import type { PublicArea } from '#/utils/passkeys.functions'
@@ -590,7 +591,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
             : await readLocation(action === 'check_in' ? 'check in' : 'check out', () => advance('loc'))
         }
         advance('save')
-        const res = await afterDot(passkeyAction({ data: { token: t, response, action, ...(sample ? { location: sample.reading } : {}) } }), showDot(sample))
+        const res = await afterDot(passkeyAction({ data: { token: t, response, action, ...(sample ? { location: sample.reading } : {}), ...deviceField() } }), showDot(sample))
         adoptIdentity({ staffToken: res.staffToken, staff: res.staff, credentialStatus: res.credentialStatus }, res.status)
         if (res.result) {
           showResult({
@@ -699,7 +700,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
       try {
         const response = await assertion
         credentialId = response.id
-        const res = await reportForgottenCheckout({ data: { token: t, response, sessionId: current.session.id, leftAt: leftAt.toISOString() } })
+        const res = await reportForgottenCheckout({ data: { token: t, response, sessionId: current.session.id, leftAt: leftAt.toISOString(), ...deviceField() } })
         const next = { staffToken: res.staffToken, staff: res.staff, credentialStatus: res.credentialStatus }
         rememberStaff(next)
         setMe(next)
@@ -870,6 +871,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
             token: tokenRef.current ?? '',
             response,
             ...(checkInNow && !skipCheckIn ? { checkIn: sample ? { location: sample.reading } : {} } : {}),
+            ...deviceField(),
           },
         }), showDot(sample))
         adoptIdentity({ staffToken: res.staffToken, staff: res.staff, credentialStatus: 'pending' }, res.status)
@@ -925,7 +927,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
         let result: ActionResult
         let entryId = entry?.id ?? 0
         if (locum) {
-          const res = await manualCheckIn({ data: { token: t, name: locum.name, ...(locum.role ? { role: locum.role } : {}), ...(location ? { location } : {}) } })
+          const res = await manualCheckIn({ data: { token: t, name: locum.name, ...(locum.role ? { role: locum.role } : {}), ...(location ? { location } : {}), ...deviceField() } })
           result = res.result
           entryId = res.entryId
           const added: RosterEntry = { id: res.entryId, name: locum.name, role: locum.role || null, shiftStart: null, shiftEnd: null, source: 'manual' }
@@ -939,7 +941,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
           result = { action: res.action, at: new Date().toISOString(), identity: 'self_selected', location: 'not_requested', verified: false, reasons: [] }
         } else {
           const fn = action === 'check_in' ? checkIn : checkOut
-          const res = await fn({ data: { token: t, rosterEntryId: entryId, ...(location ? { location } : {}) } })
+          const res = await fn({ data: { token: t, rosterEntryId: entryId, ...(location ? { location } : {}), ...deviceField() } })
           result = res.result
         }
         const s = await afterDot(getStatus({ data: { rosterEntryId: entryId } }).catch(() => null), dot)

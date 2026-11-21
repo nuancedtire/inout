@@ -5,6 +5,7 @@ import { formatDate } from '#/utils/dateTime'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '#/components/motion/tabs'
 import { FileUpload, type FileUploadItem } from '#/components/motion/file-upload'
 import { inputClass } from './kit'
+import { ShiftTimeInput } from './ShiftTimeInput'
 
 export type UploadSummary = { count: number; linked: number; unlinked: number; unparseableShifts: number; date: string }
 
@@ -127,11 +128,11 @@ export function RotaStaffSection({
               </label>
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-semibold text-muted">Shift start</span>
-                <input name="shiftStart" placeholder="08:00" inputMode="numeric" className={inputClass} />
+                <ShiftTimeInput name="shiftStart" placeholder="08:00" />
               </label>
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-semibold text-muted">Shift end</span>
-                <input name="shiftEnd" placeholder="20:00" inputMode="numeric" className={inputClass} />
+                <ShiftTimeInput name="shiftEnd" placeholder="20:00" />
               </label>
             </div>
             <Button type="submit" loading={addLoading} fullWidth>

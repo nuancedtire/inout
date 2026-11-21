@@ -61,23 +61,27 @@ export async function passkeyFns() {
 
 export async function enrol(
   target: { rosterEntryId: number } | { name: string; role?: string },
-  opts: { checkIn?: { location?: LocationReading }; authenticator?: SoftAuthenticator; overrides?: Overrides } = {},
+  opts: { checkIn?: { location?: LocationReading }; authenticator?: SoftAuthenticator; overrides?: Overrides; deviceId?: string } = {},
 ) {
   const { beginEnrolment, finishEnrolment } = await passkeyFns()
   const authenticator = opts.authenticator ?? await SoftAuthenticator.create(RP_ID, ORIGIN)
   const begun = await beginEnrolment({ data: { token: TOKEN, ...target } })
   const response = await authenticator.register(begun.optionsJSON, opts.overrides)
-  const finished = await finishEnrolment({ data: { token: TOKEN, response, ...(opts.checkIn ? { checkIn: opts.checkIn } : {}) } })
+  const finished = await finishEnrolment({
+    data: { token: TOKEN, response, ...(opts.checkIn ? { checkIn: opts.checkIn } : {}), ...(opts.deviceId ? { deviceId: opts.deviceId } : {}) },
+  })
   return { authenticator, begun, finished }
 }
 
 export async function act(
   authenticator: SoftAuthenticator,
   action: 'identify' | 'check_in' | 'check_out' | 'undo',
-  opts: { location?: LocationReading; overrides?: Overrides } = {},
+  opts: { location?: LocationReading; overrides?: Overrides; deviceId?: string } = {},
 ) {
   const { beginPasskeyAuth, passkeyAction } = await passkeyFns()
   const { optionsJSON } = await beginPasskeyAuth({ data: { token: TOKEN } })
   const response = await authenticator.assert(optionsJSON, opts.overrides)
-  return passkeyAction({ data: { token: TOKEN, action, response, ...(opts.location ? { location: opts.location } : {}) } })
+  return passkeyAction({
+    data: { token: TOKEN, action, response, ...(opts.location ? { location: opts.location } : {}), ...(opts.deviceId ? { deviceId: opts.deviceId } : {}) },
+  })
 }

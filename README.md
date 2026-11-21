@@ -120,7 +120,7 @@ Alice Example,Nurse,0800-1800
 Bob Example,Consultant,09:00-17:00
 ```
 
-Supported examples include `0800-1800`, `08-1800`, `13:00-23:45`, and `08:00-20:00`. Upload warns when a provided shift cannot be parsed. The parser is permissive and does not fully validate time ranges. Names currently require Latin letters. Download the bundled [example allocation spreadsheet](public/example-allocation-filled.xlsx) from the upload panel; `sample-rota.xlsx` is not tracked.
+Supported examples include `0800-1800`, `08-1800`, `13:00-23:45`, and `08:00-20:00`. When adding or editing someone by hand, shift times can be typed as `0800`, `800`, `8`, `8.00`, `8:00` or `8pm`; they are saved as 24-hour `08:00`. Upload warns when a provided shift cannot be parsed. The parser is permissive and does not fully validate time ranges. Names currently require Latin letters. Download the bundled [example allocation spreadsheet](public/example-allocation-filled.xlsx) from the upload panel; `sample-rota.xlsx` is not tracked.
 
 ## Routes
 

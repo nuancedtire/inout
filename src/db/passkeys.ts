@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm'
 import type { getDb } from './client'
 import { sessions, siteSettings, staff, staffCredentials, webauthnChallenges, type StaffCredential } from './schema'
 import type { SiteArea } from '#/utils/location'
+import { samePhoneForCredentials } from './samePhone'
 
 type Db = Awaited<ReturnType<typeof getDb>>
 
@@ -84,6 +85,8 @@ export type EnrolmentRow = {
   sessionsCount: number
   /** Other approved passkeys for the same staff record (a second phone always needs approval). */
   otherApprovedCount: number
+  /** Other people the phone that enrolled this passkey was also set up for or used by. */
+  samePhoneAs: string[]
 }
 
 export async function listEnrolments(db: Db, status: 'pending' | 'all'): Promise<EnrolmentRow[]> {
@@ -110,7 +113,8 @@ export async function listEnrolments(db: Db, status: 'pending' | 'all'): Promise
     .where(status === 'pending' ? eq(staffCredentials.status, 'pending') : undefined)
     .orderBy(desc(staffCredentials.createdAt), desc(staffCredentials.id))
     .all()
-  return rows
+  const samePhone = await samePhoneForCredentials(db, rows)
+  return rows.map((r) => ({ ...r, samePhoneAs: samePhone.get(r.credentialId) ?? [] }))
 }
 
 export async function countPendingEnrolments(db: Db): Promise<number> {

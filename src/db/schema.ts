@@ -94,6 +94,9 @@ export const sessions = sqliteTable(
     reminderSentAt: text('reminder_sent_at'),
     /** NULL = checked out normally; 'reported' = the staff member entered the time later (flagged). */
     checkoutSource: text('checkout_source', { enum: ['reported'] }),
+    /** Hashed per-browser phone marker (see src/utils/deviceMarker.ts), never the raw value. */
+    deviceHashIn: text('device_hash_in'),
+    deviceHashOut: text('device_hash_out'),
   },
   (table) => ({
     entryFk: foreignKey({
@@ -115,6 +118,9 @@ export const sessions = sqliteTable(
     openCheckinIdx: index('idx_sessions_open_checkin')
       .on(table.checkInAt)
       .where(sql`check_out_at IS NULL`),
+    // Same-phone checks: other sessions recorded from this phone marker.
+    deviceInIdx: index('idx_sessions_device_in').on(table.deviceHashIn),
+    deviceOutIdx: index('idx_sessions_device_out').on(table.deviceHashOut),
   }),
 )
 
@@ -152,6 +158,8 @@ export const staffCredentials = sqliteTable(
     lastUsedAt: text('last_used_at'),
     reviewedAt: text('reviewed_at'),
     reviewedBy: text('reviewed_by'),
+    /** Hashed phone marker of the browser that enrolled this passkey (null for older rows). */
+    deviceHash: text('device_hash'),
   },
   (table) => ({
     staffFk: foreignKey({
@@ -160,6 +168,7 @@ export const staffCredentials = sqliteTable(
     }),
     staffIdx: index('idx_credentials_staff').on(table.staffId),
     statusIdx: index('idx_credentials_status').on(table.status),
+    deviceIdx: index('idx_credentials_device').on(table.deviceHash),
   }),
 )
 

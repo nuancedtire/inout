@@ -8,7 +8,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { cn } from '#/lib/utils'
 
 export const inputClass =
-  'block min-h-11 w-full min-w-0 rounded-control border border-hairline bg-canvas px-3.5 text-[15px] text-ink outline-none transition-[border-color,box-shadow] placeholder:text-muted hover:border-neutral-400 focus:border-ink focus:shadow-[0_0_0_1px_var(--color-ink)] focus-visible:outline-none disabled:opacity-50'
+  'block min-h-11 w-full min-w-0 rounded-control border border-hairline bg-canvas px-3.5 text-base text-ink outline-none transition-[border-color,box-shadow] placeholder:text-muted hover:border-neutral-400 focus:border-ink focus:shadow-[0_0_0_1px_var(--color-ink)] focus-visible:outline-none disabled:opacity-50'
 
 /** Small text-style action (Edit, Details…) with a 44px hit area on touch screens. */
 export const linkButtonClass =

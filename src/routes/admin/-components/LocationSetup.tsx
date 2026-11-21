@@ -561,7 +561,7 @@ function RangeField({
             onChange={(e) => setText(e.target.value.replace(/[^\d]/g, ''))}
             onBlur={commit}
             onKeyDown={(e) => e.key === 'Enter' && commit()}
-            className="h-10 w-20 rounded-control border border-hairline bg-canvas px-3 text-right text-[15px] font-semibold tabular-nums text-ink outline-none hover:border-neutral-400 focus:border-ink focus:shadow-[0_0_0_1px_var(--color-ink)] focus-visible:outline-none"
+            className="h-10 w-20 rounded-control border border-hairline bg-canvas px-3 text-right text-base font-semibold tabular-nums text-ink outline-none hover:border-neutral-400 focus:border-ink focus:shadow-[0_0_0_1px_var(--color-ink)] focus-visible:outline-none"
           />
           <span className="text-sm text-muted">{unit}</span>
         </div>

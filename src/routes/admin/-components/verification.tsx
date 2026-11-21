@@ -391,7 +391,7 @@ export function EvidenceDialog({
               aria-describedby="review-note-help"
               placeholder="e.g. Poor signal — confirmed in person"
               className={cn(
-                'block w-full resize-none rounded-control border bg-canvas px-3.5 py-3 text-[15px] text-ink outline-none placeholder:text-muted focus-visible:outline-none',
+                'block w-full resize-none rounded-control border bg-canvas px-3.5 py-3 text-base text-ink outline-none placeholder:text-muted focus-visible:outline-none',
                 error ? 'border-danger-600' : 'border-hairline hover:border-neutral-400 focus:border-ink focus:shadow-[0_0_0_1px_var(--color-ink)]',
               )}
             />

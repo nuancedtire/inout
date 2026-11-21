@@ -60,11 +60,70 @@ export const CHECKIN_CSS = `
 }
 @keyframes ck-shimmer { from { background-position: 100% 0; } to { background-position: -50% 0; } }
 
+/* Location check in progress: two rings pulse outwards from the pin. */
+.ck-radar { animation: ck-radar 1400ms cubic-bezier(0, 0, 0.2, 1) infinite; }
+@keyframes ck-radar { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.1); opacity: 0; } }
+
 /* Undo countdown ring. */
 .ck-countdown { transition: stroke-dashoffset 1s linear; }
 
+/* Page frame: side padding clears landscape notches; wide screens get more room. */
+.ck-frame { padding-left: max(1.25rem, env(safe-area-inset-left)); padding-right: max(1.25rem, env(safe-area-inset-right)); }
+@media (min-width: 640px) { .ck-frame.ck-wide { padding-left: max(2rem, env(safe-area-inset-left)); padding-right: max(2rem, env(safe-area-inset-right)); } }
+
+/* Map heights follow the screen: compact on short phones, roomier on tall ones and two-column layouts. */
+.checkin { --ck-map-h: 136px; --ck-map-lg: 152px; --ck-map-sm: 128px; }
+@media (min-height: 740px) { .checkin { --ck-map-h: 164px; --ck-map-lg: 216px; --ck-map-sm: 148px; } }
+@media (min-height: 880px) { .checkin { --ck-map-h: 188px; --ck-map-lg: 248px; --ck-map-sm: 168px; } }
+@media (min-width: 640px) { .checkin { --ck-map-h: 232px; --ck-map-lg: 300px; --ck-map-sm: 200px; } }
+@media (min-width: 640px) and (min-height: 820px) { .checkin { --ck-map-h: 300px; --ck-map-lg: 360px; --ck-map-sm: 240px; } }
+@media (max-height: 520px) { .checkin { --ck-map-h: 120px; --ck-map-lg: 150px; --ck-map-sm: 110px; } }
+
+/* Foldables and dual screens, side by side (book posture): one column per segment, the gap is the hinge. */
+@media (horizontal-viewport-segments: 2) {
+  .ck-frame { margin-left: env(viewport-segment-left 1 0); margin-right: 0; max-width: env(viewport-segment-width 1 0); }
+  .ck-frame.ck-wide { margin: 0; max-width: none; padding-left: 0; padding-right: 0; }
+  .ck-frame.ck-wide > header { padding-inline: 1.25rem; }
+  .ck-wide .ck-split {
+    display: grid; align-items: start;
+    grid-template-columns: env(viewport-segment-width 0 0) env(viewport-segment-width 1 0);
+    column-gap: calc(env(viewport-segment-left 1 0) - env(viewport-segment-right 0 0));
+  }
+  .ck-wide .ck-split > * { grid-column: 1; margin-inline: 1.25rem; min-width: 0; }
+  .ck-wide .ck-split > .ck-seg-end { grid-column: 2; grid-row: 1 / span 6; }
+}
+/* Half-folded flat (tabletop): keep everything in the bottom half, nearest the thumb. */
+@media (vertical-viewport-segments: 2) {
+  .ck-frame { padding-top: calc(env(viewport-segment-top 0 1) + 0.5rem); }
+}
+
+/* Map "sonar" while a reading is taken. */
+.ck-sonar { animation: ck-sonar 1800ms cubic-bezier(0, 0, 0.2, 1) infinite; }
+@keyframes ck-sonar { from { transform: scale(0.2); opacity: 0.9; } to { transform: scale(1.4); opacity: 0; } }
+
+/* Turn-on-location pictures: the setting to change glows softly. */
+.ck-target { position: relative; z-index: 0; }
+.ck-target::after { content: ''; position: absolute; inset: -3px; border-radius: inherit; box-shadow: 0 0 0 2px rgba(255,56,92,0.55); animation: ck-target 2200ms ease-in-out infinite; pointer-events: none; }
+@keyframes ck-target { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+.ck-target.ck-in::after { inset: 3px; border-radius: 8px; box-shadow: inset 0 0 0 2px rgba(255,56,92,0.55); }
+
+/* "Still blocked": a small nudge. */
+.ck-nudge { animation: ck-nudge 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+@keyframes ck-nudge { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+
+/* Reminder card: the example notification drops in; the bell rings once. */
+.ck-notify { animation: ck-notify 520ms cubic-bezier(0.16, 1, 0.3, 1) 260ms both; }
+@keyframes ck-notify { from { opacity: 0; transform: translateY(-10px) scale(0.97); } to { opacity: 1; transform: none; } }
+.ck-bell { transform-origin: 50% 12%; animation: ck-bell 900ms cubic-bezier(0.36, 0.07, 0.19, 0.97) 700ms both; }
+@keyframes ck-bell { 0%, 100% { transform: none; } 15% { transform: rotate(14deg); } 30% { transform: rotate(-12deg); } 45% { transform: rotate(8deg); } 60% { transform: rotate(-5deg); } 75% { transform: rotate(2deg); } }
+
+/* Forgotten check-out: the clock hands settle on the shift's end. */
+.ck-hand { transform-origin: 40px 40px; animation: ck-hand 900ms cubic-bezier(0.2, 0, 0, 1) 150ms both; }
+@keyframes ck-hand { from { transform: rotate(var(--ck-from, -90deg)); } }
+
 @media (prefers-reduced-motion: reduce) {
-  .checkin-sheet, .ck-screen, .ck-stagger > *, .ck-pop, .ck-halo, .ck-ring, .ck-pin, .ck-scan, .ck-corners, .ck-sweep, .ck-live::after, .ck-shimmer {
+  .ck-notify, .ck-bell, .ck-hand { animation: none !important; }
+  .checkin-sheet, .ck-screen, .ck-stagger > *, .ck-pop, .ck-halo, .ck-ring, .ck-pin, .ck-scan, .ck-corners, .ck-sweep, .ck-live::after, .ck-shimmer, .ck-radar, .ck-sonar, .ck-target::after, .ck-nudge {
     animation: none !important;
   }
   .ck-check-ring, .ck-check-tick { animation: none !important; stroke-dashoffset: 0; }

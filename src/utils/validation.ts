@@ -254,6 +254,15 @@ export function validatePasskeyAction(data: unknown) {
   }
 }
 
+export function validatePreviewLocation(data: unknown) {
+  const o = asObject(data)
+  return { token: qrToken(o), location: validateLocationReading(o.location) }
+}
+
+export function validateCheckInArea(data: unknown) {
+  return { token: qrToken(asObject(data)) }
+}
+
 export function validateStaffStatus(data: unknown) {
   const o = asObject(data)
   return { token: qrToken(o), staffToken: reqString(o, 'staffToken', { max: 2048, message: 'Invalid staff token' }) }

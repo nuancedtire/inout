@@ -90,6 +90,50 @@ describe('location check outcomes', () => {
     expect(await (await getDb()).select().from(siteSettings)).toMatchObject([{ id: 1, radiusM: 2000, accuracyCeilingM: 500 }])
   })
 
+  it('previews the outcome for the staff screen without recording anything', async () => {
+    const { previewLocation } = await import('#/utils/passkeys.functions')
+    await seedTodayRota()
+    await configureSite(100, 50)
+    const before = JSON.stringify(await (await getDb()).select().from(auditLog))
+    const area = { ...CENTRE, radiusM: 100 }
+    expect(await previewLocation({ data: { token: TOKEN, location: reading(60, 20) } })).toEqual({ outcome: 'inside', accuracyM: 20, awayM: null, area })
+    expect(await previewLocation({ data: { token: TOKEN, location: reading(460, 20) } })).toEqual({ outcome: 'outside', accuracyM: 20, awayM: 360, area })
+    expect((await previewLocation({ data: { token: TOKEN, location: reading(60, 80) } })).outcome).toBe('unavailable')
+    expect((await previewLocation({ data: { token: TOKEN, location: { status: 'denied' } } })).outcome).toBe('denied')
+    await expect(previewLocation({ data: { token: 'WRONGTOKENXX', location: reading(60, 20) } })).rejects.toThrow(/Invalid or expired/)
+    const db = await getDb()
+    expect(await db.select().from(sessions)).toEqual([])
+    expect(JSON.stringify(await db.select().from(auditLog))).toBe(before)
+  })
+
+  it('returns no area from a preview when the department is not configured', async () => {
+    const { previewLocation } = await import('#/utils/passkeys.functions')
+    await seedTodayRota()
+    expect(await previewLocation({ data: { token: TOKEN, location: reading(60, 20) } })).toEqual({ outcome: 'not_requested', accuracyM: 20, awayM: null, area: null })
+  })
+
+  it('gives staff maps the department area behind the QR code, and nothing else', async () => {
+    const { getCheckInArea } = await import('#/utils/passkeys.functions')
+    await seedTodayRota()
+    expect(await getCheckInArea({ data: { token: TOKEN } })).toEqual({ area: null })
+    await configureSite(120, 40)
+    const res = await getCheckInArea({ data: { token: TOKEN } })
+    expect(res).toEqual({ area: { ...CENTRE, radiusM: 120 } })
+    // The accuracy ceiling and timestamps stay private to the admin.
+    expect(Object.keys(res.area ?? {}).sort()).toEqual(['latitude', 'longitude', 'radiusM'])
+    await expect(getCheckInArea({ data: { token: 'WRONGTOKENXX' } })).rejects.toThrow(/Invalid or expired/)
+    await expect(getCheckInArea({ data: { token: 'short' } })).rejects.toThrow(/Invalid or expired/)
+    await expect(getCheckInArea({ data: null })).rejects.toThrow(/Invalid request/)
+    await expect(getCheckInArea({ data: { token: 42 } })).rejects.toThrow(/Invalid or expired/)
+  })
+
+  it('rate limits area lookups per client', async () => {
+    const { getCheckInArea } = await import('#/utils/passkeys.functions')
+    await seedTodayRota()
+    for (let i = 0; i < 60; i++) await getCheckInArea({ data: { token: TOKEN } })
+    await expect(getCheckInArea({ data: { token: TOKEN } })).rejects.toThrow(/Too many requests/)
+  })
+
   it('tells the public check-in page only whether a location check applies', async () => {
     const { getTodayRoster } = await import('#/utils/rotas.functions')
     // Today's rota is created on first use, so the page never stops at "no rota".

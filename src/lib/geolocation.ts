@@ -124,3 +124,51 @@ export async function locationPermission(): Promise<PermissionState | 'unknown'>
     return 'unknown'
   }
 }
+
+export type LocationPermission = PermissionState | 'unknown'
+
+/**
+ * Follow the location permission: the Permissions API `change` event where supported, plus a
+ * re-check whenever the page becomes visible again (returning from Settings, where some browsers
+ * don't fire `change`). Calls `onState` with the current state straight away. Never prompts.
+ */
+export function watchLocationPermission(onState: (state: LocationPermission) => void): () => void {
+  if (typeof navigator === 'undefined' || typeof document === 'undefined') return () => {}
+  let stopped = false
+  let status: PermissionStatus | null = null
+  let last: LocationPermission | null = null
+  const emit = (s: LocationPermission) => {
+    if (stopped || s === last) return
+    last = s
+    onState(s)
+  }
+  const onChange = () => status && emit(status.state)
+  const recheck = () => {
+    if (document.visibilityState !== 'visible') return
+    void locationPermission().then(emit)
+  }
+  try {
+    if (navigator.permissions?.query) {
+      void navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((s) => {
+        if (stopped) return
+        status = s
+        s.addEventListener?.('change', onChange)
+        emit(s.state)
+      }, () => emit('unknown'))
+    } else {
+      emit('unknown')
+    }
+  } catch {
+    emit('unknown')
+  }
+  document.addEventListener('visibilitychange', recheck)
+  window.addEventListener('focus', recheck)
+  window.addEventListener('pageshow', recheck)
+  return () => {
+    stopped = true
+    status?.removeEventListener?.('change', onChange)
+    document.removeEventListener('visibilitychange', recheck)
+    window.removeEventListener('focus', recheck)
+    window.removeEventListener('pageshow', recheck)
+  }
+}

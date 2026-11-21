@@ -9,9 +9,12 @@ import {
   MapPinned,
   Plus,
   Radar,
+  ShieldCheck,
   Trash2,
+  Undo2,
   type LucideIcon,
 } from 'lucide-react'
+import { AreaMap, type AreaMapHandle } from '#/components/maps/AreaMap'
 import { Button } from '#/components/Button'
 import { cn } from '#/lib/utils'
 import { adminGetSiteSettings, adminSetSiteSettings } from '#/utils/staff.functions'
@@ -21,6 +24,7 @@ import { formatDateTime, formatTime, relativeTime } from '#/utils/dateTime'
 import { useAdminContext } from '#/routes/admin/-context'
 import type { SiteSettingsView } from '#/routes/admin/-types'
 import { errorText, LoadError, Notice, Panel, PanelSkeleton, linkButtonClass } from './kit'
+import { PlaceSearch, SUGGESTED_SITE } from './PlaceSearch'
 import { geolocationProblem, useBestPosition, type Fix, type SamplerState } from './useBestPosition'
 import { isAuthError } from './useDashboard'
 
@@ -88,6 +92,11 @@ export function LocationSetup() {
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<{ text: string; tone: 'success' | 'error' } | null>(null)
   const [test, setTest] = useState<Fix | null>(null)
+  /** A centre placed on the map (drag, tap, search or suggestion). Takes precedence over readings. */
+  const [placed, setPlaced] = useState<{ point: Point; via: 'map' | 'search' } | null>(null)
+  const [view, setView] = useState<'map' | 'diagram'>('map')
+  const [mapProblem, setMapProblem] = useState<string | null>(null)
+  const mapRef = useRef<AreaMapHandle>(null)
   const reading = useBestPosition()
   const tester = useBestPosition()
   const logoutRef = useRef(logout)
@@ -115,20 +124,48 @@ export function LocationSetup() {
   const savedCentre: Point | null =
     saved?.configured && saved.latitude !== null && saved.longitude !== null ? { latitude: saved.latitude, longitude: saved.longitude } : null
   const newCentre = weightedCentre(readings)
-  const centre = newCentre ?? savedCentre
+  const centre = placed?.point ?? newCentre ?? savedCentre
+  const centreSource = placed ? (placed.via === 'search' ? 'from search' : 'placed on the map') : newCentre ? 'from your readings' : savedCentre ? 'saved' : null
   const spread = newCentre ? Math.max(0, ...readings.map((r) => haversineMetres(newCentre, r))) : 0
-  const suggested = readings.length >= 2 ? clamp(roundTo(spread + 50, 25), 75, RADIUS.max) : null
-  const dirty = !!saved && (readings.length > 0 || radius !== saved.radiusM || ceiling !== saved.accuracyCeilingM)
+  const suggested = readings.length >= 2 && !placed ? clamp(roundTo(spread + 50, 25), 75, RADIUS.max) : null
+  const dirty = !!saved && (!!placed || readings.length > 0 || radius !== saved.radiusM || ceiling !== saved.accuracyCeilingM)
   const busy = reading.state.status === 'sampling' || tester.state.status === 'sampling'
 
   const area = centre ? { ...centre, radiusM: radius, accuracyCeilingM: ceiling } : null
   const testResult = test ? evaluateLocation({ status: 'ok', ...test }, area) : null
   const testDistance = test && centre ? haversineMetres(centre, test) : null
+  const liveFix = reading.state.status === 'sampling' ? reading.state.live : tester.state.status === 'sampling' ? tester.state.live : null
 
   const takeReading = async () => {
     setNotice(null)
     const fix = await reading.sample()
-    if (fix) setReadings((r) => [...r, fix].slice(-MAX_READINGS))
+    if (fix) {
+      setReadings((r) => [...r, fix].slice(-MAX_READINGS))
+      setPlaced(null)
+    }
+  }
+
+  const placeCentre = (point: Point, via: 'map' | 'search' = 'map') => {
+    setNotice(null)
+    setPlaced({ point, via })
+  }
+
+  const useSuggestion = () => {
+    placeCentre(SUGGESTED_SITE.point, 'search')
+    setRadius(SUGGESTED_SITE.radiusM)
+    mapRef.current?.flyTo(SUGGESTED_SITE.point, 17)
+  }
+
+  const discard = () => {
+    if (!saved) return
+    setPlaced(null)
+    setReadings([])
+    reading.reset()
+    setTest(null)
+    setRadius(saved.radiusM)
+    setCeiling(saved.accuracyCeilingM)
+    setNotice(null)
+    if (savedCentre) setTimeout(() => mapRef.current?.fitArea(), 0)
   }
 
   const runTest = async () => {
@@ -154,6 +191,7 @@ export function LocationSetup() {
       })
       setSaved(site)
       setReadings([])
+      setPlaced(null)
       reading.reset()
       setNotice({ text: 'Department area saved. New check-ins use it straight away.', tone: 'success' })
     } catch (e) {
@@ -188,12 +226,12 @@ export function LocationSetup() {
           </span>
         }
       >
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-x-8">
           <div className="flex min-w-0 flex-col gap-6">
             {!saved.configured ? (
               <p className="rounded-control bg-warning-50 px-4 py-3 text-sm text-warning-800">
-                No area yet, so every check-in shows <strong className="font-semibold">“Location not checked”</strong>. Stand in the
-                department and take a reading to set it up.
+                No area yet, so every check-in shows <strong className="font-semibold">“Location not checked”</strong>. Find the
+                department on the map, or stand in it and take a reading.
               </p>
             ) : (
               <p className="text-sm text-muted">
@@ -203,49 +241,145 @@ export function LocationSetup() {
             )}
 
             {/* Step 1 */}
-            <Step n={1} title="Find the centre" hint="Stand inside the department, away from the outside walls. For the best centre, take 2–4 readings at different spots — the main entrance, majors, resus — and InOut averages them, trusting the most precise ones most.">
-              {problem ? <p className="rounded-control bg-danger-50 px-4 py-3 text-sm text-danger-800">{problem}</p> : null}
-              <SamplerCard state={reading.state} onStop={reading.stop} label="Taking a reading" />
-              {readings.length > 0 ? (
-                <ul className="flex flex-col divide-y divide-hairline-soft rounded-control border border-hairline-soft">
-                  {readings.map((r, i) => (
-                    <li key={r.at + i} className="flex items-center gap-3 px-4 py-2">
-                      <span className="flex size-7 items-center justify-center rounded-full bg-ink text-xs font-bold text-white tabular-nums" aria-hidden="true">
-                        {i + 1}
-                      </span>
-                      <span className="flex-1 text-sm text-ink">
-                        Reading {i + 1} <span className="text-muted">· ±{Math.round(r.accuracy)} m · {formatTime(new Date(r.at).toISOString())}</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setReadings((list) => list.filter((_, j) => j !== i))}
-                        aria-label={`Remove reading ${i + 1}`}
-                        className={linkButtonClass}
-                      >
-                        <Trash2 aria-hidden="true" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  variant={readings.length ? 'secondary' : 'primary'}
-                  onClick={takeReading}
-                  disabled={busy || !!problem || readings.length >= MAX_READINGS}
-                  loading={reading.state.status === 'sampling'}
-                >
-                  {reading.state.status === 'sampling' ? null : readings.length ? <Plus className="size-4" aria-hidden="true" /> : <Crosshair className="size-4" aria-hidden="true" />}
-                  {readings.length ? 'Add another reading' : 'Use my current position'}
-                </Button>
-                {newCentre ? (
-                  <p className="text-sm text-muted">
-                    {readings.length === 1 ? 'Centre from 1 reading.' : `Centre from ${readings.length} readings, ${Math.round(spread)} m apart at most.`}
+            <Step
+              n={1}
+              title="Place the centre"
+              hint="Search for the hospital, tap the map or drag the pin onto the department. This works from anywhere, so you don’t need to be on site."
+            >
+              <div className="flex flex-col gap-3 rounded-control border border-hairline-soft p-4">
+                <div>
+                  <p className="text-sm font-semibold text-ink">Or use your phone, inside the department</p>
+                  <p className="text-sm leading-relaxed text-muted text-pretty">
+                    Readings give the most precise centre. Take 2–4 at different spots, such as the entrance, majors and resus. InOut
+                    averages them and trusts the most precise readings most.
                   </p>
+                </div>
+                {problem ? <p className="rounded-control bg-danger-50 px-4 py-3 text-sm text-danger-800">{problem}</p> : null}
+                <SamplerCard state={reading.state} onStop={reading.stop} label="Taking a reading" />
+                {readings.length > 0 ? (
+                  <ul className="flex flex-col divide-y divide-hairline-soft rounded-control border border-hairline-soft">
+                    {readings.map((r, i) => (
+                      <li key={r.at + i} className="flex items-center gap-3 px-4 py-2">
+                        <span className="flex size-7 items-center justify-center rounded-full bg-ink text-xs font-bold text-white tabular-nums" aria-hidden="true">
+                          {i + 1}
+                        </span>
+                        <span className="flex-1 text-sm text-ink">
+                          Reading {i + 1} <span className="text-muted">· ±{Math.round(r.accuracy)} m · {formatTime(new Date(r.at).toISOString())}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setReadings((list) => list.filter((_, j) => j !== i))}
+                          aria-label={`Remove reading ${i + 1}`}
+                          className={linkButtonClass}
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    variant="secondary"
+                    onClick={takeReading}
+                    disabled={busy || !!problem || readings.length >= MAX_READINGS}
+                    loading={reading.state.status === 'sampling'}
+                  >
+                    {reading.state.status === 'sampling' ? null : readings.length ? <Plus className="size-4" aria-hidden="true" /> : <Crosshair className="size-4" aria-hidden="true" />}
+                    {readings.length ? 'Add another reading' : 'Use my current position'}
+                  </Button>
+                  {newCentre && !placed ? (
+                    <p className="text-sm text-muted">
+                      {readings.length === 1 ? 'Centre from 1 reading.' : `Centre from ${readings.length} readings, ${Math.round(spread)} m apart at most.`}
+                    </p>
+                  ) : null}
+                  {newCentre && placed ? (
+                    <button type="button" onClick={() => setPlaced(null)} className={cn(linkButtonClass, 'text-accent-accessible')}>
+                      Use the centre from your readings
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </Step>
+          </div>
 
+          <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
+            <PlaceSearch
+              onPick={(point) => {
+                placeCentre(point, 'search')
+                setView('map')
+                mapRef.current?.flyTo(point, 18)
+              }}
+              onSuggest={useSuggestion}
+            />
+            {mapProblem && view === 'map' ? (
+              <p role="status" className="flex items-start gap-2 rounded-control bg-surface-soft px-3.5 py-2.5 text-sm text-body">
+                <MapPinOff className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
+                <span>
+                  {mapProblem} Showing a scale diagram instead. Search, readings and saving still work.
+                </span>
+              </p>
+            ) : null}
+            {view === 'map' && !mapProblem ? (
+              <AreaMap
+                ref={mapRef}
+                interactive
+                centre={centre}
+                radiusM={radius}
+                readings={readings}
+                position={liveFix ?? test}
+                positionTone={liveFix ? 'live' : testResult?.outcome === 'inside' ? 'success' : 'warning'}
+                fitTo="area+position"
+                onCentreChange={(p) => placeCentre(p)}
+                onUnavailable={setMapProblem}
+                label={mapLabel(centre, radius, readings.length)}
+              />
+            ) : (
+              <AreaDiagram centre={centre} radius={radius} readings={readings} live={liveFix} test={test} testOutcome={testResult?.outcome ?? null} />
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <p className="min-w-0 text-xs text-muted tabular-nums">
+                {centre ? (
+                  <>
+                    Centre {centre.latitude.toFixed(5)}, {centre.longitude.toFixed(5)}
+                    <span className={cn('ml-1.5 font-semibold', placed || newCentre ? 'text-accent-accessible' : 'text-muted')}>
+                      · {centreSource}
+                      {placed || newCentre ? ', not saved yet' : ''}
+                    </span>
+                  </>
+                ) : (
+                  'Tap the map or search to place the centre.'
+                )}
+              </p>
+              {!mapProblem ? (
+                <div role="group" aria-label="Preview" className="inline-flex shrink-0 rounded-full bg-surface-strong p-1">
+                  {(['map', 'diagram'] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      aria-pressed={view === v}
+                      onClick={() => setView(v)}
+                      className={cn(
+                        'relative inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold capitalize after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-[""] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',
+                        view === v ? 'bg-canvas text-ink shadow-card' : 'text-muted hover:text-ink',
+                      )}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <p className="flex items-start gap-2 rounded-control bg-surface-soft px-3.5 py-2.5 text-xs leading-relaxed text-body">
+              <ShieldCheck className="mt-px size-4 shrink-0 text-success-accessible" aria-hidden="true" />
+              <span>
+                This map only sets the department area. Staff positions are never stored or shown on any map. Your own readings and
+                tests appear here on this screen only, and aren’t saved.
+              </span>
+            </p>
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-6">
             {/* Step 2 */}
             <Step n={2} title="Set the size" hint="The phone’s reported accuracy is given in the person’s favour, so a reading counts as inside when it could be inside.">
               <RangeField
@@ -254,7 +388,7 @@ export function LocationSetup() {
                 value={radius}
                 onChange={setRadius}
                 {...RADIUS}
-                help="How far from the centre still counts as the department."
+                help="How far from the centre still counts as the department. The circle on the map follows this."
                 extra={
                   suggested && suggested !== radius ? (
                     <button type="button" onClick={() => setRadius(suggested)} className={cn(linkButtonClass, 'text-accent-accessible')}>
@@ -274,7 +408,7 @@ export function LocationSetup() {
             </Step>
 
             {/* Step 3 */}
-            <Step n={3} title="Test from here" hint="Walk to a corner or an entrance and test. This uses the settings above, even before you save them.">
+            <Step n={3} title="Test from here" hint="On site, walk to a corner or an entrance and test. This uses the settings above, even before you save them.">
               <SamplerCard state={tester.state} onStop={tester.stop} label="Testing" />
               {testResult && test ? (
                 <TestResult outcome={testResult.outcome} accuracy={Math.round(test.accuracy)} distance={testDistance} radius={radius} ceiling={ceiling} />
@@ -284,38 +418,28 @@ export function LocationSetup() {
                   {tester.state.status === 'sampling' ? null : <Radar className="size-4" aria-hidden="true" />}
                   Test from here
                 </Button>
-                {!centre ? <p className="mt-2 text-sm text-muted">Take a reading first.</p> : null}
+                {!centre ? <p className="mt-2 text-sm text-muted">Place the centre first.</p> : null}
               </div>
             </Step>
           </div>
-
-          <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
-            <AreaDiagram
-              centre={centre}
-              radius={radius}
-              readings={readings}
-              live={reading.state.status === 'sampling' ? reading.state.live : tester.state.status === 'sampling' ? tester.state.live : null}
-              test={test}
-              testOutcome={testResult?.outcome ?? null}
-            />
-            {centre ? (
-              <p className="text-center text-xs text-muted">
-                Centre {centre.latitude.toFixed(5)}, {centre.longitude.toFixed(5)}
-                {newCentre ? ' (not saved yet)' : ''}
-              </p>
-            ) : null}
-          </div>
         </div>
-
         <div className="mt-6 flex flex-col gap-4 border-t border-hairline-soft pt-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex max-w-[60ch] items-start gap-2 text-sm text-muted">
             <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             Only the department’s centre point, radius and accuracy limit are stored. Staff positions are never stored or logged — just
             “inside”, “outside” or “couldn’t be confirmed”, and how accurate the phone said it was.
           </p>
-          <Button onClick={save} loading={saving} disabled={!dirty || !centre || busy} className="shrink-0 sm:min-w-36">
-            Save area
-          </Button>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+            {dirty ? (
+              <button type="button" onClick={discard} disabled={saving || busy} className={linkButtonClass}>
+                <Undo2 aria-hidden="true" />
+                Discard changes
+              </button>
+            ) : null}
+            <Button onClick={save} loading={saving} disabled={!dirty || !centre || busy} className="sm:min-w-36">
+              Save area
+            </Button>
+          </div>
         </div>
       </Panel>
     </div>
@@ -584,7 +708,7 @@ function AreaDiagram({
           </>
         ) : (
           <text x={0} y={4} textAnchor="middle" className="fill-muted text-[8px] font-medium">
-            Take a reading to place the centre
+            Place the centre to see the area
           </text>
         )}
         {readings.map((r, i) => {
@@ -628,6 +752,11 @@ function AreaDiagram({
       </figcaption>
     </figure>
   )
+}
+
+function mapLabel(centre: Point | null, radius: number, readings: number) {
+  if (!centre) return 'Map of the area around Whipps Cross Hospital. No department centre yet: click the map to place it.'
+  return `Map of the department area: a ${radius} metre circle around the pin${readings ? `, with ${readings} ${readings === 1 ? 'reading' : 'readings'}` : ''}. Arrow keys pan the map; tab to the pin and use the arrow keys to move the centre.`
 }
 
 function niceStep(extent: number) {

@@ -90,6 +90,10 @@ export const sessions = sqliteTable(
     reviewedAt: text('reviewed_at'),
     reviewedBy: text('reviewed_by'),
     reviewNote: text('review_note'),
+    /** When the "Still at work?" push reminder was claimed for this session (at most one per session). */
+    reminderSentAt: text('reminder_sent_at'),
+    /** NULL = checked out normally; 'reported' = the staff member entered the time later (flagged). */
+    checkoutSource: text('checkout_source', { enum: ['reported'] }),
   },
   (table) => ({
     entryFk: foreignKey({
@@ -106,6 +110,10 @@ export const sessions = sqliteTable(
     entryCheckinIdx: index('idx_sessions_entry_checkin').on(table.rosterEntryId, table.checkInAt),
     oneOpenUnique: uniqueIndex('idx_sessions_one_open')
       .on(table.rosterEntryId)
+      .where(sql`check_out_at IS NULL`),
+    // Shift-end reminder scan: open sessions by check-in time.
+    openCheckinIdx: index('idx_sessions_open_checkin')
+      .on(table.checkInAt)
       .where(sql`check_out_at IS NULL`),
   }),
 )
@@ -183,6 +191,34 @@ export const siteSettings = sqliteTable('site_settings', {
   qrToken: text('qr_token'),
 })
 
+/**
+ * Web Push subscriptions for shift-end reminders, bound to a stable staff record. The endpoint
+ * is a capability URL at a known push service; p256dh/auth are the browser's encryption keys.
+ */
+export const pushSubscriptions = sqliteTable(
+  'push_subscriptions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    staffId: integer('staff_id').notNull(),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    /** Coarse device label ("iPhone", "Android"), never the full User-Agent. */
+    userAgent: text('user_agent'),
+    createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+    lastSuccessAt: text('last_success_at'),
+    /** Consecutive failed deliveries; reset on success. */
+    failureCount: integer('failure_count').notNull().default(0),
+  },
+  (table) => ({
+    staffFk: foreignKey({
+      columns: [table.staffId],
+      foreignColumns: [staff.id],
+    }),
+    staffIdx: index('idx_push_subscriptions_staff').on(table.staffId),
+  }),
+)
+
 export type Rota = typeof rotas.$inferSelect
 export type NewRota = typeof rotas.$inferInsert
 export type RosterEntry = typeof rosterEntries.$inferSelect
@@ -195,5 +231,6 @@ export type StaffCredential = typeof staffCredentials.$inferSelect
 export type NewStaffCredential = typeof staffCredentials.$inferInsert
 export type WebauthnChallenge = typeof webauthnChallenges.$inferSelect
 export type SiteSettings = typeof siteSettings.$inferSelect
+export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect
 export type AuditLogEntry = typeof auditLog.$inferSelect
 export type NewAuditLogEntry = typeof auditLog.$inferInsert

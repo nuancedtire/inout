@@ -20,6 +20,9 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(event.request.url);
 
+  // Leave cross-origin requests (OpenStreetMap tiles, place search) entirely to the browser.
+  if (url.origin !== self.location.origin) return;
+
   // Only cache versioned production assets from this app, never dev modules or RPCs.
   if (url.origin === self.location.origin && url.pathname.startsWith('/assets/') && STATIC_ASSET_EXTS.test(url.pathname)) {
     event.respondWith(
@@ -71,6 +74,67 @@ self.addEventListener("fetch", (event) => {
         });
       }
       return new Response("Offline", { status: 503 });
+    })
+  );
+});
+
+// ─── Shift-end reminders (Web Push) ───────────────────────────────────────
+// Payloads are `{ web_push?: 8030, notification: { title, body, tag, data: { url } } }`; the same
+// object is a Declarative Web Push message on Safari 18.4+. Safari revokes permission when a
+// push shows nothing, so a notification is always shown, with fallback text if needed.
+const REMINDER_FALLBACK = {
+  title: "Still at work?",
+  body: "Open InOut to check out.",
+  tag: "checkout-reminder",
+  data: { url: "/" },
+};
+
+function sameOriginPath(raw) {
+  try {
+    const url = new URL(raw || "/", self.location.origin);
+    return url.origin === self.location.origin ? url.pathname + url.search + url.hash : "/";
+  } catch {
+    return "/";
+  }
+}
+
+self.addEventListener("push", (event) => {
+  let n = REMINDER_FALLBACK;
+  try {
+    const payload = event.data ? event.data.json() : null;
+    const candidate = payload && typeof payload === "object" ? payload.notification : null;
+    if (candidate && typeof candidate.title === "string" && candidate.title) n = candidate;
+  } catch {
+    // Not JSON: keep the fallback.
+  }
+  const data = n.data && typeof n.data === "object" ? n.data : {};
+  event.waitUntil(
+    self.registration.showNotification(String(n.title).slice(0, 120), {
+      body: typeof n.body === "string" ? n.body.slice(0, 240) : REMINDER_FALLBACK.body,
+      tag: typeof n.tag === "string" ? n.tag : REMINDER_FALLBACK.tag,
+      lang: "en-GB",
+      icon: "/logo192.png",
+      badge: "/logo192.png",
+      data: { url: sameOriginPath(data.url || n.navigate) },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const path = sameOriginPath(event.notification.data && event.notification.data.url);
+  const target = new URL(path, self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windows) => {
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+      if (open) {
+        const focused = await open.focus();
+        if (focused && new URL(focused.url).pathname !== new URL(target).pathname && "navigate" in focused) {
+          await focused.navigate(target).catch(() => {});
+        }
+        return;
+      }
+      await self.clients.openWindow(target);
     })
   );
 });

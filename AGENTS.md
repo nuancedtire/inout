@@ -29,6 +29,7 @@ Use **pnpm exclusively** for dependency installation, package scripts, and CLI t
 - TanStack Start + React 19, TypeScript 7, Vite 8.
 - Cloudflare Workers through `@cloudflare/vite-plugin`; D1 via Drizzle ORM.
 - Tailwind CSS v4, Radix/shadcn components, Motion 14, Lucide icons.
+- Leaflet with OpenStreetMap tiles for the department-area map (`src/components/maps/AreaMap.tsx`, imported client-side only, brand divIcons); admin place search uses OSM Nominatim on submit only.
 - SheetJS 0.20.3 from its official tarball for Excel/CSV; `qrcode` for generation; Papa Parse for CSV export.
 - Phone camera scans the QR URL. There is no active in-app html5-qrcode scanner; its declaration file is legacy.
 - Node 24.15+ (Node 24 line), pnpm 12.11.2. Follow the package-manager rule above for installs, scripts, and lockfiles.
@@ -45,6 +46,7 @@ src/
     schema.ts                Drizzle tables, indexes, inferred types
     client.ts                Lazy Worker D1 client
     attendance.ts            Session edits, linked deletions, atomic rota replacement
+    reminders.ts             Shift-end push reminder job (called by the cron handler)
   hooks/                     Loading tracker and mobile breakpoint
   lib/tour/                  Tour state and versioned step definitions
   routes/
@@ -73,6 +75,11 @@ src/
     rotaParser.ts            First-sheet Excel/CSV parsing
     rotas.functions.ts       Roster/QR server functions
     sessions.functions.ts    Attendance/admin server functions and rate limiting
+    passkeyAssertion.ts      Shared passkey-assertion and staff-token checks (server-only)
+    push.ts                  VAPID config, push-service allowlist, Web Push sending (server-only)
+    reminders.functions.ts   Push subscribe/unsubscribe, forgotten and reported check-outs
+    shiftEnd.ts              Expected session end (UK time, overnight, BST) and reminder windows
+  server.ts                  Worker entry: Start fetch handler + Cron Trigger `scheduled`
   theme.css                  Tailwind design tokens
   styles.css                 Global styles
   router.tsx                 Router factory
@@ -81,7 +88,8 @@ src/
 drizzle/migrations/          SQL migrations (Wrangler and test source of truth)
 test/unit/                   Node/jsdom tests
 test/workers/                workerd/D1 tests and isolated setup
-public/                      Icons, manifest, service worker, example spreadsheets
+public/                      Icons, manifest, service worker (caching, push, notification click), example spreadsheets
+scripts/generate-vapid-keys.mjs  VAPID key pair for shift-end reminders (WebCrypto, run with node)
 ```
 
 ## Commands
@@ -114,8 +122,11 @@ Remote operations are separate: `pnpm run db:migrate:remote` and `pnpm run deplo
 - Admin server functions validate credentials inside their handlers. UI gates are not an authorization boundary. New server inputs need real runtime validation; a typed identity validator alone does not validate input.
 - Admin tokens are HMAC-SHA256 signed using `QR_SEED`, expire in 12 hours, and persist under `inout-admin-token-v2` in localStorage. PIN rotation alone does not revoke issued tokens.
 - The check-in QR is one permanent random 12-character code in `site_settings.qr_token` (see `src/db/checkInCode.ts`), readable and replaceable only by admins. Legacy daily tokens in `rotas.token` are still accepted but never published. Today's rota is auto-created on first use. Open sessions carry over midnight for up to 20 hours.
+- Staff location is required. `getCheckInArea` and `previewLocation` (check-in-code gated, rate limited) expose only the department centre and radius for staff maps; staff coordinates are evaluated and discarded, never stored or logged. Staff maps stay non-interactive and framed on the department. Whether staff may check in without location (flagged `denied`) is the single constant `ALLOW_CHECKIN_WITHOUT_LOCATION` in `src/lib/locationPolicy.ts`.
 - Staff choose a roster entry; there are no staff accounts. History is limited to completed sessions for that entry ID. Do not describe it as cross-day personal history or strong identity verification.
-- Auto-checkout requires an admin action, acts on today's rota, and stamps closure with the action time. No app cron/scheduled handler exists. Overnight/BST behavior remains a known limitation.
+- Auto-checkout requires an admin action, acts on today's rota, and stamps closure with the action time; the cron never closes sessions. Overnight/BST behavior of auto-checkout remains a known limitation.
+- `wrangler.jsonc` `main` is `src/server.ts`, which re-exports Start's fetch handler and adds `scheduled` for the `*/5 * * * *` Cron Trigger (ADR-011). It sends shift-end push reminders only; it must never throw. `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` (secrets) and optional `VAPID_SUBJECT` enable it; without keys reminders report `enabled: false` and the cron does nothing. Push endpoints are accepted only at known push-service hosts (SSRF guard) and are never logged or audited.
+- A staff-entered ("reported") check-out sets `sessions.checkout_source = 'reported'` and is always flagged `checkout_reported`; it needs a fresh passkey assertion. Admin correction or undo clears it.
 - Admin ad-hoc additions target today, regardless of the selected date. Dashboard reads do not poll. Audit shows the latest 50 events globally.
 - Service workers register only in production. Offline UI does not submit or queue attendance. Keep RPCs and Vite modules out of asset caching.
 - Preserve design customizations in `components/ui/`. Inspect upstream shadcn diffs before merging source changes. `components.json` uses Radix, Lucide, and `rsc: false`.

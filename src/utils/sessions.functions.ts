@@ -34,6 +34,7 @@ import {
   readIdentity,
   readLocation,
   type FlagReason,
+  type SessionFlagReason,
   type Identity,
   type LocationOutcome,
 } from './verification'
@@ -366,7 +367,9 @@ export type SessionEvidenceColumns = {
   accuracy_out_m: number | null
   verified: boolean
   accepted: boolean
-  reasons: FlagReason[]
+  reasons: SessionFlagReason[]
+  /** 'reported' when the staff member entered the check-out time later. */
+  checkout_source: 'reported' | null
   review_state: 'accepted' | null
   review_note: string | null
 }
@@ -380,6 +383,7 @@ const evidenceSelection = {
   accuracyOutM: sessions.accuracyOutM,
   reviewState: sessions.reviewState,
   reviewNote: sessions.reviewNote,
+  checkoutSource: sessions.checkoutSource,
 }
 
 function evidenceColumns(r: {
@@ -392,6 +396,7 @@ function evidenceColumns(r: {
   accuracyOutM: number | null
   reviewState: string | null
   reviewNote: string | null
+  checkoutSource: string | null
 }): SessionEvidenceColumns {
   const v = deriveVerification(r)
   const closed = r.checkOutAt !== null
@@ -405,6 +410,7 @@ function evidenceColumns(r: {
     verified: v.verified,
     accepted: v.accepted,
     reasons: v.reasons,
+    checkout_source: closed && r.checkoutSource === 'reported' ? 'reported' : null,
     review_state: r.reviewState === 'accepted' ? 'accepted' : null,
     review_note: r.reviewNote,
   }
@@ -553,7 +559,9 @@ export type DashboardEvidence = {
   reviewNote: string | null
   verified: boolean
   accepted: boolean
-  reasons: FlagReason[]
+  reasons: SessionFlagReason[]
+  /** 'reported' when the staff member entered the check-out time later. */
+  checkoutSource: 'reported' | null
   staffId: number | null
 }
 
@@ -570,6 +578,7 @@ const dashboardSessionSelection = {
   accuracyOutM: sessions.accuracyOutM,
   reviewState: sessions.reviewState,
   reviewNote: sessions.reviewNote,
+  checkoutSource: sessions.checkoutSource,
 }
 
 type DashboardSessionFields = {
@@ -582,13 +591,14 @@ type DashboardSessionFields = {
   accuracyOutM: number | null
   reviewState: string | null
   reviewNote: string | null
+  checkoutSource: string | null
 }
 
 function dashboardEvidence(s: DashboardSessionFields | undefined, staffId: number | null): DashboardEvidence {
   if (!s) {
     return {
       identityIn: null, identityOut: null, locationIn: null, locationOut: null, accuracyInM: null, accuracyOutM: null,
-      reviewState: null, reviewNote: null, verified: false, accepted: false, reasons: [], staffId,
+      reviewState: null, reviewNote: null, verified: false, accepted: false, reasons: [], checkoutSource: null, staffId,
     }
   }
   const v = deriveVerification(s)
@@ -605,6 +615,7 @@ function dashboardEvidence(s: DashboardSessionFields | undefined, staffId: numbe
     verified: v.verified,
     accepted: v.accepted,
     reasons: v.reasons,
+    checkoutSource: closed && s.checkoutSource === 'reported' ? 'reported' : null,
     staffId,
   }
 }

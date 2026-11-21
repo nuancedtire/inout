@@ -94,8 +94,8 @@ export function SuccessMark({ tone = 'success' }: { tone?: 'success' | 'neutral'
       </svg>
       <RunnerMark size={68} animate="idle" tone={tone === 'success' ? 'brand' : 'ink'} />
       {tone === 'success' ? (
-        <span className="ck-pop absolute right-1.5 bottom-1.5 flex size-11 items-center justify-center rounded-full bg-success-accessible shadow-[0_0_0_4px_#f7f7f7,0_6px_14px_-4px_rgba(0,138,5,0.6)]">
-          <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <span className="ck-pop absolute right-[6px] bottom-[6px] flex size-[44px] items-center justify-center rounded-full bg-success-accessible shadow-[0_0_0_4px_#f7f7f7,0_6px_14px_-4px_rgba(0,138,5,0.6)]">
+          <svg viewBox="0 0 24 24" className="size-[24px]" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
             <path className="ck-check-tick" d="M5 12.5l4.5 4.5L19 7.5" pathLength="48" />
           </svg>
         </span>

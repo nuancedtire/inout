@@ -1,5 +1,5 @@
 import Papa from 'papaparse'
-import type { FlagReason, Identity, LocationOutcome } from './verification'
+import type { Identity, LocationOutcome, SessionFlagReason } from './verification'
 import { flagLabels } from './verification'
 
 export type ExportRow = {
@@ -14,7 +14,7 @@ export type ExportRow = {
   location_out: LocationOutcome | null
   verified: boolean
   accepted: boolean
-  reasons: FlagReason[]
+  reasons: SessionFlagReason[]
   review_note: string | null
 }
 

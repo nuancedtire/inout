@@ -17,7 +17,6 @@ import {
   getCredential,
   getSiteSettings,
   listExcludableCredentials,
-  parseTransports,
   pruneExpiredChallenges,
   storeChallenge,
 } from '#/db/passkeys'
@@ -31,29 +30,29 @@ import {
   toStaffSummary,
   type StaffSummary,
 } from '#/db/staff'
-import { createStaffToken, verifyStaffToken } from './auth'
-import { logAudit } from './audit'
-import { evaluateLocation, type LocationReading } from './location'
+import { createStaffToken } from './auth'
+import { assertActive, resolveStaffToken, verifyStaffAssertion, type CredentialStatus } from './passkeyAssertion'
+import { INACTIVE_STAFF_MESSAGE } from './staffMessages'
+import { evaluateLocation, previewLocation as previewReading, publicArea, type LocationPreviewWithArea, type LocationReading, type PublicArea } from './location'
 import { createManualCheckInLimiter } from './manualCheckIn'
 import { passkeyLabel } from './passkeyLabels'
 import {
   validateBeginEnrolment,
   validateBeginPasskeyAuth,
+  validateCheckInArea,
   validateFinishEnrolment,
   validatePasskeyAction,
+  validatePreviewLocation,
   validateStaffStatus,
 } from './validation'
 import { deriveEndReasons, type FlagReason, type Identity, type LocationOutcome } from './verification'
 import {
   authenticationOptions,
   challengeFromClientData,
-  CounterRegressionError,
   getRelyingParty,
   registrationOptions,
   type CreationOptionsJSON,
   type RequestOptionsJSON,
-  userHandleFor,
-  verifyAuthentication,
   verifyRegistration,
 } from './webauthn'
 
@@ -62,7 +61,7 @@ import {
 type Db = DrizzleD1Database<typeof schema>
 
 export type { StaffSummary, CreationOptionsJSON, RequestOptionsJSON }
-export type CredentialStatus = 'pending' | 'approved'
+export type { CredentialStatus }
 
 /** `rosterEntryId` is null when the staff member has no entry on today's rota yet. */
 export type StaffStatus = {
@@ -86,12 +85,7 @@ export type ActionResult = {
 // Per-isolate, best-effort burst protection per client IP. Generous because a whole department
 // may share one network address at shift change.
 const LIMIT_MESSAGE = 'Too many passkey requests. Please wait a minute and try again.'
-/** A deactivated staff record is treated like a revoked passkey: it cannot enrol or sign actions. */
-export const INACTIVE_STAFF_MESSAGE = 'This profile has been turned off. Ask the coordinator.'
-
-function assertActive(person: { active: boolean }) {
-  if (!person.active) throw new Error(INACTIVE_STAFF_MESSAGE)
-}
+export { INACTIVE_STAFF_MESSAGE }
 const checkBeginLimit = createManualCheckInLimiter(60, 60_000, LIMIT_MESSAGE)
 const checkFinishLimit = createManualCheckInLimiter(60, 60_000, LIMIT_MESSAGE)
 
@@ -280,44 +274,7 @@ export const passkeyAction = createServerFn({ method: 'POST' })
     const rota = await requireTodayRota(db, data.token)
     const rp = await getRelyingParty()
 
-    const challenge = await consumeChallenge(db, challengeFromClientData(data.response.response.clientDataJSON), 'authenticate')
-    if (!challenge) throw new Error('This sign-in request has expired or was already used. Please try again.')
-
-    const credential = await getCredential(db, data.response.id)
-    if (!credential) {
-      throw new Error("This phone's passkey isn't set up with InOut. Choose \"Set up this phone\" to enrol again.")
-    }
-    if (credential.status !== 'pending' && credential.status !== 'approved') {
-      throw new Error("This phone's passkey has been turned off. Ask the coordinator, or set up this phone again.")
-    }
-    const handle = data.response.response.userHandle
-    if (handle && handle !== userHandleFor(credential.staffId)) {
-      throw new Error("Your phone's passkey couldn't be checked. Please try again.")
-    }
-
-    let info
-    try {
-      info = await verifyAuthentication(rp, data.response, challenge.challenge, {
-        id: credential.id,
-        publicKey: credential.publicKey,
-        counter: credential.counter,
-        transports: parseTransports(credential.transports),
-      })
-    } catch (e) {
-      if (e instanceof CounterRegressionError) {
-        await logAudit('passkey_counter_regression', { staffId: credential.staffId, credentialId: credential.id }, 'system')
-      }
-      throw e
-    }
-
-    const person = await db.select().from(staff).where(eq(staff.id, credential.staffId)).get()
-    if (!person) throw new Error('Staff member not found')
-    assertActive(person)
-    const credentialStatus: CredentialStatus = credential.status
-    const identity: Identity = credentialStatus === 'approved' ? 'passkey' : 'passkey_pending'
-    const usage = db.update(staffCredentials)
-      .set({ counter: info.newCounter, lastUsedAt: new Date().toISOString(), backedUp: info.credentialBackedUp })
-      .where(eq(staffCredentials.id, credential.id))
+    const { person, credential, credentialStatus, identity, usage } = await verifyStaffAssertion(db, rp, data.response)
 
     let result: ActionResult | undefined
     if (data.action === 'identify') {
@@ -368,18 +325,45 @@ export const getStaffStatus = createServerFn({ method: 'POST' })
   > => {
     const db = await getDb()
     const rota = await requireTodayRota(db, data.token)
-    const claims = await verifyStaffToken(data.staffToken)
-    if (!claims) return { staff: null }
-    const credential = await getCredential(db, claims.credentialId)
-    if (!credential || credential.staffId !== claims.staffId
-      || (credential.status !== 'pending' && credential.status !== 'approved')) {
-      return { staff: null }
-    }
-    const person = await db.select().from(staff).where(eq(staff.id, claims.staffId)).get()
-    if (!person?.active) return { staff: null }
+    const resolved = await resolveStaffToken(db, data.staffToken)
+    if (!resolved) return { staff: null }
+    const { person } = resolved
     return {
       staff: toStaffSummary(person),
-      credentialStatus: credential.status,
+      credentialStatus: resolved.credentialStatus,
       status: await statusForStaff(db, rota.id, person.id),
     }
+  })
+
+const checkPreviewLimit = createManualCheckInLimiter(60, 60_000, 'Too many location checks. Please wait a minute and try again.')
+const checkAreaLimit = createManualCheckInLimiter(60, 60_000, 'Too many requests. Please wait a minute and try again.')
+
+export type { PublicArea }
+
+/**
+ * "Am I in the department?" for the staff home screen, before anyone slides. Uses the same rule
+ * as check-in and records nothing: no session, no audit row, no coordinates. Also returns the
+ * department area (a public hospital location) so the phone can draw it on a map.
+ */
+export const previewLocation = createServerFn({ method: 'POST' })
+  .validator(validatePreviewLocation)
+  .handler(async ({ data }): Promise<LocationPreviewWithArea> => {
+    checkPreviewLimit(clientIp())
+    const db = await getDb()
+    await requireTodayRota(db, data.token)
+    const site = await getSiteSettings(db)
+    return { ...previewReading(data.location, site), area: publicArea(site) }
+  })
+
+/**
+ * The department area for staff maps, before any reading is taken. Gated by the current QR code
+ * like every staff function; returns `null` when no area is configured.
+ */
+export const getCheckInArea = createServerFn({ method: 'POST' })
+  .validator(validateCheckInArea)
+  .handler(async ({ data }): Promise<{ area: PublicArea | null }> => {
+    checkAreaLimit(clientIp())
+    const db = await getDb()
+    await requireTodayRota(db, data.token)
+    return { area: publicArea(await getSiteSettings(db)) }
   })

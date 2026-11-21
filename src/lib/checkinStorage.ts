@@ -93,3 +93,18 @@ export function locationExplained(): boolean {
 export function markLocationExplained() {
   safe(() => localStorage.setItem(EXPLAINED_KEY, '1'), undefined)
 }
+
+const WORKED_KEY = 'inout-location-worked'
+
+/**
+ * This phone has shared a location reading with InOut before. iOS Safari reports the permission
+ * as `prompt` until location is used on the page, so this is how Home knows it can check by
+ * itself without surprising anyone with a first-time prompt.
+ */
+export function locationWorked(): boolean {
+  return safe(() => localStorage.getItem(WORKED_KEY) === '1', false)
+}
+
+export function markLocationWorked() {
+  safe(() => localStorage.setItem(WORKED_KEY, '1'), undefined)
+}

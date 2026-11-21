@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { DropdownMenu } from 'radix-ui'
 import { Link } from '@tanstack/react-router'
-import { ChevronDown, History, LogOut, MapPin, UserRoundX, UserRound } from 'lucide-react'
+import { BellRing, ChevronDown, ChevronRight, History, LogOut, MapPin, UserRoundX, UserRound } from 'lucide-react'
 import { SlideToAction } from '#/components/SlideToAction'
 import { formatTime } from '#/utils/dateTime'
 import { unlockCopy, type Platform } from '#/lib/platform'
@@ -13,7 +13,7 @@ import { Avatar, Notice, ScreenTitle } from './ui'
 export type HomeStatus = { checkedIn: boolean; checkInAt: string | null } | null
 
 /** Identity chip in the header, with a small menu: history, without Face ID, sign out. */
-export function IdentityMenu({ name, role, pending, historyToken, onWithout, onSignOut, withoutLabel }: {
+export function IdentityMenu({ name, role, pending, historyToken, onWithout, onSignOut, withoutLabel, reminders }: {
   name: string
   role: string | null
   pending: boolean
@@ -21,12 +21,14 @@ export function IdentityMenu({ name, role, pending, historyToken, onWithout, onS
   onWithout?: () => void
   onSignOut: () => void
   withoutLabel?: string
+  /** Shift-end reminders switch; `needsInstall` (iPhone tab) opens the Home Screen steps instead. */
+  reminders?: { on: boolean; busy: boolean; needsInstall: boolean; onToggle: () => void } | null
 }) {
-  const item = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-inner px-3 text-[0.9375rem] font-medium text-ink outline-none select-none data-[highlighted]:bg-surface-strong'
+  const item = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-inner px-3 py-1.5 text-[0.9375rem] font-medium text-ink outline-none select-none data-[highlighted]:bg-surface-strong data-[disabled]:cursor-progress data-[disabled]:opacity-60'
   return (
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger
-        className="ui-press -mr-1 flex min-h-11 max-w-[220px] items-center gap-2 rounded-full bg-canvas py-1 pr-2.5 pl-1 shadow-card outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        className="ui-press -mr-1 flex min-h-11 min-w-0 max-w-[220px] items-center gap-2 rounded-full bg-canvas py-1 pr-2.5 pl-1 shadow-card outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         aria-label={`${name}, account menu`}
       >
         <Avatar name={name} size={32} />
@@ -51,6 +53,38 @@ export function IdentityMenu({ name, role, pending, historyToken, onWithout, onS
                 <History className="size-[18px] text-muted" aria-hidden="true" />My sessions
               </Link>
             </DropdownMenu.Item>
+          ) : null}
+          {reminders ? (
+            reminders.needsInstall ? (
+              <DropdownMenu.Item className={item} onSelect={reminders.onToggle}>
+                <BellRing className="size-[18px] text-muted" aria-hidden="true" />
+                <span className="min-w-0 flex-1 leading-tight">
+                  Shift-end reminders
+                  <span className="block text-xs font-normal text-muted">Add InOut to your Home Screen first</span>
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden="true" />
+              </DropdownMenu.Item>
+            ) : (
+              <DropdownMenu.CheckboxItem
+                className={item}
+                checked={reminders.on}
+                disabled={reminders.busy}
+                onSelect={reminders.onToggle}
+              >
+                <BellRing className="size-[18px] text-muted" aria-hidden="true" />
+                <span className="min-w-0 flex-1">Shift-end reminders</span>
+                <span className="text-sm font-normal text-muted" aria-hidden="true">{reminders.on ? 'On' : 'Off'}</span>
+                <span
+                  aria-hidden="true"
+                  className={`relative inline-flex h-[22px] w-[36px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 ${reminders.on ? 'bg-success-accessible' : 'bg-neutral-300'}`}
+                >
+                  <span
+                    className="size-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-transform duration-200 motion-reduce:transition-none"
+                    style={{ transform: reminders.on ? 'translateX(14px)' : 'none' }}
+                  />
+                </span>
+              </DropdownMenu.CheckboxItem>
+            )
           ) : null}
           {onWithout ? (
             <DropdownMenu.Item className={item} onSelect={onWithout}>
@@ -86,7 +120,10 @@ export function HomeScreen({
   onArm,
   onDisarm,
   onSlide,
+  location,
   footer,
+  reminder,
+  installReminders = false,
 }: {
   name: string
   status: HomeStatus
@@ -99,7 +136,13 @@ export function HomeScreen({
   onArm: () => void
   onDisarm: () => void
   onSlide: (mode: 'in' | 'out') => void
+  /** Live "are you in the department?" panel, shown above the status card. */
+  location?: ReactNode
   footer?: ReactNode
+  /** Shift-end reminder card (opt-in, blocked help or confirmation). */
+  reminder?: ReactNode
+  /** iPhone tab: the Home Screen card also explains it's needed for reminders. */
+  installReminders?: boolean
 }) {
   const now = useNow(30_000)
   const unlock = unlockCopy(platform)
@@ -107,14 +150,19 @@ export function HomeScreen({
   const mode = inNow ? 'out' : 'in'
   const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Europe/London' }).format(now))
 
+  const split = !!location
   return (
-    <div className="ck-screen flex flex-1 flex-col pt-3">
-      <ScreenTitle sub={shift ? `Your shift today · ${shift}` : new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }).format(now)}>
-        {greeting(hour)}, {firstName(name)}
-      </ScreenTitle>
+    <div className={`ck-screen flex flex-1 flex-col pt-3 ${split ? 'ck-split gap-x-8 min-[640px]:grid min-[640px]:grid-cols-2 min-[640px]:content-start min-[640px]:items-start' : ''}`}>
+      <div className={split ? 'min-[640px]:col-span-2' : ''}>
+        <ScreenTitle sub={shift ? `Your shift today · ${shift}` : new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }).format(now)}>
+          {greeting(hour)}, {firstName(name)}
+        </ScreenTitle>
+        {notice ? <div className="mt-5">{notice}</div> : null}
+      </div>
 
-      {notice ? <div className="mt-5">{notice}</div> : null}
+      {location ? <div className="mt-5 min-[640px]:mt-6">{location}</div> : null}
 
+      <div className="ck-seg-end flex flex-col">
       <section aria-labelledby="ck-status" className="mt-6 rounded-card bg-canvas p-5 shadow-card">
         {status === null ? (
           <div className="animate-pulse" aria-hidden="true">
@@ -152,7 +200,7 @@ export function HomeScreen({
                 actionLabel={inNow ? `Check out${viaFaceId ? ` with ${unlock.name}` : ''}` : `Check in${viaFaceId ? ` with ${unlock.name}` : ''}`}
               />
             </div>
-            <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[0.8125rem] text-muted">
+            <p className="mt-3 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-center text-[0.8125rem] text-muted">
               {viaFaceId ? (
                 <>
                   <UnlockIcon platform={platform} className="size-3.5" />
@@ -177,8 +225,10 @@ export function HomeScreen({
             These check-ins are marked for the coordinator to look at. Set up {unlock.name} to skip that.
           </Notice>
         ) : null}
-        <InstallCard />
+        {reminder}
+        <InstallCard reminders={installReminders} />
         {footer}
+      </div>
       </div>
     </div>
   )

@@ -9,5 +9,11 @@ declare module 'cloudflare:workers' {
     WEBAUTHN_ORIGIN?: string
     /** Relying party display name shown by passkey providers. Defaults to "InOut". */
     WEBAUTHN_RP_NAME?: string
+    /** VAPID public key (base64url, uncompressed P-256). Shift-end reminders are off when unset. */
+    VAPID_PUBLIC_KEY?: string
+    /** VAPID private key (base64url, 32 bytes). Secret. */
+    VAPID_PRIVATE_KEY?: string
+    /** VAPID contact: mailto: or https: URL. Defaults to https://inout.fzn.workers.dev. */
+    VAPID_SUBJECT?: string
   }
 }

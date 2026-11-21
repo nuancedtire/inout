@@ -1,17 +1,34 @@
-import { useId, useState } from 'react'
-import { ChevronDown, EllipsisVertical, Plus, Share, SquarePlus, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { SquarePlus, X } from 'lucide-react'
 import { RunnerMark } from '#/components/brand/RunnerMark'
 import { useInstallState } from '#/lib/installPrompt'
+import { InstallGuide } from './InstallGuide'
+
+const GUIDE_SHOWN_KEY = 'inout-install-guide-shown'
+function guideShown() {
+  try { return localStorage.getItem(GUIDE_SHOWN_KEY) === '1' } catch { return true }
+}
+function markGuideShown() {
+  try { localStorage.setItem(GUIDE_SHOWN_KEY, '1') } catch { /* storage unavailable */ }
+}
 
 /**
  * Encourages Add to Home Screen. Chromium: one-tap install from the captured prompt.
- * iOS: three illustrated steps. Hidden when already installed; "Not now" snoozes for 7 days.
+ * Others: a guide sheet with this browser's exact steps (opened once by itself after a first check-in). Hidden when already installed; "Not now" snoozes for 7 days.
  */
-export function InstallCard() {
+export function InstallCard({ autoOpen = false, reminders = false }: {
+  autoOpen?: boolean
+  /** iPhone tab with reminders available: say the Home Screen app is what gets them. */
+  reminders?: boolean
+}) {
   const [state, dismiss] = useInstallState()
-  const [installing, setInstalling] = useState(false)
   const [open, setOpen] = useState(false)
-  const stepsId = useId()
+  // Right after someone's first check-in: open the guide once, by itself, after the success moment.
+  useEffect(() => {
+    if (!autoOpen || state.kind === 'hidden' || guideShown()) return
+    const id = window.setTimeout(() => { markGuideShown(); setOpen(true) }, 1600)
+    return () => window.clearTimeout(id)
+  }, [autoOpen, state.kind])
   if (state.kind === 'hidden') return null
 
   return (
@@ -33,62 +50,31 @@ export function InstallCard() {
           <RunnerMark size={34} />
         </span>
         <div className="min-w-0">
-          <h2 id="ck-install-title" className="font-semibold leading-snug text-ink">Add InOut to your Home Screen</h2>
-          <p className="text-sm leading-snug text-muted">Next shift, just open it and slide — no scanning.</p>
+          <h2 id="ck-install-title" className="font-semibold leading-snug text-ink text-balance">
+            {reminders ? 'Add InOut to your Home Screen to get reminders' : 'Add InOut to your Home Screen'}
+          </h2>
+          <p className="text-sm leading-snug text-muted text-pretty">
+            {reminders
+              ? 'iPhone only sends check-out reminders to the Home Screen app. Next shift, just open it and slide.'
+              : 'Next shift, just open it and slide — no scanning.'}
+          </p>
         </div>
       </div>
 
-      {state.kind === 'prompt' ? (
-        <button
-          type="button"
-          disabled={installing}
-          onClick={async () => {
-            setInstalling(true)
-            try {
-              await state.install()
-            } finally {
-              setInstalling(false)
-            }
-          }}
-          className="ui-press mt-3.5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-control bg-ink px-5 font-semibold text-white hover:bg-neutral-800 disabled:opacity-60"
-        >
-          <SquarePlus className="size-5" aria-hidden="true" />
-          Install InOut
-        </button>
-      ) : (
-        <>
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={stepsId}
-          onClick={() => setOpen((o) => !o)}
-          className="ui-press mt-3 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-control bg-surface-strong px-4 text-sm font-semibold text-ink hover:bg-neutral-200"
-        >
-          {open ? 'Hide steps' : 'Show me how'}
-          <ChevronDown className={`size-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
-        </button>
-        <ol id={stepsId} hidden={!open} className="mt-3 grid gap-2" aria-label="How to add InOut">
-          {(state.platform === 'ios'
-            ? [
-                { icon: <Share className="size-[18px] text-[#0a84ff]" />, text: <>Tap <b className="font-semibold text-ink">Share</b> in Safari’s toolbar</> },
-                { icon: <SquarePlus className="size-[18px]" />, text: <>Choose <b className="font-semibold text-ink">Add to Home Screen</b></> },
-                { icon: <Plus className="size-[18px]" />, text: <>Keep <b className="font-semibold text-ink">Open as Web App</b> on, then tap <b className="font-semibold text-ink">Add</b></> },
-              ]
-            : [
-                { icon: <EllipsisVertical className="size-[18px]" />, text: <>Tap the <b className="font-semibold text-ink">⋮ menu</b> in your browser</> },
-                { icon: <SquarePlus className="size-[18px]" />, text: <>Choose <b className="font-semibold text-ink">Add to Home screen</b> or <b className="font-semibold text-ink">Install app</b></> },
-                { icon: <Plus className="size-[18px]" />, text: <>Tap <b className="font-semibold text-ink">Install</b> to confirm</> },
-              ]
-          ).map((step, i) => (
-            <li key={i} className="flex items-center gap-3 rounded-control bg-surface-soft px-3 py-2.5 text-sm text-body">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-semibold text-white" aria-hidden="true">{i + 1}</span>
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-inner bg-canvas text-ink shadow-[0_0_0_1px_rgba(0,0,0,0.06)]" aria-hidden="true">{step.icon}</span>
-              <span className="min-w-0">{step.text}</span>
-            </li>
-          ))}
-        </ol>
-        </>
-      )}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={`ui-press mt-3.5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-control px-5 font-semibold ${state.kind === 'prompt' ? 'bg-ink text-white hover:bg-neutral-800' : 'bg-surface-strong text-ink hover:bg-neutral-200'}`}
+      >
+        <SquarePlus className="size-5" aria-hidden="true" />
+        {state.kind === 'prompt' ? 'Install InOut' : 'Show me how'}
+      </button>
+      <InstallGuide
+        open={open}
+        onOpenChange={setOpen}
+        install={state.kind === 'prompt' ? state.install : undefined}
+        onSnooze={dismiss}
+      />
     </section>
   )
 }

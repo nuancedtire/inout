@@ -10,6 +10,7 @@ export type Identity = (typeof IDENTITIES)[number]
 export const LOCATION_OUTCOMES = ['inside', 'outside', 'denied', 'unavailable', 'not_requested'] as const
 export type LocationOutcome = (typeof LOCATION_OUTCOMES)[number]
 
+/** Reasons derived from one end's evidence (what a staff action result can carry). */
 export type FlagReason =
   | 'identity_pending'
   | 'identity_self_selected'
@@ -18,13 +19,20 @@ export type FlagReason =
   | 'location_unavailable'
   | 'location_not_checked'
 
-export const FLAG_REASON_LABEL: Record<FlagReason, string> = {
+/**
+ * Reasons for a whole session (dashboard, export, review). Adds `checkout_reported`: the staff
+ * member entered their check-out time later, after forgetting to check out.
+ */
+export type SessionFlagReason = FlagReason | 'checkout_reported'
+
+export const FLAG_REASON_LABEL: Record<SessionFlagReason, string> = {
   identity_pending: 'Phone awaiting approval',
   identity_self_selected: 'Picked name without Face ID',
   location_outside: 'Outside the department',
   location_denied: 'Location permission refused',
   location_unavailable: "Location couldn't be confirmed",
   location_not_checked: 'Location not checked',
+  checkout_reported: 'Check-out time entered later',
 }
 
 export const IDENTITY_LABEL: Record<Identity, string> = {
@@ -77,6 +85,8 @@ export type SessionEvidence = {
   locationOut?: string | null
   checkOutAt?: string | null
   reviewState?: string | null
+  /** 'reported' when the check-out time was entered later by the staff member. */
+  checkoutSource?: string | null
 }
 
 export type Verification = {
@@ -84,20 +94,28 @@ export type Verification = {
   verified: boolean
   /** An administrator accepted the session. Reasons are still reported; the evidence is unchanged. */
   accepted: boolean
-  reasons: FlagReason[]
+  reasons: SessionFlagReason[]
 }
 
-/** Open sessions are evaluated on the check-in end only. */
+/**
+ * Open sessions are evaluated on the check-in end only. A reported check-out is always flagged
+ * `checkout_reported`; its end keeps the identity reasons, and the location reason is left out
+ * because nobody was asked for a location when the time was entered later.
+ */
 export function deriveVerification(session: SessionEvidence): Verification {
-  const reasons = deriveEndReasons(readIdentity(session.identityIn), readLocation(session.locationIn))
+  const reasons: SessionFlagReason[] = deriveEndReasons(readIdentity(session.identityIn), readLocation(session.locationIn))
   if (session.checkOutAt) {
-    for (const reason of deriveEndReasons(readIdentity(session.identityOut), readLocation(session.locationOut))) {
+    const reported = session.checkoutSource === 'reported'
+    const outReasons = deriveEndReasons(readIdentity(session.identityOut), readLocation(session.locationOut))
+      .filter((r) => !(reported && r.startsWith('location_')))
+    for (const reason of outReasons) {
       if (!reasons.includes(reason)) reasons.push(reason)
     }
+    if (reported) reasons.push('checkout_reported')
   }
   return { verified: reasons.length === 0, accepted: session.reviewState === 'accepted', reasons }
 }
 
-export function flagLabels(reasons: readonly FlagReason[]): string {
+export function flagLabels(reasons: readonly SessionFlagReason[]): string {
   return reasons.map((r) => FLAG_REASON_LABEL[r]).join('; ')
 }

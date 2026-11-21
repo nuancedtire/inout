@@ -7,18 +7,24 @@ import { CHECKIN_CSS } from './styles'
 
 // ── Page frame ────────────────────────────────────────────────────────────────
 
-export function Shell({ children, right, left }: { children: ReactNode; right?: ReactNode; left?: ReactNode }) {
+/**
+ * The staff page frame: one 440px column on phones. `wide` screens (Home, location, working,
+ * result) open into two columns from 640px — inner foldable screens, landscape, tablets — and,
+ * on a dual-screen or half-folded device, line those columns up with the two screen segments so
+ * nothing sits across the hinge. Side padding includes the safe-area insets (landscape notches).
+ */
+export function Shell({ children, right, left, wide = false }: { children: ReactNode; right?: ReactNode; left?: ReactNode; wide?: boolean }) {
   return (
-    <main className="checkin min-h-svh bg-surface-soft">
+    <main className="checkin min-h-svh overflow-x-clip bg-surface-soft">
       <style href="inout-checkin" precedence="default">{CHECKIN_CSS}</style>
-      <div className="mx-auto flex min-h-svh w-full max-w-[440px] flex-col px-5 pt-safe pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <div className={`ck-frame mx-auto flex min-h-svh w-full flex-col pt-safe pb-[max(1.5rem,env(safe-area-inset-bottom))] ${wide ? 'ck-wide max-w-[440px] min-[640px]:max-w-[960px]' : 'max-w-[440px]'}`}>
         <header className="relative z-10 flex h-14 shrink-0 items-center justify-between gap-3">
           {left ? (
             <div className="flex min-w-0 flex-1 items-center gap-2">{left}</div>
           ) : (
             <Wordmark size="sm" label="InOut" animate="ambient" />
           )}
-          {right ? <div className="flex min-w-0 shrink-0 items-center">{right}</div> : null}
+          {right ? <div className="flex min-w-0 items-center">{right}</div> : null}
         </header>
         <div className="flex flex-1 flex-col">{children}</div>
       </div>

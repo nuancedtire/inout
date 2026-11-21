@@ -35,9 +35,10 @@ export async function updateAttendanceSession(db: Db, change: SessionChange) {
     }
     if (change.checkOutAt !== undefined && !sameMinute(change.checkOutAt || null, current.checkOutAt)) {
       patch.checkOutAt = change.checkOutAt || null
+      // An admin-set checkout replaces a staff-reported time, so it is no longer 'reported'.
       Object.assign(patch, change.checkOutAt
-        ? { identityOut: 'admin' }
-        : { qrTokenOut: null, identityOut: null, credentialIdOut: null, locationOut: null, accuracyOutM: null })
+        ? { identityOut: 'admin', checkoutSource: null }
+        : { qrTokenOut: null, identityOut: null, credentialIdOut: null, locationOut: null, accuracyOutM: null, checkoutSource: null })
     }
     if (Object.keys(patch).length === 0) return { sessionId: change.sessionId }
     try {
@@ -235,7 +236,7 @@ export async function performAttendanceAction(db: Db, opts: {
   try {
     const [reopened] = await db.batch([
       db.update(sessions).set({
-        checkOutAt: null, qrTokenOut: null, identityOut: null, credentialIdOut: null, locationOut: null, accuracyOutM: null,
+        checkOutAt: null, qrTokenOut: null, identityOut: null, credentialIdOut: null, locationOut: null, accuracyOutM: null, checkoutSource: null,
       }).where(and(eq(sessions.id, lastClosed.id), isNotNull(sessions.checkOutAt))).returning({ id: sessions.id }),
       auditStatement(db, 'checkout_undone', { ...details, sessionId: lastClosed.id }, actor, 'changes'),
       ...extra,

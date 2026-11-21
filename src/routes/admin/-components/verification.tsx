@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import {
   CircleCheck,
   CircleDashed,
+  ClockAlert,
   Fingerprint,
   Hourglass,
   LocateOff,
@@ -22,7 +23,7 @@ import {
   FLAG_REASON_LABEL,
   IDENTITY_LABEL,
   LOCATION_LABEL,
-  type FlagReason,
+  type SessionFlagReason,
   type Identity,
   type LocationOutcome,
 } from '#/utils/verification'
@@ -33,13 +34,14 @@ import { errorText } from './kit'
 
 type Icon = ComponentType<LucideProps>
 
-export const REASON_ICON: Record<FlagReason, Icon> = {
+export const REASON_ICON: Record<SessionFlagReason, Icon> = {
   identity_pending: Hourglass,
   identity_self_selected: UserRound,
   location_outside: MapPinOff,
   location_denied: MapPinX,
   location_unavailable: LocateOff,
   location_not_checked: CircleDashed,
+  checkout_reported: ClockAlert,
 }
 
 export type VerificationState = 'verified' | 'flagged' | 'accepted' | 'admin'
@@ -116,7 +118,7 @@ export function VerificationChip({ subject, onOpen, className }: { subject: Evid
 }
 
 /** Flag reasons as icon + words. */
-export function ReasonList({ reasons, className, compact }: { reasons: FlagReason[]; className?: string; compact?: boolean }) {
+export function ReasonList({ reasons, className, compact }: { reasons: SessionFlagReason[]; className?: string; compact?: boolean }) {
   if (reasons.length === 0) return null
   return (
     <ul className={cn('flex flex-wrap gap-x-3 gap-y-1', className)}>
@@ -230,16 +232,17 @@ function EndEvidence({
   )
 }
 
-const SUGGESTIONS: Record<FlagReason, string> = {
+const SUGGESTIONS: Record<SessionFlagReason, string> = {
   location_unavailable: 'Poor signal — confirmed in person',
   location_denied: 'Location refused — confirmed in person',
   location_outside: 'Seen on shift — location reading was off',
   location_not_checked: 'Confirmed on shift in person',
   identity_pending: 'Phone since approved — it was them',
   identity_self_selected: 'Used name option — confirmed in person',
+  checkout_reported: 'Leaving time checked with the rota',
 }
 
-export function suggestionsFor(reasons: FlagReason[]) {
+export function suggestionsFor(reasons: SessionFlagReason[]) {
   const list = reasons.map((r) => SUGGESTIONS[r])
   list.push('Seen on shift by the coordinator')
   return [...new Set(list)].slice(0, 4)

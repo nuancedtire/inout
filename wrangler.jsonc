@@ -3,7 +3,7 @@
   "name": "inout",
   "compatibility_date": "2026-10-12",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
+  "main": "src/server.ts",
   "workers_dev": true,
   "preview_urls": true,
   "observability": {
@@ -18,5 +18,9 @@
       "migrations_dir": "drizzle/migrations"
     }
   ],
-  "vars": {}
+  "vars": {},
+  // Shift-end "Still at work?" reminders (src/server.ts → src/db/reminders.ts). UTC schedule.
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
 }

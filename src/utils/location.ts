@@ -76,3 +76,33 @@ export function evaluateLocation(reading: LocationReading | undefined | null, si
   const distance = haversineMetres(reading, site)
   return { outcome: distance - reading.accuracy <= site.radiusM ? 'inside' : 'outside', accuracyM }
 }
+
+/**
+ * The department area as shown on staff maps: the public hospital location and its radius.
+ * Never includes the accuracy ceiling or anything about staff positions.
+ */
+export type PublicArea = { latitude: number; longitude: number; radiusM: number }
+
+export function publicArea(site: SiteArea | null | undefined): PublicArea | null {
+  if (!isSiteConfigured(site)) return null
+  return { latitude: site.latitude, longitude: site.longitude, radiusM: site.radiusM }
+}
+
+export type LocationPreview = LocationEvaluation & {
+  /** Rounded metres from the edge of the area when outside, else null. Only ever returned to the phone that sent the reading. */
+  awayM: number | null
+}
+
+export type LocationPreviewWithArea = LocationPreview & { area: PublicArea | null }
+
+/**
+ * Same rule as `evaluateLocation`, plus a rounded distance to the edge of the area for the
+ * person's own screen ("about 350 m away"). Nothing here is stored.
+ */
+export function previewLocation(reading: LocationReading | undefined | null, site: SiteArea | null | undefined): LocationPreview {
+  const evaluation = evaluateLocation(reading, site)
+  if (evaluation.outcome !== 'outside' || reading?.status !== 'ok' || !isSiteConfigured(site)) return { ...evaluation, awayM: null }
+  const edge = haversineMetres(reading, site) - site.radiusM
+  const awayM = edge < 1000 ? Math.max(10, Math.round(edge / 10) * 10) : Math.round(edge / 100) * 100
+  return { ...evaluation, awayM }
+}

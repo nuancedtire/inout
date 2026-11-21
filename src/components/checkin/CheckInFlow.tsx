@@ -4,13 +4,17 @@ import { RunnerMark } from '#/components/brand/RunnerMark'
 import { beginEnrolment, beginPasskeyAuth, finishEnrolment, getStaffStatus, passkeyAction } from '#/utils/passkeys.functions'
 import type { ActionResult, StaffStatus } from '#/utils/passkeys.functions'
 import { checkIn, checkOut, getStatus, manualCheckIn, undoLastAction } from '#/utils/sessions.functions'
+import { getForgottenCheckout, reportForgottenCheckout, type ForgottenCheckout } from '#/utils/reminders.functions'
 import type { LocationReading } from '#/utils/location'
+import type { PublicArea } from '#/utils/passkeys.functions'
+import type { MapFix } from '#/components/maps/AreaMap'
 import { classifyServerError, type CheckinError } from '#/lib/checkinErrors'
 import {
   clearStoredToken,
   forgetStaff,
   locationExplained,
   markLocationExplained,
+  markLocationWorked,
   readRememberedStaff,
   readRosterEntry,
   readStoredToken,
@@ -30,11 +34,19 @@ import {
   type AuthenticationResponseJSON,
   type RegistrationResponseJSON,
 } from '#/lib/passkeyClient'
-import { currentPlatform, unlockCopy, type Platform } from '#/lib/platform'
+import { currentPlatform, isStandalone, unlockCopy, type Platform } from '#/lib/platform'
+import { ALLOW_CHECKIN_WITHOUT_LOCATION } from '#/lib/locationPolicy'
 import { isValidToken } from '#/lib/qrScanner'
+import { snoozeInstallCard } from '#/lib/installPrompt'
 import { capitalise, shiftLabel } from './copy'
+import { ForgottenScreen, type ForgottenNotice } from './ForgottenScreen'
+import { InstallGuide } from './InstallGuide'
+import { ReminderCard } from './ReminderCard'
+import { useReminders } from './useReminders'
 import { HomeScreen, IdentityMenu } from './HomeScreen'
 import { LocationExplainer } from './LocationExplainer'
+import { LocationHelp, type HelpMode } from './LocationHelp'
+import { LocationStatus, type LocationFix } from './LocationStatus'
 import { ConfirmPersonSheet, LocumForm, personName, personRole, type Person } from './LocumForm'
 import { PasskeySetupScreen, type SetupProblem } from './PasskeySetupScreen'
 import { ResultScreen, UNDO_WINDOW_MS, type ShownResult } from './ResultScreen'
@@ -43,6 +55,7 @@ import { ScanScreen } from './ScanScreen'
 import { BackButton, Notice, Shell, StepProgress, TextLink } from './ui'
 import { WelcomeScreen, type WelcomeNotice } from './WelcomeScreen'
 import { WorkingScreen, type WorkStage } from './WorkingScreen'
+import { useCheckInArea, useLocationPermission } from './useLocation'
 
 export type RosterData = {
   rota: { id: number; date: string } | null
@@ -51,7 +64,8 @@ export type RosterData = {
 }
 
 type Purpose = 'enrol' | 'fallback'
-type Work = { title: string; stages: WorkStage[]; current: number }
+type ForgottenState = { session: ForgottenCheckout; busy: boolean; notice: ForgottenNotice; saved: { at: string } | null }
+type Work = { title: string; stages: WorkStage[]; current: number; position?: MapFix | null }
 type HomeNoticeData = { tone: 'neutral' | 'warning' | 'danger'; title: string; message: string } | null
 type ResultState = {
   result: ShownResult | null
@@ -60,6 +74,8 @@ type ResultState = {
   showInstall: boolean
   undoUntil: number | null
   via: 'passkey' | 'fallback'
+  /** The reading used, for the result map (own screen only). */
+  position: MapFix | null
 }
 
 type View =
@@ -71,6 +87,7 @@ type View =
   | { name: 'locum'; purpose: Purpose }
   | { name: 'passkey' }
   | { name: 'explain'; actionLabel: string }
+  | { name: 'location-off'; mode: HelpMode }
   | { name: 'working' }
   | { name: 'result' }
   | { name: 'home' }
@@ -117,6 +134,16 @@ function fallbackFlag() {
 
 const online = () => typeof navigator === 'undefined' || navigator.onLine !== false
 
+/** The person backed out of the "Turn on location" screen mid check-in. Nothing is recorded. */
+class LocationCancelled extends Error {}
+
+const DENIED_SAMPLE: SampleResult = { reading: { status: 'denied' }, approximate: false }
+const fixOf = (s: SampleResult | null): MapFix | null =>
+  s?.reading.status === 'ok' ? { latitude: s.reading.latitude, longitude: s.reading.longitude, accuracy: s.reading.accuracy } : null
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/** Let the dot land on the map before the result replaces it, without slowing a slow save further. */
+const afterDot = <T,>(p: Promise<T>, shown: boolean): Promise<T> => (shown ? Promise.all([p, pause(550)]).then(([v]) => v) : p)
+
 type AuthOptions = Awaited<ReturnType<typeof beginPasskeyAuth>>
 type EnrolOptions = Awaited<ReturnType<typeof beginEnrolment>>
 
@@ -146,6 +173,11 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
   const [identifyBusy, setIdentifyBusy] = useState(false)
   // A passkey user who chose "Check in without Face ID" for now (e.g. a phone whose Face ID fails).
   const [forceFallback, setForceFallback] = useState(false)
+  // "You didn't check out": a shift left open well past its end, asked about before Home.
+  const [forgotten, setForgotten] = useState<ForgottenState | null>(null)
+  const forgottenDismissed = useRef(new Set<number>())
+  const forgottenChecked = useRef<string | null>(null)
+  const [guideOpen, setGuideOpen] = useState(false)
 
   // Sign-up
   const [person, setPerson] = useState<Person | null>(null)
@@ -161,16 +193,48 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
   const authRef = useRef<Pending<AuthOptions> | null>(null)
   const enrolRef = useRef<(Pending<EnrolOptions> & { person: Person }) | null>(null)
   const samplerRef = useRef<LocationSampler | null>(null)
+  // A fresh, precise reading from the on-screen location panel, reused by the next check-in.
+  const fixRef = useRef<LocationFix | null>(null)
+  const onFix = useCallback((fix: LocationFix) => {
+    fixRef.current = fix
+    blockedRef.current = false
+  }, [])
   const explainRef = useRef<((r: SampleResult) => void) | null>(null)
+  // Check-in waiting on the "Turn on location" screen.
+  const helpRef = useRef<{ resolve: (r: SampleResult) => void; reject: (e: unknown) => void } | null>(null)
+  // Location is known to be refused on this phone (Permissions API, or a refused reading on this page).
+  const blockedRef = useRef(false)
+  const onBlocked = useCallback(() => { blockedRef.current = true }, [])
+  const [helpReady, setHelpReady] = useState(false)
+  const permission = useLocationPermission()
+  useEffect(() => {
+    if (permission === 'denied') blockedRef.current = true
+    if (permission === 'granted') blockedRef.current = false
+  }, [permission])
+  const fetchedArea = useCheckInArea(token, locationCheck)
+  const [previewArea, setPreviewArea] = useState<PublicArea | null | undefined>(undefined)
+  const area = previewArea !== undefined ? previewArea : fetchedArea
   const tokenRef = useRef<string | null>(null)
   tokenRef.current = token
 
   const unlock = unlockCopy(platform)
 
+  // Shift-end reminders need this phone's passkey identity (not "without Face ID").
+  const passkeyMode = !!me && !(forceFallback && !!fallbackEntry)
+  const reminders = useReminders({
+    token,
+    staffToken: me?.staffToken ?? null,
+    staffId: passkeyMode ? me?.staff.id ?? null : null,
+    platform,
+    active: passkeyMode,
+  })
+  const settleReminders = reminders.settle
+
   // Each step starts at the top (the heading also takes focus).
   useEffect(() => {
     window.scrollTo({ top: 0 })
-  }, [view.name])
+    settleReminders()
+  }, [view.name, settleReminders])
 
   // ── Challenge prefetch ──────────────────────────────────────────────────────
   const prefetchAuth = useCallback(() => {
@@ -215,8 +279,13 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
     setForceFallback(false)
   }, [])
 
+  const forgetReminders = reminders.forget
   const signOut = useCallback(() => {
     cancelPasskeyCeremony()
+    const leaving = readRememberedStaff()
+    if (leaving) void forgetReminders(leaving.staffToken)
+    setForgotten(null)
+    forgottenChecked.current = null
     forgetStaff()
     setFallbackFlag(false)
     setMe(null)
@@ -227,7 +296,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
     setHomeNotice(null)
     setWelcomeNotice({ tone: 'neutral', title: 'Removed from this phone', message: 'Your passkey is still saved on the phone. Sign in again any time.' })
     setView({ name: 'welcome' })
-  }, [])
+  }, [forgetReminders])
 
   const goScan = useCallback((notice?: { title: string; message: string }) => {
     if (rota) clearStoredToken(rota.date)
@@ -359,23 +428,51 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
     samplerRef.current = null
   }, [])
 
-  /** Explainer first (once), then the best reading. */
+  /**
+   * If the phone refused location, park the check-in on the "Turn on location" screen until it's
+   * on (or the person checks in without it, where allowed, or backs out).
+   */
+  const ensureLocation = useCallback((sample: Promise<SampleResult>, action: 'in' | 'out'): Promise<SampleResult> =>
+    sample.then((s) => {
+      if (s.reading.status !== 'denied') {
+        blockedRef.current = false
+        if (s.reading.status === 'ok') markLocationWorked()
+        return s
+      }
+      blockedRef.current = true
+      return new Promise<SampleResult>((resolve, reject) => {
+        helpRef.current = { resolve, reject }
+        setHelpReady(false)
+        setView({ name: 'location-off', mode: { kind: 'inflow', action } })
+      })
+    }), [])
+
+  /** Explainer first (once), then the best reading; a refusal leads to the "Turn on location" steps. */
   const readLocation = useCallback((actionLabel: string, onSampling: () => void): Promise<SampleResult> => {
+    const action = actionLabel === 'check out' ? 'out' : 'in'
+    const fix = fixRef.current
+    fixRef.current = null
+    if (fix && Date.now() - fix.at < 45_000 && fix.sample.reading.status === 'ok' && fix.sample.reading.accuracy <= 25) {
+      samplerRef.current?.stop()
+      samplerRef.current = null
+      onSampling()
+      return Promise.resolve(fix.sample)
+    }
     const running = samplerRef.current
     samplerRef.current = null
     if (running) {
       onSampling()
-      return running.result
+      return ensureLocation(running.result, action)
     }
     if (locationExplained()) {
       onSampling()
-      return startLocationSampler().result
+      return ensureLocation(startLocationSampler().result, action)
     }
-    return new Promise<SampleResult>((resolve) => {
+    return ensureLocation(new Promise<SampleResult>((resolve) => {
       explainRef.current = resolve
       setView({ name: 'explain', actionLabel })
-    })
-  }, [])
+    }), action)
+  }, [ensureLocation])
 
   const onExplainAllow = () => {
     markLocationExplained()
@@ -384,12 +481,63 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
     setView({ name: 'working' })
     if (resolve) startLocationSampler().result.then(resolve)
   }
-  const onExplainSkip = () => {
+
+  /** "Try again" on the Turn-on-location screen (also run by itself when location comes back). */
+  const retryLocation = async (mode: HelpMode): Promise<boolean> => {
+    const sample = await startLocationSampler().result
+    if (sample.reading.status === 'denied') {
+      blockedRef.current = true
+      return false
+    }
+    blockedRef.current = false
     markLocationExplained()
-    const resolve = explainRef.current
-    explainRef.current = null
-    setView({ name: 'working' })
-    resolve?.({ reading: { status: 'denied' }, approximate: false })
+    if (mode.kind === 'inflow') {
+      const waiting = helpRef.current
+      helpRef.current = null
+      if (!waiting) return true
+      setView({ name: 'working' })
+      waiting.resolve(sample)
+      return true
+    }
+    if (sample.reading.status === 'ok') fixRef.current = { sample, at: Date.now() }
+    if (mode.kind === 'preflight') setHelpReady(true)
+    else setView({ name: 'home' })
+    return true
+  }
+
+  /** Leave the Turn-on-location screen without location: check in flagged, or back out. */
+  const leaveLocationHelp = (mode: HelpMode, how: 'without' | 'back') => {
+    if (mode.kind === 'inflow') {
+      const waiting = helpRef.current
+      helpRef.current = null
+      setView({ name: 'working' })
+      if (how === 'without') waiting?.resolve(DENIED_SAMPLE)
+      else waiting?.reject(new LocationCancelled())
+      return
+    }
+    if (mode.kind === 'preflight' && how === 'without') {
+      const action = mode.action === 'in' ? 'check_in' : 'check_out'
+      if (mode.viaFaceId) runPasskeyAction(action, { withoutLocation: true })
+      else runFallbackAction(action, undefined, { withoutLocation: true })
+      return
+    }
+    setView({ name: 'home' })
+  }
+
+  /** Slid while location is known to be off: show the steps first, before Face ID or anything else. */
+  const preflightBlocked = (action: 'check_in' | 'check_out', viaFaceId: boolean) => {
+    if (!blockedRef.current) return false
+    setHelpReady(false)
+    setHomeNotice(null)
+    setView({ name: 'location-off', mode: { kind: 'preflight', action: action === 'check_in' ? 'in' : 'out', viaFaceId } })
+    return true
+  }
+
+  /** A reading just arrived: put the dot on the working screen's map. */
+  const showDot = (sample: SampleResult | null) => {
+    const position = fixOf(sample)
+    if (position) setWork((w) => (w ? { ...w, position } : w))
+    return !!position && !!area
   }
 
   const stagesFor = (withIdentity: boolean, withLocation: boolean): WorkStage[] => [
@@ -415,10 +563,11 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
 
   // ── Passkey-signed attendance ───────────────────────────────────────────────
   /** Must be called synchronously from the gesture: it opens the Face ID sheet straight away. */
-  const runPasskeyAction = (action: 'check_in' | 'check_out' | 'undo') => {
+  const runPasskeyAction = (action: 'check_in' | 'check_out' | 'undo', opts: { withoutLocation?: boolean } = {}) => {
     const t = tokenRef.current
     if (!t) return goScan()
     const wantsLocation = action !== 'undo' && locationCheck
+    if (wantsLocation && !opts.withoutLocation && preflightBlocked(action, true)) return
     const title = action === 'check_in' ? 'Checking you in' : action === 'check_out' ? 'Checking you out' : 'Undoing'
     const assertion = assert(takeAuth())
     if (action === 'undo') {
@@ -436,10 +585,12 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
         credentialId = response.id
         let sample: SampleResult | null = null
         if (wantsLocation) {
-          sample = await readLocation(action === 'check_in' ? 'check in' : 'check out', () => advance('loc'))
+          sample = opts.withoutLocation
+            ? (advance('loc'), DENIED_SAMPLE)
+            : await readLocation(action === 'check_in' ? 'check in' : 'check out', () => advance('loc'))
         }
         advance('save')
-        const res = await passkeyAction({ data: { token: t, response, action, ...(sample ? { location: sample.reading } : {}) } })
+        const res = await afterDot(passkeyAction({ data: { token: t, response, action, ...(sample ? { location: sample.reading } : {}) } }), showDot(sample))
         adoptIdentity({ staffToken: res.staffToken, staff: res.staff, credentialStatus: res.credentialStatus }, res.status)
         if (res.result) {
           showResult({
@@ -448,6 +599,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
             showInstall: false,
             undoable: action !== 'undo',
             via: 'passkey',
+            position: fixOf(sample),
           })
         } else {
           setView({ name: 'home' })
@@ -455,6 +607,11 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
       } catch (e) {
         coolLocation()
         setUndoBusy(false)
+        if (e instanceof LocationCancelled) {
+          setHomeNotice({ tone: 'neutral', title: 'Cancelled', message: 'Nothing was recorded. Slide again once location is on.' })
+          setView({ name: 'home' })
+          return
+        }
         if (e instanceof PasskeyError) {
           setHomeNotice(e.kind === 'cancelled'
             ? { tone: 'neutral', title: 'Cancelled', message: 'Nothing was recorded. Slide again when you’re ready.' }
@@ -482,6 +639,114 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
       if (res.staff) setStatus(res.status)
     } catch {
       // Keep what we have.
+    }
+  }
+
+  // ── "You didn't check out" ─────────────────────────────────────────────────
+  const checkForgotten = useCallback(async () => {
+    const t = tokenRef.current
+    const remembered = readRememberedStaff()
+    if (!t || !remembered) return
+    try {
+      const res = await getForgottenCheckout({ data: { token: t, staffToken: remembered.staffToken } })
+      const session = res.session
+      if (session && !forgottenDismissed.current.has(session.id)) {
+        setForgotten((f) => (f?.session.id === session.id ? f : { session, busy: false, notice: null, saved: null }))
+      }
+    } catch {
+      // Not essential: the coordinator still sees the open shift.
+    }
+  }, [])
+
+  // Ask once per visit, once Home knows the person's status (passkey phones only: saving needs Face ID).
+  const homeReady = view.name === 'home' && passkeyMode && !!token && status !== null
+  const staffKey = me ? `${me.staff.id}` : null
+  useEffect(() => {
+    if (!homeReady || !staffKey || forgottenChecked.current === staffKey) return
+    forgottenChecked.current = staffKey
+    void checkForgotten()
+  }, [homeReady, staffKey, checkForgotten])
+
+  // Back after a while (e.g. from a reminder notification): refresh what Home shows.
+  const hiddenAt = useRef<number | null>(null)
+  const homeReadyRef = useRef(homeReady)
+  homeReadyRef.current = homeReady
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt.current = Date.now()
+        return
+      }
+      const away = hiddenAt.current ? Date.now() - hiddenAt.current : 0
+      hiddenAt.current = null
+      if (away < 60_000 || !homeReadyRef.current) return
+      void refreshStatus()
+      void checkForgotten()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  })
+
+  /** Must be called synchronously from the tap: it opens the Face ID sheet straight away. */
+  const runReportForgotten = (leftAt: Date) => {
+    const t = tokenRef.current
+    const current = forgotten
+    if (!t || !current || current.busy) return
+    const assertion = assert(takeAuth())
+    setForgotten({ ...current, busy: true, notice: null })
+    void (async () => {
+      let credentialId: string | undefined
+      try {
+        const response = await assertion
+        credentialId = response.id
+        const res = await reportForgottenCheckout({ data: { token: t, response, sessionId: current.session.id, leftAt: leftAt.toISOString() } })
+        const next = { staffToken: res.staffToken, staff: res.staff, credentialStatus: res.credentialStatus }
+        rememberStaff(next)
+        setMe(next)
+        forgottenDismissed.current.add(current.session.id)
+        setForgotten({ ...current, busy: false, notice: null, saved: { at: res.checkOutAt } })
+        void refreshStatus()
+      } catch (e) {
+        if (e instanceof PasskeyError) {
+          setForgotten({
+            ...current,
+            busy: false,
+            notice: e.kind === 'cancelled'
+              ? { tone: 'neutral', title: 'Cancelled', message: `Nothing was saved. Choose a time and confirm with ${unlock.name} when you’re ready.` }
+              : { tone: 'warning', title: `${capitalise(unlock.name)} didn’t work`, message: e.message },
+          })
+          return
+        }
+        const err = classifyServerError(e, online())
+        if (routeError(err, credentialId)) {
+          setForgotten(null)
+          return
+        }
+        if (/already checked out|couldn't be found|couldn’t be found/i.test(err.message)) {
+          forgottenDismissed.current.add(current.session.id)
+          setForgotten(null)
+          setHomeNotice({ tone: 'neutral', title: 'Already closed', message: 'That shift has already been checked out. Nothing else to do.' })
+          void refreshStatus()
+          return
+        }
+        const timeProblem = /time|hasn’t happened|hasn't happened|24 hours/i.test(err.message) && err.kind === 'other'
+        setForgotten({
+          ...current,
+          busy: false,
+          notice: { tone: 'warning', title: timeProblem ? 'Check the time' : err.title, message: err.message },
+        })
+      } finally {
+        prefetchAuth()
+      }
+    })()
+  }
+
+  const toggleReminders = () => {
+    if (reminders.menu?.on) {
+      void reminders.disable().then(() => setHomeNotice({ tone: 'neutral', title: 'Reminders are off', message: 'Turn them back on any time from this menu.' }))
+    } else {
+      setHomeNotice(null)
+      reminders.enable()
     }
   }
 
@@ -589,15 +854,24 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
       setView({ name: 'working' })
       try {
         let sample: SampleResult | null = null
-        if (wantsLocation) sample = await readLocation('check in', () => advance('loc'))
+        // Backing out of "Turn on location" still finishes setting up the phone, without checking in.
+        let skipCheckIn = false
+        if (wantsLocation) {
+          try {
+            sample = await readLocation('check in', () => advance('loc'))
+          } catch (e) {
+            if (!(e instanceof LocationCancelled)) throw e
+            skipCheckIn = true
+          }
+        }
         advance('save')
-        const res = await finishEnrolment({
+        const res = await afterDot(finishEnrolment({
           data: {
             token: tokenRef.current ?? '',
             response,
-            ...(checkInNow ? { checkIn: sample ? { location: sample.reading } : {} } : {}),
+            ...(checkInNow && !skipCheckIn ? { checkIn: sample ? { location: sample.reading } : {} } : {}),
           },
-        })
+        }), showDot(sample))
         adoptIdentity({ staffToken: res.staffToken, staff: res.staff, credentialStatus: 'pending' }, res.status)
         setSetupBusy(false)
         prefetchAuth()
@@ -608,6 +882,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
           showInstall: true,
           undoable: !!res.session,
           via: 'passkey',
+          position: fixOf(sample),
         })
       } catch (e) {
         // The phone saved a passkey the server never accepted: ask the provider to forget it.
@@ -622,12 +897,13 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
   }
 
   // ── Without Face ID (name picked) ──────────────────────────────────────────
-  const runFallbackAction = (action: 'check_in' | 'check_out' | 'undo', locum?: { name: string; role: string }) => {
+  const runFallbackAction = (action: 'check_in' | 'check_out' | 'undo', locum?: { name: string; role: string }, opts: { withoutLocation?: boolean } = {}) => {
     const t = tokenRef.current
     if (!t) return goScan()
     const entry = fallbackEntry
     if (!locum && !entry) return
     const wantsLocation = action !== 'undo' && locationCheck
+    if (wantsLocation && !opts.withoutLocation && !locum && preflightBlocked(action, false)) return
     if (action === 'undo') {
       setUndoBusy(true)
     } else {
@@ -638,8 +914,13 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
     void (async () => {
       try {
         let sample: SampleResult | null = null
-        if (wantsLocation) sample = await readLocation(action === 'check_out' ? 'check out' : 'check in', () => advance('loc'))
+        if (wantsLocation) {
+          sample = opts.withoutLocation
+            ? (advance('loc'), DENIED_SAMPLE)
+            : await readLocation(action === 'check_out' ? 'check out' : 'check in', () => advance('loc'))
+        }
         advance('save')
+        const dot = showDot(sample)
         const location: LocationReading | undefined = sample?.reading
         let result: ActionResult
         let entryId = entry?.id ?? 0
@@ -661,7 +942,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
           const res = await fn({ data: { token: t, rosterEntryId: entryId, ...(location ? { location } : {}) } })
           result = res.result
         }
-        const s = await getStatus({ data: { rosterEntryId: entryId } }).catch(() => null)
+        const s = await afterDot(getStatus({ data: { rosterEntryId: entryId } }).catch(() => null), dot)
         if (s) setFallbackStatus(s)
         showResult({
           result,
@@ -669,9 +950,15 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
           showInstall: false,
           undoable: action !== 'undo',
           via: 'fallback',
+          position: fixOf(sample),
         })
       } catch (e) {
         setUndoBusy(false)
+        if (e instanceof LocationCancelled) {
+          setHomeNotice({ tone: 'neutral', title: 'Cancelled', message: 'Nothing was recorded. Slide again once location is on.' })
+          setView(locum ? { name: 'locum', purpose: 'fallback' } : { name: 'home' })
+          return
+        }
         const err = classifyServerError(e, online())
         if (routeError(err)) return
         setHomeNotice({ tone: err.kind === 'network' ? 'danger' : 'warning', title: err.title, message: err.message })
@@ -711,6 +998,9 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
       }}
       withoutLabel={`Check in without ${unlock.name}`}
       onSignOut={signOut}
+      reminders={reminders.menu
+        ? { ...reminders.menu, needsInstall: reminders.needsInstall, onToggle: reminders.needsInstall ? () => setGuideOpen(true) : toggleReminders }
+        : null}
     />
   ) : fallbackMode && fallbackEntry ? (
     <IdentityMenu
@@ -867,11 +1157,36 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
       if (work && person && !me) {
         left = <StepProgress steps={enrolSteps} current={2} />
       }
-      body = <LocationExplainer actionLabel={view.actionLabel} onAllow={onExplainAllow} onSkip={onExplainSkip} />
+      body = <LocationExplainer actionLabel={view.actionLabel} area={area} onAllow={onExplainAllow} />
       break
 
+    case 'location-off': {
+      const mode = view.mode
+      left = <BackButton label={mode.kind === 'inflow' ? 'Cancel' : 'Back'} onClick={() => leaveLocationHelp(mode, 'back')} />
+      body = (
+        <LocationHelp
+          key={mode.kind}
+          platform={platform}
+          mode={mode}
+          unlockName={unlock.name}
+          permission={permission}
+          ready={helpReady}
+          onRetry={() => retryLocation(mode)}
+          onContinue={() => {
+            if (mode.kind !== 'preflight') return
+            const action = mode.action === 'in' ? 'check_in' : 'check_out'
+            if (mode.viaFaceId) runPasskeyAction(action)
+            else runFallbackAction(action)
+          }}
+          onWithout={ALLOW_CHECKIN_WITHOUT_LOCATION && mode.kind !== 'help' ? () => leaveLocationHelp(mode, 'without') : undefined}
+          openInBrowserHref={platform === 'ios' && isStandalone() && token ? `/?token=${token}` : undefined}
+        />
+      )
+      break
+    }
+
     case 'working':
-      body = work ? <WorkingScreen {...work} /> : null
+      body = work ? <WorkingScreen {...work} area={locationCheck ? area : null} /> : null
       break
 
     case 'result': {
@@ -887,6 +1202,9 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
           pending={rs.via === 'passkey' && me?.credentialStatus === 'pending'}
           approximate={rs.approximate}
           showInstall={rs.showInstall}
+          area={area}
+          position={rs.position}
+          onTurnOn={() => setView({ name: 'location-off', mode: { kind: 'help' } })}
           undo={rs.undoUntil && rs.result
             ? {
                 until: rs.undoUntil,
@@ -896,6 +1214,11 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
               }
             : null}
           onDone={() => setView({ name: 'home' })}
+          // Right after setting up the phone, the Home Screen steps come first; reminders are offered on Home.
+          reminder={rs.via === 'passkey' && rs.result?.action === 'check_in' && !rs.showInstall
+            ? <ReminderCard reminders={reminders} platform={platform} shiftEnd={myEntry?.shiftEnd?.slice(0, 5) ?? null} />
+            : null}
+          installReminders={rs.via === 'passkey' && rs.result?.action === 'check_in' && reminders.needsInstall}
         />
       ) : null
       right = identityMenu
@@ -905,6 +1228,31 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
     case 'home': {
       const name = me?.staff.name ?? fallbackEntry?.name ?? ''
       const homeStatus = fallbackMode ? fallbackStatus : status
+      if (forgotten && passkeyMode) {
+        const f = forgotten
+        body = (
+          <ForgottenScreen
+            key={f.session.id}
+            session={f.session}
+            platform={platform}
+            busy={f.busy}
+            notice={f.notice}
+            saved={f.saved}
+            onReport={runReportForgotten}
+            onStillHere={f.session.canCheckOutNow && !f.saved ? () => {
+              forgottenDismissed.current.add(f.session.id)
+              setForgotten(null)
+            } : undefined}
+            onDone={() => {
+              setForgotten(null)
+              // Another, older open shift may be waiting.
+              void checkForgotten()
+            }}
+          />
+        )
+        right = identityMenu
+        break
+      }
       body = (
         <HomeScreen
           name={name}
@@ -925,6 +1273,18 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
               {homeNotice.message}
             </Notice>
           ) : null}
+          location={locationCheck ? (
+            <LocationStatus
+              token={token}
+              platform={platform}
+              area={area}
+              permission={permission}
+              onFix={onFix}
+              onArea={setPreviewArea}
+              onBlocked={onBlocked}
+              onTurnOn={() => setView({ name: 'location-off', mode: { kind: 'help' } })}
+            />
+          ) : null}
           onArm={warmLocation}
           onDisarm={coolLocation}
           onSlide={(mode) => {
@@ -932,6 +1292,8 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
             if (fallbackMode) runFallbackAction(action)
             else runPasskeyAction(action)
           }}
+          reminder={!fallbackMode ? <ReminderCard reminders={reminders} platform={platform} shiftEnd={myEntry?.shiftEnd?.slice(0, 5) ?? null} /> : null}
+          installReminders={!fallbackMode && reminders.needsInstall}
         />
       )
       right = identityMenu
@@ -940,7 +1302,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
   }
 
   return (
-    <Shell left={left} right={right}>
+    <Shell left={left} right={right} wide={view.name === 'home' || view.name === 'explain' || view.name === 'location-off' || view.name === 'working' || view.name === 'result'}>
       {body}
       <ConfirmPersonSheet
         person={confirming?.person ?? null}
@@ -948,6 +1310,9 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
         onConfirm={confirmPerson}
         onCancel={() => setConfirming(null)}
       />
+      {reminders.needsInstall ? (
+        <InstallGuide open={guideOpen} onOpenChange={setGuideOpen} onSnooze={() => snoozeInstallCard()} />
+      ) : null}
     </Shell>
   )
 }

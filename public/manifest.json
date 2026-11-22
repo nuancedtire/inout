@@ -13,31 +13,31 @@
   "categories": ["productivity", "business"],
   "icons": [
     {
-      "src": "/favicon.svg?v=2",
+      "src": "/favicon.svg?v=3",
       "type": "image/svg+xml",
       "sizes": "any",
       "purpose": "any"
     },
     {
-      "src": "/logo192.png?v=2",
+      "src": "/logo192.png?v=3",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any"
     },
     {
-      "src": "/logo512.png?v=2",
+      "src": "/logo512.png?v=3",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any"
     },
     {
-      "src": "/logo192.png?v=2",
+      "src": "/logo192.png?v=3",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "maskable"
     },
     {
-      "src": "/logo512.png?v=2",
+      "src": "/logo512.png?v=3",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"

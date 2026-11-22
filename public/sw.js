@@ -1,4 +1,4 @@
-const CACHE_NAME = "inout-qr-v2";
+const CACHE_NAME = "inout-qr-v3";
 const STATIC_ASSET_EXTS = /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot)$/i;
 
 self.addEventListener("install", (event) => {

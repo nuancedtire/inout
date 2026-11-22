@@ -44,11 +44,14 @@ function prefersReducedMotion() {
 }
 
 /**
- * The InOut runner. At rest it is pixel-identical to the original logo; when animated, the figure's own
- * parts (shin, rear leg, arm, head, speed lines) are rigged at their true joints. See `brand/runner.css`.
+ * The InOut runner with its stopwatch cap. At rest it is pixel-identical to the static logo; when animated,
+ * the figure's own parts (shin, rear leg, arm, head, speed lines) run a full stride, rigged at their true
+ * joints, with the legs scissoring past each other. See `brand/runner.css`.
  */
 export function RunnerMark({ size = 32, animate = 'none', tone = 'brand', label, className, style }: RunnerMarkProps) {
-  const gradientId = `rm-g-${useId().replace(/[^\w-]/g, '')}`
+  const uid = useId().replace(/[^\w-]/g, '')
+  const gradientId = `rm-g-${uid}`
+  const maskId = `rm-m-${uid}`
   const ref = useRef<SVGSVGElement>(null)
   // `mode` trails `animate` while a running stride lands, so the figure never snaps mid-pose.
   const [mode, setMode] = useState<RunnerAnimation>(animate)
@@ -210,7 +213,10 @@ export function RunnerMark({ size = 32, animate = 'none', tone = 'brand', label,
         </defs>
       ) : null}
       {mode === 'none' ? (
-        <path transform={RUNNER_MATRIX} d={RUNNER_PATHS.static} fill={fill} fillRule="evenodd" />
+        <g fill={fill} fillRule="evenodd">
+          {part(RUNNER_PATHS.static)}
+          {part(RUNNER_PATHS.ring)}
+        </g>
       ) : (
         <g fill={fill} fillRule="evenodd">
           <g className="rm-part rm-trail rm-trail-1">{part(RUNNER_PATHS.trail1)}</g>
@@ -218,7 +224,24 @@ export function RunnerMark({ size = 32, animate = 'none', tone = 'brand', label,
           <g className="rm-part rm-trail rm-trail-2">{part(RUNNER_PATHS.trail2)}</g>
           {part(RUNNER_PATHS.ground)}
           <g className="rm-part rm-body">
-            <g className="rm-part rm-leg">{part(RUNNER_PATHS.leg)}</g>
+            {/* Where the front shin crosses the rear leg, a thin gap is cut from the rear leg so the two
+                never merge into one shape. The mask holds a copy of the shin running the same animation. */}
+            <mask id={maskId} maskUnits="userSpaceOnUse" x="-300" y="-300" width="1700" height="1700">
+              <rect x="-300" y="-300" width="1700" height="1700" fill="#fff" />
+              <g className="rm-part rm-shin">
+                <path
+                  transform={RUNNER_MATRIX}
+                  d={RUNNER_PATHS.shin}
+                  fill="#000"
+                  stroke="#000"
+                  strokeWidth={10}
+                  strokeLinejoin="round"
+                />
+              </g>
+            </mask>
+            <g mask={`url(#${maskId})`}>
+              <g className="rm-part rm-leg">{part(RUNNER_PATHS.leg)}</g>
+            </g>
             {part(RUNNER_PATHS.torso)}
             {part(RUNNER_PATHS.knee)}
             {part(RUNNER_PATHS.shoulder)}
@@ -227,6 +250,7 @@ export function RunnerMark({ size = 32, animate = 'none', tone = 'brand', label,
             <g className="rm-part rm-head">
               {part(RUNNER_PATHS.head)}
               {part(RUNNER_PATHS.cap)}
+              {part(RUNNER_PATHS.ring)}
             </g>
           </g>
         </g>

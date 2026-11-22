@@ -136,6 +136,7 @@ Supported examples include `0800-1800`, `08-1800`, `13:00-23:45`, and `08:00-20:
 | `/qr` | Redirects to `/print-qr` (the public daily display was removed) |
 | `/print-qr` | Admin UI for date selection, printable QR, and text URL |
 | `/about` | Project information |
+| `/walkthrough.html` | Static, self-contained explainer for stakeholders: animated check-in methods, kit and a cost calculator. Loads fonts from Google Fonts; no data access |
 | `/api/export.csv?start=YYYY-MM-DD&end=YYYY-MM-DD&token=…` | Admin-token-authenticated CSV download |
 
 The print page has a client-side login gate; the underlying QR function is public. The CSV endpoint uses ISO timestamps; the Roster export formats them for UK display. Both use Papa Parse.

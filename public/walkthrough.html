@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InOut — Check-in methods</title>
+<meta name="description" content="How InOut check-in works, what each method catches, the kit it needs and what it costs.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a bento of flat colour blocks. One dark hero tile carries the question; red, pink and white tiles carry the plan; each numbered section is its own bento. */
+:root {
+  --bg: #f3efec;
+  --surface: #ffffff;
+  --surface-2: #ebe5e1;
+  --ink: #1e1b1c;
+  --body: #453f3e;
+  --muted: #6f6866;
+  --hair: #e1dad6;
+  --accent: #e00b41;
+  --accent-bright: #ff385c;
+  --accent-tint: #ffe6ec;
+  --good: #15803d;
+  --good-tint: #e0f3e6;
+  --warn: #b45309;
+  --warn-tint: #fdecd4;
+  --bad: #b91c1c;
+  --bad-tint: #fde3e3;
+  --stage: #ffffff;
+  --zone: #f6f2f0;
+  --device: #2a2627;
+  --screen: #fffdfc;
+  --block: #1e1b1c;
+  --on-block: #f7f3f1;
+  --on-block-soft: #bdb4b0;
+  --red: #e00b41;
+  --on-red: #ffffff;
+  --font-display: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --r: 28px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131011; --surface: #211d1e; --surface-2: #2d2829; --ink: #f7f3f1; --body: #d6cdc9; --muted: #a59c98;
+    --hair: #3a3435; --accent: #ff4d6d; --accent-bright: #ff385c; --accent-tint: #3d1a23; --good: #4ade80; --good-tint: #153222;
+    --warn: #fbbf24; --warn-tint: #3a2a10; --bad: #f87171; --bad-tint: #3b1717; --stage: #211d1e; --zone: #2a2526;
+    --device: #0f0d0e; --screen: #322c2d; --block: #2a2526; --on-block: #f7f3f1; --on-block-soft: #bdb4b0; --red: #e00b41; --on-red: #ffffff;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131011; --surface: #211d1e; --surface-2: #2d2829; --ink: #f7f3f1; --body: #d6cdc9; --muted: #a59c98;
+  --hair: #3a3435; --accent: #ff4d6d; --accent-bright: #ff385c; --accent-tint: #3d1a23; --good: #4ade80; --good-tint: #153222;
+  --warn: #fbbf24; --warn-tint: #3a2a10; --bad: #f87171; --bad-tint: #3b1717; --stage: #211d1e; --zone: #2a2526;
+  --device: #0f0d0e; --screen: #322c2d; --block: #2a2526; --on-block: #f7f3f1; --on-block-soft: #bdb4b0; --red: #e00b41; --on-red: #ffffff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--body); font-family: var(--font-display); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1200px; margin: 0 auto; padding-block: 20px 72px; display: flex; flex-direction: column; gap: 72px; }
+h1, h2, h3 { color: var(--ink); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.5rem, 5.6vw, 4.6rem); line-height: 0.98; font-weight: 700; letter-spacing: -0.045em; }
+h2 { font-size: clamp(1.9rem, 3.6vw, 2.8rem); line-height: 1.02; font-weight: 700; letter-spacing: -0.04em; }
+h3 { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+p { margin: 0; }
+a { color: var(--accent); }
+.mono, .k { font-family: var(--font-mono); }
+.k { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.note { font-size: 0.9rem; color: var(--muted); }
+.tile { background: var(--surface); border-radius: var(--r); padding: 28px; min-width: 0; }
+button { font: inherit; }
+.pick:focus-visible, .btn:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid var(--accent-bright); outline-offset: 3px; }
+
+/* Hero bento */
+.hero { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.hero-main { grid-column: span 8; background: var(--block); --bg: var(--block); color: var(--on-block-soft); padding: 36px 40px 40px; min-height: 470px; display: flex; flex-direction: column; justify-content: space-between; gap: 40px; position: relative; overflow: hidden; }
+.hero-main h1 { color: var(--on-block); max-width: 11.5ch; position: relative; }
+.hero-main .lede { font-size: 1.15rem; max-width: 34ch; margin-top: 20px; position: relative; }
+.hero-main .k { color: var(--accent-bright); margin-bottom: 16px; display: block; }
+.big-runner { position: absolute; right: -14px; bottom: -26px; width: 330px; height: 330px; color: var(--accent-bright); overflow: visible; }
+.hero-side { grid-column: span 4; display: grid; gap: 16px; grid-template-rows: 1.25fr 1fr auto; }
+.plan-tile { display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
+.plan-tile h3 { font-size: 1.35rem; }
+.chip { align-self: flex-start; font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px; background: var(--surface-2); color: var(--ink); }
+.num-row { display: flex; align-items: baseline; gap: 12px; }
+.big { font-size: clamp(3rem, 5vw, 4.2rem); font-weight: 700; letter-spacing: -0.05em; line-height: 0.9; color: var(--ink); font-variant-numeric: tabular-nums; }
+.t-red { background: var(--red); color: var(--on-red); }
+.t-red h3, .t-red .big { color: var(--on-red); }
+.t-red .chip { background: rgba(255,255,255,0.2); color: var(--on-red); }
+.t-pink { background: var(--accent-tint); }
+.t-pink .chip { background: var(--surface); }
+.t-row { flex-direction: row; align-items: center; justify-content: flex-start; padding: 22px 28px; }
+.t-row .chip { align-self: center; }
+
+/* Logo lockup */
+.lockup { display: flex; align-items: center; line-height: 1; position: relative; }
+.lockup .word { font-weight: 700; font-size: 30px; letter-spacing: -0.05em; color: var(--on-block); position: relative; top: -4px; }
+.lockup .runner { color: var(--accent-bright); margin: 0 -8px; overflow: visible; flex: none; }
+.rp, .runner-body { transform-box: view-box; }
+.runner-body { transform-origin: 520px 555px; animation: r-body 420ms ease-in-out infinite; }
+.rp-7 { transform-origin: 546px 554px; animation: r-front 840ms ease-in-out infinite; }
+.rp-8 { transform-origin: 478px 570px; animation: r-back 840ms ease-in-out infinite; }
+.rp-4 { transform-origin: 526px 481px; animation: r-arm 840ms ease-in-out infinite; }
+.rp-3 { transform-origin: 500px 485px; animation: r-rear 840ms ease-in-out infinite; }
+.rp-9, .rp-10 { transform-origin: 521px 433px; animation: r-nod 420ms ease-in-out infinite; }
+.rp-0, .rp-1, .rp-2 { animation: r-trail 420ms ease-out infinite; }
+.rp-1 { animation-delay: -280ms; } .rp-2 { animation-delay: -140ms; }
+@keyframes r-body { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes r-front { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(34deg); } }
+@keyframes r-back { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(-42deg); } }
+@keyframes r-arm { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(9deg); } }
+@keyframes r-rear { 0%,100% { transform: rotate(3deg); } 50% { transform: rotate(-4deg); } }
+@keyframes r-nod { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-1px) rotate(1.5deg); } }
+@keyframes r-trail { 0% { opacity: 0; transform: translateX(0); } 20% { opacity: .65; } 65% { opacity: .35; } 100% { opacity: 0; transform: translateX(-28px); } }
+
+/* Section heads */
+.sec { display: flex; flex-direction: column; gap: 22px; scroll-margin-top: 16px; }
+.sec-head { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; align-items: center; }
+.stepnum { width: 52px; height: 52px; border-radius: 50%; background: var(--ink); color: var(--bg); display: grid; place-items: center; font-family: var(--font-mono); font-weight: 600; font-size: 18px; }
+.sec-head p { grid-column: 2; font-size: 1.05rem; color: var(--muted); max-width: 62ch; }
+
+/* Method picker: one pill bar */
+.picker { display: inline-flex; flex-wrap: wrap; gap: 4px; background: var(--surface); border-radius: 999px; padding: 6px; align-self: flex-start; max-width: 100%; }
+.pick { font-weight: 600; font-size: 0.98rem; color: var(--ink); background: transparent; border: 0; border-radius: 999px; padding: 12px 20px 12px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; transition: background .2s, color .2s; }
+.pick svg { width: 20px; height: 20px; stroke: var(--accent); flex: none; }
+.pick:hover { background: var(--surface-2); }
+.pick[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.pick[aria-pressed="true"] svg { stroke: var(--accent-bright); }
+.pick .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; opacity: .75; }
+
+/* Watch bento */
+.watch { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.stage { grid-column: span 8; background: var(--stage); padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.scene-scroll { overflow-x: auto; border-radius: 20px; }
+.stage svg#scene { width: 100%; height: auto; display: block; }
+.swipe { display: none; font-family: var(--font-mono); font-size: 11px; color: var(--muted); padding: 2px 8px; }
+.caption { display: flex; gap: 14px; align-items: center; padding: 10px 10px 6px; min-height: 68px; }
+#capNum { flex: none; font-family: var(--font-mono); font-size: 12px; font-weight: 600; background: var(--ink); color: var(--bg); border-radius: 999px; padding: 5px 12px; white-space: nowrap; }
+#capText { font-size: 1.12rem; font-weight: 500; color: var(--ink); line-height: 1.3; }
+.progress { height: 5px; border-radius: 3px; background: var(--surface-2); margin: 0 10px; overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 3px; transition: width .6s ease; }
+.play-row { display: flex; flex-wrap: wrap; gap: 10px; padding: 16px 10px 8px; }
+.btn { font-weight: 600; font-size: 0.98rem; border-radius: 999px; padding: 14px 22px; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; border: 1.5px solid var(--hair); background: transparent; color: var(--ink); text-align: left; transition: background .2s, color .2s, border-color .2s; }
+.btn svg { width: 14px; height: 14px; flex: none; fill: currentColor; }
+.btn:hover { border-color: var(--ink); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+@keyframes nudge { 0% { box-shadow: 0 0 0 0 var(--accent-bright); } 100% { box-shadow: 0 0 0 12px transparent; } }
+.btn.nudge { animation: nudge 1.1s ease-out 3; border-color: var(--accent); color: var(--accent); }
+
+.panel { grid-column: span 4; grid-row: span 2; display: flex; flex-direction: column; gap: 18px; }
+.panel h3 { font-size: 1.7rem; letter-spacing: -0.03em; line-height: 1.05; margin-top: 8px; }
+.panel .line { color: var(--muted); font-size: 0.95rem; margin-top: 10px; }
+ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; counter-reset: st; }
+ol.steps li { counter-increment: st; display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; padding: 8px 10px; border-radius: 14px; color: var(--muted); font-size: 0.95rem; transition: background .3s, color .3s; }
+ol.steps li::before { content: counter(st); font-family: var(--font-mono); font-size: 12px; font-weight: 600; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--muted); transition: all .3s; }
+ol.steps li.done { color: var(--body); }
+ol.steps li.done::before { background: var(--ink); color: var(--bg); }
+ol.steps li.now { background: var(--accent-tint); color: var(--ink); }
+ol.steps li.now::before { background: var(--accent); color: #fff; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: auto 0 0; padding-top: 18px; border-top: 1px solid var(--hair); font-size: 0.92rem; }
+.facts dt { align-self: center; }
+.facts dd { margin: 0; color: var(--ink); font-weight: 500; }
+
+.result { grid-column: span 4; display: flex; gap: 14px; align-items: flex-start; font-weight: 700; font-size: 1.5rem; letter-spacing: -0.03em; line-height: 1.1; transition: background .3s; }
+.result svg { flex: none; margin-top: 2px; }
+.result small { display: block; font-size: 0.95rem; font-weight: 400; letter-spacing: 0; line-height: 1.4; color: var(--body); margin-top: 8px; }
+.result.ok { background: var(--good-tint); color: var(--good); }
+.result.flag, .result.fooled { background: var(--warn-tint); color: var(--warn); }
+.result.bad { background: var(--bad-tint); color: var(--bad); }
+.result.wait { background: var(--surface-2); color: var(--muted); font-size: 1.05rem; font-weight: 500; letter-spacing: 0; line-height: 1.4; }
+.stat { grid-column: span 2; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; }
+.stat b { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.04em; color: var(--ink); line-height: 1; }
+.bar { display: inline-flex; gap: 5px; }
+.bar i { flex: 1; min-width: 20px; height: 9px; border-radius: 5px; background: var(--surface-2); display: block; transition: background .4s; }
+.stat .bar { display: flex; }
+.bar.lv1 i:nth-child(-n+1) { background: var(--bad); }
+.bar.lv2 i:nth-child(-n+2) { background: var(--warn); }
+.bar.lv3 i:nth-child(-n+3) { background: var(--good); }
+
+/* Scene styling */
+.zone { fill: var(--zone); stroke: var(--hair); stroke-width: 1.5; }
+.zone-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; fill: var(--muted); }
+.wall { stroke: var(--ink); stroke-width: 5; stroke-linecap: round; }
+.geo { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 6 6; opacity: .7; }
+.geo-fill { fill: var(--accent); opacity: 0; transform-origin: 230px 230px; }
+.geo-fill.pulse { animation: pulse 1.4s ease-out; }
+@keyframes pulse { 0% { opacity: .22; transform: scale(.2); } 100% { opacity: 0; transform: scale(1); } }
+.label { font-family: var(--font-display); font-size: 12px; fill: var(--muted); }
+.label-strong { font-family: var(--font-display); font-size: 13px; font-weight: 600; fill: var(--ink); }
+.device { fill: var(--device); }
+.screen { fill: var(--screen); }
+.paper { fill: #fffdfb; stroke: var(--hair); }
+.qrdot { fill: #222; }
+.only { opacity: 0; transition: opacity .4s; pointer-events: none; }
+svg[data-m="qr"] .m-qr, svg[data-m="loc"] .m-loc, svg[data-m="nfc"] .m-nfc, svg[data-m="wnfc"] .m-wnfc, svg[data-m="wbar"] .m-wbar { opacity: 1; }
+#home { transition: opacity .4s; opacity: 0; }
+svg.at-home #home { opacity: 1; }
+#phone { transition: transform .9s cubic-bezier(.3,.7,.2,1); }
+.fx { opacity: 0; transition: opacity .3s; }
+.fx.on { opacity: 1; }
+.waves path { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; }
+.waves.on path { animation: wave 1s ease-out infinite; }
+.waves path:nth-child(2) { animation-delay: .15s !important; }
+.waves path:nth-child(3) { animation-delay: .3s !important; }
+@keyframes wave { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+.beam { fill: var(--accent-bright); }
+.beam.fx, .beam.fx.on { opacity: 0; }
+.beam.on { animation: scan 0.9s ease-in-out 2; }
+@keyframes scan { 0%,100% { opacity: .1; } 50% { opacity: .55; } }
+.laser { stroke: var(--accent-bright); stroke-width: 2; }
+.link { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 3 5; fill: none; opacity: 0; transition: opacity .3s; }
+.link.on { opacity: .8; }
+.packet { fill: var(--accent); opacity: 0; }
+.card-svg { fill: var(--surface); stroke: var(--hair); }
+.row-name { font-family: var(--font-display); font-size: 12px; fill: var(--ink); }
+.row-meta { font-family: var(--font-mono); font-size: 10px; fill: var(--muted); }
+#newrow { opacity: 0; transform: translateY(8px); transition: opacity .5s, transform .5s; }
+#newrow.on { opacity: 1; transform: none; }
+.chip-ok { fill: var(--good-tint); } .chip-ok-t { fill: var(--good); }
+.chip-flag { fill: var(--warn-tint); } .chip-flag-t { fill: var(--warn); }
+.chip-bad { fill: var(--bad-tint); } .chip-bad-t { fill: var(--bad); }
+.chip-t { font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; }
+.badge { transition: opacity .3s, transform .4s; transform-box: fill-box; transform-origin: center; opacity: 0; transform: scale(.4); }
+.badge.on { opacity: 1; transform: scale(1); }
+.scr1 { font-family: var(--font-display); font-size: 10.5px; font-weight: 600; fill: var(--ink); }
+.scr2 { font-family: var(--font-mono); font-size: 8.5px; fill: var(--muted); }
+.example-note { font-family: var(--font-mono); font-size: 9px; fill: var(--muted); }
+
+
+
+/* Kit shelf */
+.shelf { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
+.item { background: var(--surface); border-radius: var(--r); padding: 22px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.item .pic { height: 150px; border-radius: 20px; background: var(--surface-2); display: grid; place-items: center; }
+.item .pic svg { width: 100%; height: 124px; }
+.item.none { background: var(--good-tint); }
+.item.none .pic { background: var(--surface); }
+.item .for { display: none; }
+.item h3 { margin-top: 6px; }
+.price { font-size: 2rem; font-weight: 700; letter-spacing: -0.04em; color: var(--ink); line-height: 1; font-variant-numeric: tabular-nums; }
+.price small { font-family: var(--font-mono); font-weight: 400; letter-spacing: 0; color: var(--muted); font-size: 12px; margin-left: 4px; }
+.links { display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; margin-top: auto; padding-top: 6px; }
+.links a { display: inline-flex; gap: 8px; align-items: center; text-decoration: none; font-weight: 600; }
+.links a:hover { text-decoration: underline; }
+
+/* Cost bento */
+.cost { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.total { grid-column: span 5; background: var(--block); color: var(--on-block-soft); display: flex; flex-direction: column; justify-content: space-between; gap: 24px; min-height: 250px; }
+.total #totalFor { font-size: 1.05rem; color: var(--on-block); font-weight: 500; max-width: 26ch; }
+.total b { font-size: clamp(4rem, 9vw, 6.5rem); font-weight: 700; letter-spacing: -0.06em; line-height: 0.85; color: var(--on-block); font-variant-numeric: tabular-nums; }
+.total .sub { font-family: var(--font-mono); font-size: 12px; }
+.controls { grid-column: span 7; display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+.controls label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; color: var(--ink); font-size: 1.05rem; }
+.controls output { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.04em; color: var(--accent); font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--accent); margin-top: 6px; }
+.dim { opacity: .4; }
+.tbl-wrap { grid-column: span 12; overflow-x: auto; padding: 10px 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.98rem; min-width: 560px; }
+th, td { text-align: left; padding: 16px; }
+th { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td { border-top: 1px solid var(--hair); }
+td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+tr.sel td { background: var(--accent-tint); border-top-color: transparent; }
+tr.sel td:first-child { border-radius: 16px 0 0 16px; }
+tr.sel td:last-child { border-radius: 0 16px 16px 0; }
+tr.sel + tr td { border-top-color: transparent; }
+
+.sources { font-size: 0.85rem; color: var(--muted); display: flex; flex-direction: column; gap: 8px; }
+.sources ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+
+@media (max-width: 960px) {
+  .hero-main, .hero-side, .stage, .panel, .result, .total, .controls { grid-column: span 12; }
+  .stat { grid-column: span 6; }
+  .panel { grid-row: auto; }
+  .hero-side { grid-template-rows: none; grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .hero-side .t-row { grid-column: span 2; }
+  .shelf { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .big-runner { width: 240px; height: 240px; }
+}
+@media (max-width: 600px) {
+  .wrap { gap: 56px; }
+  .tile { padding: 22px; }
+  .hero-main { padding: 26px 24px 28px; min-height: 0; }
+  .big-runner { width: 116px; height: 116px; right: -4px; top: 8px; bottom: auto; }
+  .hero-side { grid-template-columns: 1fr; }
+  .hero-side .t-row { grid-column: auto; }
+  .shelf { grid-template-columns: 1fr; }
+  .picker { border-radius: 26px; width: 100%; }
+  .pick { width: 100%; text-align: left; }
+  .stage { padding: 12px; }
+  .stage svg#scene { min-width: 620px; }
+  .swipe { display: block; }
+  .btn { width: 100%; }
+  .stepnum { width: 44px; height: 44px; }
+  .sec-head { gap: 6px 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body style="margin:0">
+<div class="wrap">
+  <section class="hero">
+    <div class="tile hero-main">
+      <div class="lockup" role="img" aria-label="InOut">
+        <span class="word" aria-hidden="true">In</span>
+        <svg class="runner" viewBox="-100 0 1200 1200" width="60" height="60" aria-hidden="true"><g transform="matrix(3.60352,0,0,3.29193,-1240.7,-1180.58)" fill-rule="evenodd" clip-rule="evenodd"><g id="runnerCore"><path class="rp rp-0" fill="currentColor" d="M348 498 Q380 496 429 498 Q380 500 348 498Z"/><path class="rp rp-1" fill="currentColor" d="M384 425 Q413 423 457 425 Q413 427 384 425Z"/><path class="rp rp-2" fill="currentColor" d="M330 551 Q355 549 405 551 Q355 553 330 551Z"/><g class="runner-body"><g fill="currentColor"><circle cx="546" cy="554" r="13"/><circle cx="478" cy="568" r="12"/><circle cx="526" cy="481" r="11"/><circle cx="500" cy="485" r="9"/></g><path class="rp rp-3" fill="currentColor" d="M514.762,489.606C514.762,489.606 508.747,484.612 509.739,475.242C513.187,442.656 472.438,462.602 500.956,487.698C500.87,487.725 475.87,498.918 475.87,498.918C475.87,498.918 446.247,452.409 489.858,438.119C528.653,425.406 533.102,476.051 533.102,476.051L514.762,489.606Z"/><path class="rp rp-4" fill="currentColor" d="M551.013,484.799C551.013,484.799 570.57,462.787 576.815,468.735C588.061,479.448 573.736,493.501 551.302,511.199C537.962,521.723 514.762,489.606 514.762,489.606L533.102,476.051C533.102,476.051 538.776,494.929 551.013,484.799Z"/><path class="rp" fill="currentColor" d="M500.91,487.718L557.879,545.64L535.795,560.534L475.869,498.918L500.91,487.718Z"/><path class="rp" fill="currentColor" d="M517.633,541.86L535.795,560.534C535.795,560.534 499.513,586.933 470.631,566.694C433.243,540.493 474.037,498.617 475.869,498.918L491.054,514.532C472.331,530.473 486.853,561.769 517.633,541.86Z"/><path class="rp rp-7" fill="currentColor" d="M535.795,560.534L557.879,545.64L592.753,627.458C592.753,627.458 620.868,621.756 620.071,630.207C618.365,648.323 580.894,653.47 580.894,653.47L535.795,560.534Z"/><path class="rp rp-8" fill="currentColor" d="M461.112,561.95C463.485,567.142 481.67,580.693 495.853,576.807C497.795,576.274 479.833,605.845 464.778,609.262C450.755,612.445 409.459,593.413 409.459,593.413C399.327,618.237 378.531,627.607 388.723,579.144C392.48,561.277 402.657,562.829 402.657,562.829C402.657,562.829 446.606,575.974 449.113,576.157C453.584,576.484 456.344,574.268 461.112,561.95Z"/><path class="rp rp-9" fill="currentColor" d="M507.276,392.329L555.374,405.089C550.72,422.634 536.179,434 522.897,430.476C509.615,426.953 502.621,409.873 507.276,392.329Z"/><g class="rp rp-10" fill="currentColor"><path d="M508 384 L558 397 L556 405 L506 392 Z"/><circle cx="539" cy="382" r="15"/><circle cx="539" cy="382" r="7" fill="var(--bg)"/></g></g></g></g></svg>
+        <span class="word" aria-hidden="true">Out</span>
+      </div>
+      <svg class="big-runner" id="heroRunner" viewBox="-100 0 1200 1200" aria-hidden="true"></svg>
+      <div>
+        <span class="k">ED attendance · three ways to check in</span>
+        <h1>Who’s in the ED, and can we prove it?</h1>
+        <p class="lede">See how each method works, what it catches, what you’d buy and what it costs.</p>
+        <p class="lede" style="font-size:1rem;margin-top:14px">The pilot method is live: <a href="/" style="color:var(--accent-bright);font-weight:600">inout.fazeen.dev</a></p>
+      </div>
+    </div>
+    <div class="hero-side">
+      <div class="tile plan-tile t-red">
+        <span class="chip">Pilot · built and running</span>
+        <div><h3>QR + Face ID + location</h3><div class="num-row" style="margin-top:14px"><span class="big">£0</span><span>hardware to buy</span></div></div>
+      </div>
+      <div class="tile plan-tile t-pink">
+        <span class="chip">Next</span>
+        <div><h3>Secure NFC tags</h3><div class="num-row" style="margin-top:14px"><span class="big">£2</span><span>a tag, from</span></div></div>
+      </div>
+      <div class="tile plan-tile t-row">
+        <span class="chip">Later</span>
+        <h3>Move to Trust Azure</h3>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="watch" aria-label="Interactive method explorer">
+    <div class="sec-head"><span class="stepnum">1</span><h2>Watch it work</h2><p>Pick a method. Play a normal arrival, then try the cheat.</p></div>
+    <div class="picker" role="group" aria-label="Check-in method" id="picker"></div>
+    <div class="watch">
+      <div class="tile stage">
+        <div class="scene-scroll"><svg id="scene" viewBox="0 0 800 440" role="img" aria-label="Animated scene of the selected check-in method" data-m="qr">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker>
+          </defs>
+          <!-- ED zone -->
+          <rect class="zone" x="16" y="24" width="410" height="392" rx="28"/>
+          <text class="zone-label" x="40" y="54">EMERGENCY DEPARTMENT</text>
+          <line class="wall" x1="70" y1="110" x2="70" y2="350"/>
+          <text class="zone-label" x="40" y="380">ENTRANCE</text>
+          <!-- Geofence -->
+          <g class="only m-qr m-loc">
+            <circle class="geo" cx="230" cy="230" r="172"/>
+            <circle id="geofill" class="geo-fill" cx="230" cy="230" r="172"/>
+            <text class="label" x="300" y="72">GPS area</text>
+          </g>
+          <!-- QR poster -->
+          <g class="only m-qr">
+            <rect class="paper" x="78" y="168" width="52" height="66" rx="4"/>
+            <g id="qrcode"></g>
+            <text class="label" x="78" y="252">QR poster</text>
+            <rect id="beam" class="beam fx" x="76" y="166" width="56" height="70" rx="6"/>
+          </g>
+          <!-- Secure NFC tag -->
+          <g class="only m-nfc">
+            <circle cx="98" cy="202" r="22" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+            <path d="M90 194a10 10 0 0 1 0 16M95 190a16 16 0 0 1 0 24M100 186a22 22 0 0 1 0 32" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+            <text class="label" x="76" y="244">Secure tag</text>
+          </g>
+          <!-- Wallet NFC reader -->
+          <g class="only m-wnfc">
+            <rect class="device" x="78" y="170" width="44" height="64" rx="10"/>
+            <circle cx="100" cy="196" r="10" fill="none" stroke="var(--accent-bright)" stroke-width="2"/>
+            <circle cx="100" cy="196" r="4" fill="var(--accent-bright)"/>
+            <rect x="88" y="218" width="24" height="4" rx="2" fill="#5a5254"/>
+            <path d="M100 234v24h-14" fill="none" stroke="var(--muted)" stroke-width="1.5"/>
+            <rect class="device" x="62" y="256" width="40" height="28" rx="5"/>
+            <text class="label" x="76" y="302">Wallet reader</text>
+          </g>
+          <!-- Barcode scanner -->
+          <g class="only m-wbar">
+            <rect class="device" x="80" y="226" width="44" height="10" rx="4"/>
+            <rect class="device" x="96" y="196" width="12" height="32" rx="4"/>
+            <rect class="device" x="86" y="178" width="34" height="22" rx="7"/>
+            <polygon id="laser" class="fx" points="120,184 196,160 196,214 120,194" fill="var(--accent-bright)" fill-opacity=".25"/>
+            <text class="label" x="74" y="254">Barcode scanner</text>
+          </g>
+          <!-- Home -->
+          <g id="home">
+            <path d="M446 400v-34l30-24 30 24v34z" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5" stroke-linejoin="round"/>
+            <rect x="468" y="378" width="16" height="22" rx="2" fill="var(--surface-2)" stroke="var(--muted)"/>
+            <text class="label-strong" x="512" y="394">Home</text>
+            <text class="label" x="512" y="410">outside the ED</text>
+          </g>
+          <!-- Server -->
+          <g>
+            <rect class="card-svg" x="560" y="34" width="220" height="80" rx="18"/>
+            <rect x="576" y="52" width="40" height="40" rx="11" fill="var(--accent)"/>
+            <svg id="srvIcon" x="577" y="52" width="38" height="38" viewBox="-100 0 1200 1200" style="color:#fff"></svg>
+            <text class="label-strong" x="628" y="68">InOut</text>
+            <text id="srvline" class="row-meta" x="628" y="86">waiting</text>
+          </g>
+          <!-- Dashboard -->
+          <g>
+            <rect class="card-svg" x="560" y="140" width="220" height="262" rx="18"/>
+            <text class="label-strong" x="578" y="168">Today · Majors</text>
+            <text class="example-note" x="578" y="184">example data</text>
+            <g transform="translate(578 200)">
+              <text class="row-name" x="0" y="12">R. Patel · ST4</text><text class="row-meta" x="0" y="26">in 07:52</text>
+              <rect class="chip-ok" x="122" y="4" width="62" height="18" rx="9"/><text class="chip-t chip-ok-t" x="153" y="16.5" text-anchor="middle">VERIFIED</text>
+            </g>
+            <g transform="translate(578 244)">
+              <text class="row-name" x="0" y="12">J. Mensah · RN</text><text class="row-meta" x="0" y="26">in 07:55</text>
+              <rect class="chip-ok" x="122" y="4" width="62" height="18" rx="9"/><text class="chip-t chip-ok-t" x="153" y="16.5" text-anchor="middle">VERIFIED</text>
+            </g>
+            <g transform="translate(578 288)">
+              <text class="row-name" x="0" y="12">L. Novak · HCA</text><text class="row-meta" x="0" y="26">in 07:58</text>
+              <rect class="chip-ok" x="122" y="4" width="62" height="18" rx="9"/><text class="chip-t chip-ok-t" x="153" y="16.5" text-anchor="middle">VERIFIED</text>
+            </g>
+            <g transform="translate(578 336)"><g id="newrow">
+              <rect x="-8" y="-4" width="200" height="40" rx="10" fill="var(--accent-tint)"/>
+              <text class="row-name" x="0" y="12">You · F1</text><text class="row-meta" x="0" y="26">in 08:02</text>
+              <rect id="chipbg" class="chip-ok" x="114" y="4" width="70" height="18" rx="9"/><text id="chiptx" class="chip-t chip-ok-t" x="149" y="16.5" text-anchor="middle">VERIFIED</text>
+            </g></g>
+          </g>
+          <!-- Link + packet -->
+          <path id="link" class="link" d="" marker-end="url(#arrow)"/>
+          <circle id="packet" class="packet" r="6" cx="0" cy="0"/>
+          <!-- Phone -->
+          <g id="phone" transform="translate(250 160)">
+            <g class="waves fx" id="waves" transform="translate(-14 60)">
+              <path d="M0 -10a14 14 0 0 0 0 20"/><path d="M-6 -17a22 22 0 0 0 0 34"/><path d="M-12 -24a30 30 0 0 0 0 48"/>
+            </g>
+            <rect class="device" x="0" y="0" width="80" height="148" rx="16"/>
+            <rect class="screen" x="5" y="10" width="70" height="128" rx="11"/>
+            <rect x="30" y="4" width="20" height="3" rx="1.5" fill="#5a5254"/>
+            <g id="scrIcon" transform="translate(28 30)"></g>
+            <text id="scr1" class="scr1" x="40" y="88" text-anchor="middle">Arriving</text>
+            <text id="scr2" class="scr2" x="40" y="102" text-anchor="middle"></text>
+            <g id="slider" class="fx">
+              <rect x="12" y="112" width="56" height="16" rx="8" fill="var(--accent-tint)"/>
+              <circle id="knob" cx="20" cy="120" r="6" fill="var(--accent)" style="transition: cx .7s"/>
+            </g>
+            <g id="badge" class="badge" transform="translate(70 -6)">
+              <circle id="badgebg" cx="10" cy="10" r="13" fill="var(--good)"/>
+              <path id="badgeic" d="M4 10l4 4 8-8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </g>
+        </svg></div>
+        <p class="swipe">Swipe sideways to see the dashboard →</p>
+        <div class="caption" aria-live="polite"><span id="capNum">Ready</span><p id="capText">Press a button below to run the scene.</p></div>
+        <div class="progress" aria-hidden="true"><i id="prog"></i></div>
+        <div class="play-row" role="group" aria-label="Scenario">
+          <button class="btn" type="button" id="scNormal" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg><span>Normal arrival</span></button>
+          <button class="btn" type="button" id="scAlt" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg><span id="scAltText">Try the cheat</span></button>
+        </div>
+      </div>
+
+      <aside class="tile panel">
+        <div>
+          <span class="k" id="mEyebrow" style="color:var(--accent)"></span>
+          <h3 id="mName"></h3>
+          <p class="line" id="mLine"></p>
+        </div>
+        <ol class="steps" id="steps"></ol>
+        <dl class="facts">
+          <dt class="k">Staff effort</dt><dd id="fEffort"></dd>
+          <dt class="k">Kit</dt><dd id="fKit"></dd>
+          <dt class="k">Upkeep</dt><dd id="fUpkeep"></dd>
+          <dt class="k">Build</dt><dd id="fBuild"></dd>
+        </dl>
+      </aside>
+
+      <div class="tile result wait" id="result" aria-live="polite">The result appears here when the scene ends.</div>
+      <div class="tile stat"><span class="k">Proves who</span><b id="whoWord"></b><span class="bar" id="whoBar"><i></i><i></i><i></i></span></div>
+      <div class="tile stat"><span class="k">Proves where</span><b id="whereWord"></b><span class="bar" id="whereBar"><i></i><i></i><i></i></span></div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="kitTitle">
+    <div class="sec-head"><span class="stepnum">2</span><h2 id="kitTitle">The kit for <span id="kitFor"></span></h2><p>This list follows the method you pick. Prices are from UK suppliers in November 2026; Amazon links open an Amazon UK search.</p></div>
+    <div class="picker" role="group" aria-label="Check-in method for the kit list" id="picker2"></div>
+    <div class="shelf" id="shelf"></div>
+  </section>
+
+  <section class="sec" aria-labelledby="calcTitle">
+    <div class="sec-head"><span class="stepnum">3</span><h2 id="calcTitle">What it costs</h2><p>Set the number of staff entrances. Hardware only; build effort is shown separately.</p></div>
+    <div class="cost">
+      <div class="tile total" aria-live="polite"><span id="totalFor"></span><b id="totalNum"></b><span class="sub" id="totalYear"></span></div>
+      <div class="tile controls">
+        <div><label for="ent">Staff entrances <output id="entOut">2</output></label><input type="range" id="ent" min="1" max="6" value="2"></div>
+        <div id="tagsWrap"><label for="tags">Tags per entrance <output id="tagsOut">2</output></label><input type="range" id="tags" min="1" max="4" value="2"></div>
+        <p class="note">Tags per entrance applies to secure NFC tags only; two gives a spare. The Wallet pass figure uses the tap reader; the barcode version costs about the same.</p>
+      </div>
+      <div class="tile tbl-wrap">
+        <table>
+          <thead><tr><th>Method</th><th>Upfront kit</th><th>Each year</th><th>Build</th></tr></thead>
+          <tbody id="calcBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="sources" aria-label="Sources">
+    <p class="eyebrow" style="color:var(--muted)">Sources</p>
+    <ul>
+      <li><a href="https://www.usmartcards.co.uk/ntag-424-dna" target="_blank" rel="noopener">usmartcards: NTAG 424 DNA</a> · <a href="https://www.idcardsdirect.co.uk/id-cards/smart-cards/nfc-cards.html?price=2-10" target="_blank" rel="noopener">ID Cards Direct: NTAG 424 DNA labels from £2.00 ex VAT</a> · <a href="https://www.shopnfc.com/en/nfc-stickers/313-nfc-stickers-ntag424-dna-29mm.html" target="_blank" rel="noopener">ShopNFC: NTAG 424 DNA 29 mm stickers</a></li>
+      <li><a href="https://acs.com.hk/en/products/342/acr1252u-usb-nfc-reader-iii-nfc-forum-certified-reader" target="_blank" rel="noopener">ACS: ACR1252U product page</a> · <a href="https://www.pricerunner.com/pl/233-3205819809/Memory-Card-Readers/ACS-ACR1252U-M1-Compare-Prices" target="_blank" rel="noopener">PriceRunner: ACR1252U-M1 from £32.75</a></li>
+      <li><a href="https://www.smartcardfocus.com/shop/ilp/id~954/p/index.shtml" target="_blank" rel="noopener">SmartCardFocus: VTAP100 mobile wallet NFC reader (USB), £129</a> · <a href="https://www.smartcardfocus.com/files/VTAP100-USB-CC/VTAP100-USB_Datasheet.pdf" target="_blank" rel="noopener">VTAP100 USB datasheet (Apple VAS and Google Smart Tap)</a></li>
+      <li><a href="https://ers-online.co.uk/p4734/zebra-ds2208-2d-handheld-scanners-corded" target="_blank" rel="noopener">ERS: Zebra DS2208, about £152.63 inc VAT</a> · <a href="https://posguys.com/barcode-scanner_3/DS2208_2548/" target="_blank" rel="noopener">POSGuys: DS2208 scans screens</a></li>
+      <li>Apple Developer Program: £79 a year in the UK ($99), needed to sign Wallet passes. Wall host device (tablet and mount) is an estimate, not a quote.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+(function () {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (id) => document.getElementById(id);
+  const svg = $('scene');
+
+  const ICON = {
+    pin: '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+    qr: '<rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M16 12h1"/><path d="M12 21v-1"/>',
+    nfc: '<path d="M6 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M12.91 4.1a15.91 15.91 0 0 1 .01 15.8"/><path d="M16.37 2a20.16 20.16 0 0 1 0 20"/>',
+    wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+    scan: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/>',
+    key: '<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/>',
+    face: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/>',
+    user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+    image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+    alert: '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>',
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'
+  };
+  const ic = (name, size, color) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="${color || 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
+
+  const POS = { idle: [250, 160], wall: [150, 128], home: [452, 170] };
+
+  // fx: beam | waves | laser | geo | slide | send | row ; screen: [icon, line1, line2]
+  const METHODS = {
+    qr: {
+      name: 'QR + Face\u00a0ID + location', eyebrow: 'Pilot method · built and running', icon: 'qr', tag: 'PILOT',
+      line: 'Scan the poster once, then confirm with Face ID and slide. The phone’s location is checked in the background.',
+      meters: { who: 3, where: 2, effort: 'Low: scan, Face ID, slide', kit: '£0: one printed poster', build: 'Done', upkeep: 'None: the poster is printed once' },
+      strip: 'Proves who, good presence, no hardware',
+      normal: [
+        { cap: 'Staff arrive. The QR poster is at the entrance, printed once.', pos: 'idle', scr: ['camera', 'Arriving', 'open camera'] },
+        { cap: 'First time, the camera scans the poster. After that the phone remembers it.', pos: 'wall', fx: ['beam'], scr: ['qr', 'Scanning', 'check-in code'] },
+        { cap: 'Face ID confirms who. The phone was linked to their name once, on their first shift.', pos: 'wall', scr: ['face', 'Face ID', 'You · F1'] },
+        { cap: 'They slide to check in, and the phone confirms it is inside the GPS area around the ED.', pos: 'wall', fx: ['slide', 'geo'], scr: ['pin', 'Location', 'inside ED area'] },
+        { cap: 'InOut records the check-in with both results.', pos: 'wall', fx: ['send'], srv: 'passkey · inside area', scr: ['check', 'Checked in', '08:02'] },
+        { cap: 'The coordinator sees it on the dashboard.', pos: 'wall', fx: ['row'], result: 'ok', scr: ['check', 'Checked in', '08:02'] }
+      ],
+      altLabel: 'Check in from home',
+      alt: [
+        { cap: 'Someone uses a photo of the poster, or a phone that already remembers it.', pos: 'home', scr: ['image', 'At home', 'code on phone'] },
+        { cap: 'They open InOut from home.', pos: 'home', scr: ['qr', 'InOut open', 'code accepted'] },
+        { cap: 'Face ID passes: it really is them. Nobody else can check in under their name.', pos: 'home', scr: ['face', 'Face ID', 'You · F1'] },
+        { cap: 'They slide, but the location check fails: the phone is outside the ED area.', pos: 'home', fx: ['slide', 'geo'], scr: ['alert', 'Location', 'outside ED area'] },
+        { cap: 'InOut still records it, so nobody is locked out on a busy shift.', pos: 'home', fx: ['send'], srv: 'passkey · outside area', scr: ['check', 'Recorded', '08:02'] },
+        { cap: 'It appears flagged for the coordinator to review.', pos: 'home', fx: ['row'], result: 'flag', scr: ['alert', 'Flagged', 'for review'] }
+      ],
+      results: {
+        ok: ['Verified', 'Their own phone and face, the department’s code, inside the ED area.'],
+        flag: ['Flagged for review', 'The code works from anywhere, but the location check exposes it.']
+      }
+    },
+    nfc: {
+      name: 'Secure NFC tag', eyebrow: 'Next step · our choice', icon: 'nfc', tag: 'NEXT',
+      line: 'Tap the phone on a small secure sticker at the entrance. Each tap creates a one-time signed link.',
+      meters: { who: 3, where: 3, effort: 'Low: tap + Face ID', kit: 'About £2 a tag', build: 'Medium', upkeep: 'None: the tags stay on the wall' },
+      strip: 'Strong presence for pennies',
+      normal: [
+        { cap: 'A secure NFC tag is stuck beside the entrance.', pos: 'idle', scr: ['nfc', 'Arriving', 'tap the tag'] },
+        { cap: 'Staff tap their phone on the tag. No app needed.', pos: 'wall', fx: ['waves'], scr: ['nfc', 'Tag read', 'opening link'] },
+        { cap: 'The tag writes a fresh signed link with a counter: tap number 4,182.', pos: 'wall', scr: ['link', 'Signed link', 'tap #4182'] },
+        { cap: 'Face ID confirms who, using the one-time sign-up.', pos: 'wall', scr: ['face', 'Face ID', 'confirmed'] },
+        { cap: 'InOut checks the signature, and that the counter has not been used before.', pos: 'wall', fx: ['send'], srv: 'signed · new counter', scr: ['check', 'Checked in', '08:02'] },
+        { cap: 'The coordinator sees it.', pos: 'wall', fx: ['row'], result: 'ok', scr: ['check', 'Checked in', '08:02'] }
+      ],
+      altLabel: 'Reuse a copied link, from home',
+      alt: [
+        { cap: 'Yesterday someone copied the link their phone opened after tapping.', pos: 'home', scr: ['copy', 'Copied link', 'tap #4170'] },
+        { cap: 'At home, they open the copied link.', pos: 'home', scr: ['link', 'Opening', 'old link'] },
+        { cap: 'Face ID passes: it is really them.', pos: 'home', scr: ['face', 'Face ID', 'confirmed'] },
+        { cap: 'The link still carries tap number 4,170.', pos: 'home', scr: ['link', 'Signed link', 'tap #4170'] },
+        { cap: 'InOut sees that counter was already used, and refuses it.', pos: 'home', fx: ['send'], srv: 'reused counter · refused', scr: ['x', 'Refused', 'tap the tag'] },
+        { cap: 'The refusal is logged. Only a real tap works.', pos: 'home', fx: ['row'], result: 'bad', scr: ['x', 'Refused', 'tap the tag'] }
+      ],
+      results: {
+        ok: ['Verified', 'A physical tap at the entrance, by the signed-up person.'],
+        bad: ['Rejected', 'A copied link can’t be reused. You have to be there.']
+      }
+    },
+    wnfc: {
+      name: 'Wallet pass', eyebrow: 'Optional · badge-style', icon: 'wallet',
+      line: 'Each person adds an InOut pass to Apple or Google Wallet, then holds the phone to a reader, like paying by card. A barcode version is cheaper to set up, but a screenshot of it scans like the real thing.',
+      meters: { who: 3, where: 3, effort: 'Lowest: hold phone', kit: 'About £280 an entrance', build: 'High', upkeep: 'Keep the readers powered and online' },
+      strip: 'Feels like a staff badge',
+      normal: [
+        { cap: 'Once, staff add their InOut pass to Apple or Google Wallet.', pos: 'idle', scr: ['wallet', 'Wallet', 'InOut pass added'] },
+        { cap: 'They hold the phone to the reader at the entrance.', pos: 'wall', fx: ['waves'], scr: ['wallet', 'Hold near', 'reader'] },
+        { cap: 'The reader reads the pass over NFC. Being at the reader proves where.', pos: 'wall', scr: ['wallet', 'Pass read', 'F1 · You'] },
+        { cap: 'The pass ID says who. The phone needs Face ID or a passcode to present it.', pos: 'wall', scr: ['face', 'Unlocked', 'pass shown'] },
+        { cap: 'The reader’s host device sends it to InOut.', pos: 'wall', fx: ['send'], srv: 'pass ok · Majors reader', scr: ['check', 'Checked in', '08:02'] },
+        { cap: 'The coordinator sees it.', pos: 'wall', fx: ['row'], result: 'ok', scr: ['check', 'Checked in', '08:02'] }
+      ],
+      altLabel: 'Screenshot of a colleague’s pass',
+      alt: [
+        { cap: 'Someone screenshots a colleague’s Wallet pass.', pos: 'idle', scr: ['image', 'Screenshot', 'of a pass'] },
+        { cap: 'They hold the screenshot to the reader.', pos: 'wall', scr: ['image', 'Holding', 'screenshot'] },
+        { cap: 'An NFC reader can’t read a picture: there is nothing to tap.', pos: 'wall', scr: ['x', 'No signal', 'nothing to read'] },
+        { cap: 'No pass is presented.', pos: 'wall', scr: ['x', 'No pass', ''] },
+        { cap: 'Nothing reaches InOut.', pos: 'wall', srv: 'no read', scr: ['x', 'No check-in', ''] },
+        { cap: 'The colleague is not checked in.', pos: 'wall', fx: ['row'], result: 'bad', scr: ['x', 'No check-in', ''] }
+      ],
+      results: {
+        ok: ['Verified', 'A physical tap, with the person’s own pass.'],
+        bad: ['Rejected', 'A tap-to-read pass can’t be copied as a picture. A barcode pass could be.']
+      }
+    }
+  };
+  const ORDER = ['qr', 'nfc', 'wnfc'];
+
+  // Deterministic QR-like pattern
+  (function drawQR() {
+    const g = $('qrcode'); let s = 7, html = '';
+    const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+    const x0 = 84, y0 = 176, c = 4;
+    for (let r = 0; r < 10; r++) for (let k = 0; k < 10; k++) {
+      const finder = (r < 3 && k < 3) || (r < 3 && k > 6) || (r > 6 && k < 3);
+      if (finder || rnd() > 0.55) html += `<rect class="qrdot" x="${x0 + k * c}" y="${y0 + r * c}" width="${c - 0.4}" height="${c - 0.4}"/>`;
+    }
+    g.innerHTML = html;
+  })();
+
+  $('srvIcon').innerHTML = '<g transform="matrix(3.60352,0,0,3.29193,-1240.7,-1180.58)" fill-rule="evenodd">' + $('runnerCore').innerHTML.replace(/class="[^"]*"/g, '').replace('var(--bg)', 'var(--accent)') + '</g>';
+
+  $('heroRunner').innerHTML = '<g transform="matrix(3.60352,0,0,3.29193,-1240.7,-1180.58)" fill-rule="evenodd">' + $('runnerCore').innerHTML + '</g>';
+
+  let method = 'qr', scenario = 'normal', timers = [], raf = 0;
+
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(raf); }
+
+  function setPhone(pos) {
+    const p = POS[pos]; $('phone').setAttribute('transform', `translate(${p[0]} ${p[1]})`);
+    svg.classList.toggle('at-home', pos === 'home');
+  }
+  function setScreen(scr) {
+    $('scrIcon').innerHTML = `<g transform="scale(1)">${ic(scr[0], 24, 'var(--accent)').replace('<svg', '<svg x="0" y="0"')}</g>`;
+    $('scr1').textContent = scr[1]; $('scr2').textContent = scr[2] || '';
+  }
+  function resetFx() {
+    ['beam', 'waves', 'laser', 'slider'].forEach(id => $(id).classList.remove('on'));
+    $('knob').setAttribute('cx', 20);
+    $('link').classList.remove('on');
+    $('packet').style.opacity = 0;
+    $('newrow').classList.remove('on');
+    $('badge').classList.remove('on');
+    $('srvline').textContent = 'waiting';
+  }
+  function setChip(kind) {
+    const map = { ok: ['chip-ok', 'chip-ok-t', 'VERIFIED'], flag: ['chip-flag', 'chip-flag-t', 'FLAGGED'], fooled: ['chip-flag', 'chip-flag-t', 'VERIFIED?'], bad: ['chip-bad', 'chip-bad-t', 'REJECTED'] };
+    const m = map[kind]; $('chipbg').setAttribute('class', m[0]); $('chiptx').setAttribute('class', 'chip-t ' + m[1]); $('chiptx').textContent = m[2];
+    const bg = { ok: 'var(--good)', flag: 'var(--warn)', fooled: 'var(--warn)', bad: 'var(--bad)' }[kind];
+    $('badgebg').setAttribute('fill', bg);
+    $('badgeic').setAttribute('d', kind === 'bad' ? 'M5 5l10 10M15 5L5 15' : kind === 'ok' ? 'M4 10l4 4 8-8' : 'M10 4v7M10 15v.5');
+    $('badge').classList.add('on');
+  }
+  function sendPacket(pos) {
+    const p = POS[pos]; const sx = p[0] + 80, sy = p[1] + 40, ex = 556, ey = 74;
+    const mx = (sx + ex) / 2, my = Math.min(sy, ey) - 40;
+    $('link').setAttribute('d', `M${sx} ${sy} Q${mx} ${my} ${ex} ${ey}`);
+    $('link').classList.add('on');
+    if (reduce) return;
+    const pk = $('packet'); const t0 = performance.now(), dur = 900;
+    const tick = (t) => {
+      const u = Math.min(1, (t - t0) / dur), a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u;
+      pk.setAttribute('cx', a * sx + b * mx + c * ex); pk.setAttribute('cy', a * sy + b * my + c * ey);
+      pk.style.opacity = u < 1 ? 1 : 0; if (u < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+  }
+
+  function applyStep(step) {
+    setPhone(step.pos); setScreen(step.scr);
+    (step.fx || []).forEach(fx => {
+      if (fx === 'beam') { const b = $('beam'); b.classList.remove('on'); void b.getBBox(); b.classList.add('on'); }
+      if (fx === 'waves') $('waves').classList.add('on');
+      if (fx === 'laser') $('laser').classList.add('on');
+      if (fx === 'slide') { $('slider').classList.add('on'); setTimeout(() => $('knob').setAttribute('cx', 60), 200); }
+      if (fx === 'geo') { const g = $('geofill'); g.classList.remove('pulse'); void g.getBBox(); g.classList.add('pulse'); }
+      if (fx === 'send') sendPacket(step.pos);
+      if (fx === 'row') { if (step.result !== 'bad' || method === 'nfc') $('newrow').classList.add('on'); }
+    });
+    if (!(step.fx || []).includes('waves')) $('waves').classList.remove('on');
+    if (!(step.fx || []).includes('laser')) $('laser').classList.remove('on');
+    if (step.srv) $('srvline').textContent = step.srv;
+    if (step.result) { setChip(step.result); showResult(step.result); }
+  }
+
+  function showResult(kind) {
+    const r = METHODS[method].results[kind]; const el = $('result');
+    const icn = { ok: 'check', flag: 'alert', fooled: 'alert', bad: 'x' }[kind];
+    el.className = 'tile result ' + kind; el.innerHTML = `${ic(icn, 28)}<span>${r[0]}<small>${r[1]}</small></span>`;
+  }
+
+  function steps() { return METHODS[method][scenario === 'normal' ? 'normal' : 'alt']; }
+  function markStep(i) {
+    const list = steps(), n = list.length;
+    [...$('steps').children].forEach((li, k) => { li.classList.toggle('done', k < i); li.classList.toggle('now', k === i); });
+    if (i < 0) { $('capNum').textContent = 'Ready'; $('capText').textContent = 'Press a button below to run the scene.'; $('prog').style.width = '0'; return; }
+    const k = Math.min(i, n - 1);
+    $('capNum').textContent = (k + 1) + ' / ' + n; $('capText').textContent = list[k].cap;
+    $('prog').style.width = ((k + 1) / n * 100) + '%';
+  }
+  function renderPanel() {
+    const m = METHODS[method];
+    $('mEyebrow').textContent = m.eyebrow; $('mName').textContent = m.name; $('mLine').textContent = m.line;
+    $('steps').innerHTML = steps().map(s => `<li>${s.cap}</li>`).join('');
+    $('scAltText').textContent = 'Try the cheat: ' + m.altLabel.charAt(0).toLowerCase() + m.altLabel.slice(1);
+    const word = (n) => ['', 'Weak', 'Good', 'Strong'][n];
+    $('whoBar').className = 'bar lv' + m.meters.who; $('whoWord').textContent = word(m.meters.who);
+    $('whereBar').className = 'bar lv' + m.meters.where; $('whereWord').textContent = word(m.meters.where);
+    $('fEffort').textContent = m.meters.effort; $('fKit').textContent = m.meters.kit; $('fBuild').textContent = m.meters.build; $('fUpkeep').textContent = m.meters.upkeep;
+    $('result').className = 'tile result wait'; $('result').textContent = 'The result appears here when the scene ends.';
+  }
+
+  function reset() {
+    clearTimers(); resetFx(); $('scAlt').classList.remove('nudge'); svg.setAttribute('data-m', method);
+    const first = steps()[0]; setPhone(first.pos); setScreen(first.scr); markStep(-1);
+  }
+
+  function play() {
+    reset();
+    const list = steps();
+    if (reduce) { list.forEach(applyStep); markStep(list.length); return; }
+    list.forEach((s, i) => timers.push(setTimeout(() => { applyStep(s); markStep(i); }, 300 + i * 1700)));
+    timers.push(setTimeout(() => { markStep(list.length); if (scenario === 'normal') $('scAlt').classList.add('nudge'); }, 300 + list.length * 1700));
+  }
+
+  function choose(id, autoplay) {
+    method = id;
+    document.querySelectorAll('.pick').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.m === id)));
+    renderPanel(); reset(); renderShelf(); calc(); if (autoplay) play();
+  }
+  function setScenario(sc) {
+    scenario = sc; $('scNormal').setAttribute('aria-pressed', String(sc === 'normal')); $('scAlt').setAttribute('aria-pressed', String(sc === 'alt'));
+    renderPanel(); play();
+  }
+
+  // Picker + strip
+  const pickHtml = ORDER.map(id => {
+    const m = METHODS[id];
+    return `<button type="button" class="pick" data-m="${id}" aria-pressed="false">${ic(m.icon, 20)}${m.name}${m.tag ? `<span class="tag">${m.tag}</span>` : ''}</button>`;
+  }).join('');
+  ['picker', 'picker2'].forEach(pid => {
+    $(pid).innerHTML = pickHtml;
+    $(pid).addEventListener('click', e => {
+      const b = e.target.closest('.pick'); if (!b) return;
+      scenario = 'normal'; $('scNormal').setAttribute('aria-pressed', 'true'); $('scAlt').setAttribute('aria-pressed', 'false');
+      choose(b.dataset.m, pid === 'picker');
+    });
+  });
+  $('scNormal').addEventListener('click', () => setScenario('normal'));
+  $('scAlt').addEventListener('click', () => setScenario('alt'));
+
+  // Hardware shelf
+  const amz = q => 'https://www.amazon.co.uk/s?k=' + encodeURIComponent(q).replace(/%20/g, '+');
+  const art = {
+    tag: '<svg viewBox="0 0 200 110" aria-hidden="true"><circle cx="70" cy="55" r="36" fill="var(--surface)" stroke="var(--accent)" stroke-width="2.5"/><path d="M60 45a14 14 0 0 1 0 20M66 39a22 22 0 0 1 0 32M72 33a30 30 0 0 1 0 44" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/><circle cx="140" cy="55" r="26" fill="var(--surface)" stroke="var(--hair)" stroke-width="2"/><text x="140" y="59" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="var(--muted)">424</text></svg>',
+    writer: '<svg viewBox="0 0 200 110" aria-hidden="true"><rect x="50" y="30" width="100" height="56" rx="14" fill="var(--device)"/><circle cx="100" cy="58" r="14" fill="none" stroke="var(--accent-bright)" stroke-width="2.5"/><path d="M150 58h30" stroke="var(--muted)" stroke-width="3" stroke-linecap="round"/><rect x="176" y="52" width="14" height="12" rx="2" fill="var(--muted)"/></svg>',
+    vtap: '<svg viewBox="0 0 200 110" aria-hidden="true"><rect x="74" y="14" width="52" height="82" rx="12" fill="var(--device)"/><circle cx="100" cy="46" r="13" fill="none" stroke="var(--accent-bright)" stroke-width="2.5"/><circle cx="100" cy="46" r="5" fill="var(--accent-bright)"/><rect x="88" y="74" width="24" height="5" rx="2.5" fill="#5a5254"/><rect x="138" y="40" width="34" height="50" rx="8" fill="var(--surface)" stroke="var(--hair)" stroke-width="2"/><path d="M150 55h10M150 63h10" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"/></svg>',
+    scanner: '<svg viewBox="0 0 200 110" aria-hidden="true"><polygon points="118,40 186,24 186,78 118,52" fill="var(--accent-bright)" fill-opacity=".22"/><rect x="70" y="30" width="54" height="30" rx="10" fill="var(--device)"/><rect x="90" y="58" width="16" height="34" rx="5" fill="var(--device)"/><rect x="66" y="90" width="64" height="10" rx="5" fill="var(--device)"/></svg>',
+    tablet: '<svg viewBox="0 0 200 110" aria-hidden="true"><rect x="40" y="14" width="120" height="82" rx="10" fill="var(--device)"/><rect x="48" y="22" width="104" height="66" rx="5" fill="var(--screen)"/><rect x="58" y="34" width="50" height="7" rx="3.5" fill="var(--accent)"/><rect x="58" y="48" width="84" height="5" rx="2.5" fill="var(--hair)"/><rect x="58" y="58" width="70" height="5" rx="2.5" fill="var(--hair)"/><rect x="58" y="68" width="78" height="5" rx="2.5" fill="var(--hair)"/></svg>',
+    phone: '<svg viewBox="0 0 200 110" aria-hidden="true"><rect x="78" y="8" width="44" height="94" rx="10" fill="var(--device)"/><rect x="82" y="16" width="36" height="78" rx="6" fill="var(--screen)"/><circle cx="100" cy="46" r="11" fill="var(--good)"/><path d="M95 46l4 4 7-8" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="88" y="72" width="24" height="8" rx="4" fill="var(--accent)"/></svg>',
+    poster: '<svg viewBox="0 0 200 110" aria-hidden="true"><rect x="66" y="8" width="68" height="94" rx="6" fill="var(--surface)" stroke="var(--hair)" stroke-width="2"/><rect x="80" y="22" width="40" height="40" rx="3" fill="none" stroke="var(--ink)" stroke-width="3"/><rect x="88" y="30" width="10" height="10" fill="var(--ink)"/><rect x="102" y="44" width="10" height="10" fill="var(--ink)"/><rect x="80" y="72" width="40" height="6" rx="3" fill="var(--accent)"/><rect x="86" y="84" width="28" height="4" rx="2" fill="var(--hair)"/></svg>'
+  };
+  const SHELF = [
+    { m: 'qr', none: true, art: 'phone', name: 'Staff phones', for: ['Pilot'], price: '£0', sub: 'already in every pocket', what: 'Staff use their own phones. Face ID sign-up and the location check are software, so there is nothing else to buy.', links: [] },
+    { m: 'nfc', none: true, art: 'phone', name: 'Staff phones', for: ['Secure NFC tag'], price: '£0', sub: 'no reader at the entrance', what: 'The phone reads the tag, so the entrance needs no power, no network and no reader.', links: [] },
+    { m: 'qr', art: 'poster', name: 'Wall poster frame', for: ['Pilot'], price: 'A few pounds', sub: 'any A4 acrylic frame', what: 'Holds the QR poster at each entrance. It is printed once and stays up.', links: [['Search Amazon UK', amz('A4 acrylic wall poster frame')]] },
+    { m: 'nfc', art: 'tag', name: 'NTAG 424 DNA stickers', for: ['Secure NFC tag'], price: 'From £2.00', sub: 'each, ex VAT', what: 'The secure tag. Each tap produces a new signed link. Check the listing says “NTAG 424 DNA”, not NTAG 213 or 216.', links: [['ID Cards Direct (from £2.00)', 'https://www.idcardsdirect.co.uk/id-cards/smart-cards/nfc-cards.html?price=2-10'], ['usmartcards', 'https://www.usmartcards.co.uk/ntag-424-dna'], ['Search Amazon UK', amz('NTAG 424 DNA sticker')]] },
+    { m: 'nfc', art: 'writer', name: 'ACS ACR1252U-M1 USB reader', for: ['Secure NFC tag'], price: 'About £33', sub: 'one for the whole site', what: 'Plugs into a laptop to load the secret keys onto the tags before they go up. Not needed at the entrance.', links: [['ACS product page', 'https://acs.com.hk/en/products/342/acr1252u-usb-nfc-reader-iii-nfc-forum-certified-reader'], ['Price comparison (from £32.75)', 'https://www.pricerunner.com/pl/233-3205819809/Memory-Card-Readers/ACS-ACR1252U-M1-Compare-Prices'], ['Search Amazon UK', amz('ACS ACR1252U-M1')]] },
+    { m: 'wnfc', art: 'vtap', name: 'Dot Origin VTAP100 USB', for: ['Wallet pass'], price: '£129', sub: 'per entrance', what: 'A wall reader certified for Apple Wallet and Google Wallet passes. Needs a host device to send reads to InOut.', links: [['SmartCardFocus (£129)', 'https://www.smartcardfocus.com/shop/ilp/id~954/p/index.shtml'], ['Datasheet', 'https://www.smartcardfocus.com/files/VTAP100-USB-CC/VTAP100-USB_Datasheet.pdf'], ['Search Amazon UK', amz('VTAP100 NFC reader')]] },
+    { m: 'wnfc', art: 'scanner', name: 'Zebra DS2208 2D scanner', for: ['Wallet pass · barcode version'], price: 'About £153', sub: 'inc VAT, per entrance', what: 'A corded scanner on a stand that reads barcodes from phone screens. Needs a host device.', links: [['ERS (about £152.63)', 'https://ers-online.co.uk/p4734/zebra-ds2208-2d-handheld-scanners-corded'], ['Search Amazon UK', amz('Zebra DS2208 2D scanner stand')]] },
+    { m: 'wnfc', art: 'tablet', name: 'Wall host device', for: ['Wallet pass'], price: '~£150', sub: 'estimate, per entrance', what: 'A budget tablet in a lockable wall mount that the reader or scanner plugs into, showing “Checked in” to staff.', links: [['Search Amazon UK: tablets', amz('Android tablet 10 inch')], ['Search Amazon UK: wall mounts', amz('lockable tablet wall mount enclosure')]] }
+  ];
+  function renderShelf() {
+    $('kitFor').textContent = METHODS[method].name;
+    $('shelf').innerHTML = SHELF.filter(x => x.m === method).map(x => `
+    <article class="item${x.none ? ' none' : ''}">
+      <div class="pic">${art[x.art]}</div>
+      <div class="for">${x.for.map(f => `<span>${f}</span>`).join('')}</div>
+      <h3>${x.name}</h3>
+      <p class="price">${x.price} <small>${x.sub}</small></p>
+      <p class="note">${x.what}</p>
+      <div class="links">${x.links.map(l => `<a href="${l[1]}" target="_blank" rel="noopener">${ic('link', 14)}${l[0]}</a>`).join('')}</div>
+    </article>`).join('');
+  }
+
+  // Calculator
+  const HOST = 150, VTAP = 129, DS = 153, TAG = 2.4, WRITER = 33, APPLE = 79; // TAG ~ £2.00 ex VAT + VAT
+  const gbp = n => '£' + Math.round(n).toLocaleString('en-GB');
+  function calc() {
+    const e = +$('ent').value, t = +$('tags').value;
+    $('entOut').textContent = e; $('tagsOut').textContent = t;
+    const rows = [
+      ['qr', 'QR + Face ID + location', 5 * e, 'None', 'Done'],
+      ['nfc', 'Secure NFC tag', TAG * t * e + WRITER, 'Spare tags only', 'Medium'],
+      ['wnfc', 'Wallet pass', (VTAP + HOST) * e, gbp(APPLE) + ' (Apple developer)', 'High']
+    ];
+    $('calcBody').innerHTML = rows.map(r => `<tr class="${r[0] === method ? 'sel' : ''}"><td><b style="color:var(--ink)">${r[1]}</b></td><td class="num">${gbp(r[2])}</td><td class="num">${r[3]}</td><td>${r[4]}</td></tr>`).join('');
+    const cur = rows.find(r => r[0] === method);
+    $('totalFor').textContent = `${METHODS[method].name}: upfront kit for ${e} ${e === 1 ? 'entrance' : 'entrances'}`;
+    $('totalNum').textContent = gbp(cur[2]);
+    $('totalYear').textContent = 'EACH YEAR: ' + cur[3].toUpperCase() + '  ·  BUILD: ' + cur[4].toUpperCase();
+    $('tagsWrap').classList.toggle('dim', method !== 'nfc');
+    $('tags').disabled = method !== 'nfc';
+  }
+  $('ent').addEventListener('input', calc); $('tags').addEventListener('input', calc);
+
+  choose('qr', false);
+  setTimeout(play, 600);
+})();
+</script>
+</body>
+</html>

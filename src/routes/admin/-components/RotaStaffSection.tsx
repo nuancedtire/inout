@@ -7,7 +7,7 @@ import { FileUpload, type FileUploadItem } from '#/components/motion/file-upload
 import { inputClass } from './kit'
 import { ShiftTimeInput } from './ShiftTimeInput'
 
-export type UploadSummary = { count: number; linked: number; unlinked: number; unparseableShifts: number; date: string }
+export type UploadSummary = { count: number; linked: number; unlinked: number; toCheck: number; unparseableShifts: number; date: string }
 
 export function RotaStaffSection({
   onUpload,
@@ -87,8 +87,9 @@ export function RotaStaffSection({
               </p>
               <p className="flex items-center gap-2 text-body">
                 <Link2 className="size-4 shrink-0 text-success-800" aria-hidden="true" />
-                {summary.linked} linked to staff profiles
-                {summary.unlinked ? ` · ${summary.unlinked} not linked yet (below)` : ''}
+                {summary.linked} linked automatically
+                {summary.toCheck ? ` · ${summary.toCheck} to check (below)` : ''}
+                {summary.unlinked - summary.toCheck > 0 ? ` · ${summary.unlinked - summary.toCheck} new` : ''}
               </p>
               {summary.unparseableShifts ? (
                 <p className="text-warning-800">

@@ -29,11 +29,10 @@ function looksLikeTier(value: string): boolean {
 }
 
 function looksLikeName(value: string): boolean {
-  // Accept names with 2+ words, dots, hyphens, apostrophes
-  // Normalize whitespace first
+  // Letters in any script (Zoë, Siân, Núñez), spaces, dots, hyphens, apostrophes, and the
+  // "Surname, First" comma and "(locum)"-style notes that name matching understands.
   const cleaned = value.replace(/\s{2,}/g, ' ').trim()
-  // Must have at least 2 characters and at least one letter
-  return cleaned.length >= 2 && /[A-Za-z]/.test(cleaned) && /^[A-Za-z]+[A-Za-z\s\-'./]+$/.test(cleaned)
+  return cleaned.length >= 2 && /^\p{L}[\p{L}\p{M}\s\-'’./,()[\]]+$/u.test(cleaned)
 }
 
 function isTierGroup(value: string): boolean {

@@ -1,3 +1,4 @@
+import { firstLastOrder } from '#/utils/staffNames'
 import type { FlagReason, Identity, LocationOutcome } from '#/utils/verification'
 import type { UnlockCopy } from '#/lib/platform'
 
@@ -85,7 +86,7 @@ export function firstName(name: string): string {
 }
 
 export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter((p) => !/^(dr|mr|mrs|ms|miss|mx|prof)\.?$/i.test(p))
+  const parts = firstLastOrder(name).split(/\s+/).filter((p) => p && !/^(dr|mr|mrs|ms|miss|mx|prof)\.?$/i.test(p))
   const letters = (parts.length > 1 ? [parts[0], parts[parts.length - 1]] : parts).map((p) => p.charAt(0))
   return letters.join('').toUpperCase() || '?'
 }

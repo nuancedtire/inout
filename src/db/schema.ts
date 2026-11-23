@@ -138,6 +138,30 @@ export const auditLog = sqliteTable(
   }),
 )
 
+/**
+ * Other spellings of a staff member's name, remembered when an admin links a rota name to them
+ * by hand. Rota imports and check-in treat an alias like the name itself. A spelling aliased to
+ * more than one person is ambiguous and is never linked automatically.
+ */
+export const staffAliases = sqliteTable(
+  'staff_aliases',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    staffId: integer('staff_id').notNull(),
+    /** `nameKey` of the rota spelling — see utils/staffNames.ts. */
+    nameKey: text('name_key').notNull(),
+    createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => ({
+    staffFk: foreignKey({
+      columns: [table.staffId],
+      foreignColumns: [staff.id],
+    }),
+    keyStaffUnique: uniqueIndex('idx_staff_aliases_key_staff').on(table.nameKey, table.staffId),
+    staffIdx: index('idx_staff_aliases_staff').on(table.staffId),
+  }),
+)
+
 export const staffCredentials = sqliteTable(
   'staff_credentials',
   {
@@ -236,6 +260,7 @@ export type Session = typeof sessions.$inferSelect
 export type NewSession = typeof sessions.$inferInsert
 export type Staff = typeof staff.$inferSelect
 export type NewStaff = typeof staff.$inferInsert
+export type StaffAlias = typeof staffAliases.$inferSelect
 export type StaffCredential = typeof staffCredentials.$inferSelect
 export type NewStaffCredential = typeof staffCredentials.$inferInsert
 export type WebauthnChallenge = typeof webauthnChallenges.$inferSelect

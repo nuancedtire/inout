@@ -2,6 +2,7 @@
  * Small, admin-only building blocks so every admin page shares one rhythm: white 20px cards on
  * the soft canvas, one header pattern, one input style, one skeleton and one error treatment.
  */
+import { firstLastOrder } from '#/utils/staffNames'
 import type { ReactNode } from 'react'
 import { AlertCircle, RotateCcw, X } from 'lucide-react'
 import { Skeleton } from '#/components/ui/skeleton'
@@ -198,7 +199,7 @@ const AVATAR_TONES = [
 const TITLES = /^(dr|mr|mrs|ms|miss|mx|prof|sr|sister|nurse)\.?$/i
 
 export function initials(name: string) {
-  const all = name.trim().split(/\s+/).filter(Boolean)
+  const all = firstLastOrder(name).split(/\s+/).filter(Boolean)
   const parts = all.length > 1 ? all.filter((p, i) => i > 0 || !TITLES.test(p)) : all
   if (parts.length === 0) return '?'
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()

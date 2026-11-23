@@ -11,6 +11,7 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM webauthn_challenges'),
     env.DB.prepare('DELETE FROM push_subscriptions'),
     env.DB.prepare('DELETE FROM staff_credentials'),
+    env.DB.prepare('DELETE FROM staff_aliases'),
     env.DB.prepare('DELETE FROM roster_entries'),
     env.DB.prepare('DELETE FROM rotas'),
     env.DB.prepare('DELETE FROM staff'),

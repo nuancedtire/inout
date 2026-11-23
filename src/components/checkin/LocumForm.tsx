@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { normalizeName } from '#/utils/staffNames'
+import { nameKey } from '#/utils/staffNames'
 import type { RosterEntry } from './RosterPicker'
 import { Avatar, BigButton, Notice, ScreenTitle, Sheet, TextField } from './ui'
 
@@ -15,8 +15,8 @@ export function LocumForm({ entries, onSubmit, onPickExisting, submitLabel = 'Co
   const [error, setError] = useState<string | null>(null)
 
   const match = useMemo(() => {
-    const n = normalizeName(name)
-    return n ? entries.find((e) => normalizeName(e.name) === n) ?? null : null
+    const n = nameKey(name)
+    return n ? entries.find((e) => nameKey(e.name) === n) ?? null : null
   }, [entries, name])
 
   const roleSuggestions = useMemo(() => {

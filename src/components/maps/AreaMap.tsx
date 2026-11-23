@@ -62,6 +62,10 @@ export type AreaMapProps = {
 /** Whipps Cross University Hospital A&E, London E11 1NR: the pilot site and the default view. */
 export const DEFAULT_VIEW = { latitude: 51.5781, longitude: 0.004, zoom: 17 }
 
+// Stable default: a fresh `[]` each render re-ran the readings effect, whose edge-arrow update set
+// state and rendered again, looping whenever the position was off the map.
+const NO_READINGS: MapFix[] = []
+
 const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
 const MAX_ZOOM = 19
@@ -141,7 +145,7 @@ export function AreaMap({
   tone = 'brand',
   position = null,
   positionTone = 'live',
-  readings = [],
+  readings = NO_READINGS,
   interactive = false,
   onCentreChange,
   fitTo = 'area',
@@ -269,7 +273,8 @@ export function AreaMap({
         keyboard: inter,
         zoomSnap: inter ? 1 : 0.25,
       })
-      Lf.control.attribution({ prefix: '<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>' }).addTo(map)
+      // Staff maps are small: OpenStreetMap's credit is required, Leaflet's is optional.
+      Lf.control.attribution({ prefix: inter ? '<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>' : false }).addTo(map)
 
       let loaded = 0
       let failed = 0
@@ -506,7 +511,9 @@ export function AreaMap({
         className={cn(
           'absolute inset-0 z-0 font-sans! focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
           '[&_.leaflet-control-attribution]:rounded-tl-inner [&_.leaflet-control-attribution]:bg-white/85! [&_.leaflet-control-attribution]:px-1.5 [&_.leaflet-control-attribution]:text-[10px] [&_.leaflet-control-attribution]:leading-4',
-          '[&_.leaflet-control-attribution_a]:text-ink! [&_.leaflet-tile-pane]:saturate-[.6]',
+          '[&_.leaflet-control-attribution_a]:text-ink!',
+          // Admin keeps a readable street map; staff get a calm grey backdrop so only the area and their dot carry colour.
+          interactive ? '[&_.leaflet-tile-pane]:saturate-[.6]' : '[&_.leaflet-tile-pane]:grayscale [&_.leaflet-tile-pane]:contrast-[.85] [&_.leaflet-tile-pane]:brightness-[1.06] [&_.leaflet-control-attribution]:text-[9px] [&_.leaflet-control-attribution]:text-muted!',
           '[&_.leaflet-marker-icon:focus-visible]:rounded-control [&_.leaflet-marker-icon:focus-visible]:outline-2 [&_.leaflet-marker-icon:focus-visible]:outline-offset-2 [&_.leaflet-marker-icon:focus-visible]:outline-focus',
           !interactive && 'cursor-default! [&_.leaflet-interactive]:cursor-default!',
         )}

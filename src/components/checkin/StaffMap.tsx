@@ -14,7 +14,7 @@ export type StaffMapTone = 'brand' | 'neutral' | 'success' | 'warning'
  * only ever show the hospital; a reading far away gets an edge arrow instead of a pan.
  * Falls back to a drawn map when there's no area yet, no connection, or tiles fail.
  */
-export function StaffMap({ area, position = null, tone = 'brand', scanning = false, height = 'var(--ck-map-h)', label, overlay, className }: {
+export function StaffMap({ area, position = null, tone = 'brand', scanning = false, height = 'var(--ck-map-h)', label, overlay, action, className }: {
   area: PublicArea | null | undefined
   position?: MapFix | null
   tone?: StaffMapTone
@@ -24,6 +24,8 @@ export function StaffMap({ area, position = null, tone = 'brand', scanning = fal
   label: string
   /** Chips laid over the map (top-left). */
   overlay?: ReactNode
+  /** One control laid over the map (top-right), e.g. "check again". */
+  action?: ReactNode
   className?: string
 }) {
   const [failed, setFailed] = useState(false)
@@ -40,7 +42,7 @@ export function StaffMap({ area, position = null, tone = 'brand', scanning = fal
             positionTone={tone === 'brand' || tone === 'neutral' ? 'live' : tone}
             fitTo="area+position"
             arrowLabel={false}
-            showPin={!position}
+            showPin={false}
             arrowInsetTop={overlay ? 56 : 28}
             height={height}
             label={label}
@@ -58,7 +60,8 @@ export function StaffMap({ area, position = null, tone = 'brand', scanning = fal
           <span className="ck-sonar absolute size-40 rounded-full border-2 border-primary-500/60 [animation-delay:900ms]" />
         </span>
       ) : null}
-      {overlay ? <div className="pointer-events-none absolute top-2.5 left-2.5 z-[960] flex max-w-[calc(100%-1.25rem)] flex-wrap gap-1.5">{overlay}</div> : null}
+      {overlay ? <div className={cn('pointer-events-none absolute top-2.5 left-2.5 z-[960] flex flex-wrap gap-1.5', action ? 'max-w-[calc(100%-4.5rem)]' : 'max-w-[calc(100%-1.25rem)]')}>{overlay}</div> : null}
+      {action ? <div className="absolute top-1.5 right-1.5 z-[960]">{action}</div> : null}
     </div>
   )
 }

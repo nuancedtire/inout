@@ -1,5 +1,14 @@
 # InOut — Verification and Historical Backlog
 
+## Staff Home polish — 23 November 2026
+
+- **Home is one page:** the shift time is the heading, with how it stands now beside it (starts in, started ago, ends in, ended ago; overnight shifts handled in UK time) and a progress bar while on shift. The greeting and the repeated name were removed; the header chip already names the person. Staff not on today's rota are told so, and that checking in adds them.
+- **One card:** the location map, its result and the slider share one card. The map chip carries the result, a short note appears only when there is something to do, and "check again" sits on the map. On shift, an in-the-department result folds to one line. Notes say "check out" once someone is checked in.
+- **Slider:** red brand handle, steady label (the shimmer that hid letters is gone).
+- **Map:** staff maps show grey tiles so only the area and the person's dot carry colour, without Leaflet's credit (OpenStreetMap's stays). Tiles still come from `tile.openstreetmap.org`; moving staff maps to a self-hosted Protomaps extract (OSM tile policy) remains a follow-up.
+- **Fixed:** `AreaMap` looped ("Maximum update depth exceeded") whenever a staff position was off the map, because the default `readings` array was new on every render. `LocationStatus` now restarts its automatic check after a remount.
+- Verified in the browser at 390×844, 375×667, 344×882 (folded), 884×1104 (unfolded), 820×1180 and 844×390 across checking, inside, outside, blocked, approximate, no area, not on rota, without Face ID, on shift and overrun states.
+
 ## Issue follow-up — 18 October 2026
 
 - **#47:** Added server-side input validation and bounded per-client manual check-in throttling (ten well-formed attempts per minute, before database reads/writes). Invalid/expired token attempts also consume the allowance. The limiter uses Cloudflare's client-IP header, shares a fallback when absent, expires old buckets, caps active buckets at 2,048, and fails closed at capacity. This is per-isolate best-effort protection; shared-network clients share the allowance. No distributed enforcement or production deployment is claimed.

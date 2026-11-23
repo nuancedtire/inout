@@ -73,9 +73,9 @@ export function ReminderCard({ reminders, platform, shiftEnd }: {
             <h2 id="ck-remind-title" className="font-semibold leading-snug text-ink">Reminders are on</h2>
             <p className="text-sm leading-snug text-muted text-pretty">
               {reminderClock(shiftEnd)
-                ? `If you’re still checked in at ${reminderClock(shiftEnd)}, you’ll get one notification.`
-                : 'If you’re still checked in after your shift, you’ll get one notification.'}
-              {' '}Turn them off from the menu under your name.
+                ? `One nudge at ${reminderClock(shiftEnd)} if you’re still checked in.`
+                : 'One nudge after your shift if you’re still checked in.'}
+              {' '}Change it in the menu under your name.
             </p>
           </div>
         </div>
@@ -116,11 +116,11 @@ export function ReminderCard({ reminders, platform, shiftEnd }: {
       </button>
       <div className="flex items-center gap-3 pr-9">
         <Tile tone="brand"><BellRing className="ck-bell size-6" /></Tile>
-        <h2 id="ck-remind-title" className="min-w-0 text-[1.0625rem] font-semibold leading-snug text-ink text-balance">Remind me to check out</h2>
+        <div className="min-w-0">
+          <h2 id="ck-remind-title" className="text-[1.0625rem] font-semibold leading-snug text-ink text-balance">Remind me to check out</h2>
+          <p id="ck-remind-desc" className="text-sm leading-snug text-muted text-pretty">Only if you forget.</p>
+        </div>
       </div>
-      <p id="ck-remind-desc" className="mt-3 text-[0.9375rem] leading-snug text-body text-pretty">
-        We’ll send one notification if you’re still checked in 15 minutes after your shift ends.
-      </p>
       <NotificationPreview shiftEnd={shiftEnd} />
       <button type="button" onClick={enable} disabled={busy} aria-busy={busy || undefined} className={SECONDARY}>
         {busy

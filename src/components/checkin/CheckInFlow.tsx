@@ -39,7 +39,7 @@ import { currentPlatform, isStandalone, unlockCopy, type Platform } from '#/lib/
 import { ALLOW_CHECKIN_WITHOUT_LOCATION } from '#/lib/locationPolicy'
 import { isValidToken } from '#/lib/qrScanner'
 import { snoozeInstallCard } from '#/lib/installPrompt'
-import { capitalise, shiftLabel } from './copy'
+import { capitalise } from './copy'
 import { ForgottenScreen, type ForgottenNotice } from './ForgottenScreen'
 import { InstallGuide } from './InstallGuide'
 import { ReminderCard } from './ReminderCard'
@@ -1228,7 +1228,6 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
     }
 
     case 'home': {
-      const name = me?.staff.name ?? fallbackEntry?.name ?? ''
       const homeStatus = fallbackMode ? fallbackStatus : status
       if (forgotten && passkeyMode) {
         const f = forgotten
@@ -1257,9 +1256,13 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
       }
       body = (
         <HomeScreen
-          name={name}
           status={homeStatus}
-          shift={myEntry ? shiftLabel(myEntry.shiftStart, myEntry.shiftEnd) : null}
+          shift={myEntry
+            ? { start: myEntry.shiftStart, end: myEntry.shiftEnd }
+            : homeStatus === null
+              ? undefined
+              // Face ID mode: the status says whether this person is on today's rota.
+              : !fallbackMode && status?.rosterEntryId === null ? null : { start: null, end: null }}
           platform={platform}
           locationCheck={locationCheck}
           viaFaceId={!fallbackMode}
@@ -1275,8 +1278,9 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
               {homeNotice.message}
             </Notice>
           ) : null}
-          location={locationCheck ? (
+          location={locationCheck ? ({ compact }) => (
             <LocationStatus
+              compact={compact}
               token={token}
               platform={platform}
               area={area}
@@ -1286,7 +1290,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
               onBlocked={onBlocked}
               onTurnOn={() => setView({ name: 'location-off', mode: { kind: 'help' } })}
             />
-          ) : null}
+          ) : undefined}
           onArm={warmLocation}
           onDisarm={coolLocation}
           onSlide={(mode) => {

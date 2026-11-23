@@ -52,14 +52,6 @@ export const CHECKIN_CSS = `
 .ck-live::after { content: ''; position: absolute; inset: 0; border-radius: 9999px; background: currentColor; animation: ck-live 2000ms cubic-bezier(0, 0, 0.2, 1) infinite; }
 @keyframes ck-live { from { transform: scale(1); opacity: 0.6; } to { transform: scale(2.6); opacity: 0; } }
 
-/* Slide label: a soft highlight sweeps across the words, hinting at the direction. */
-.ck-shimmer {
-  background: linear-gradient(100deg, #3f3f3f 40%, #a8a8a8 50%, #3f3f3f 60%) 0 0 / 250% 100% no-repeat;
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: ck-shimmer 2600ms linear infinite;
-}
-@keyframes ck-shimmer { from { background-position: 100% 0; } to { background-position: -50% 0; } }
-
 /* Location check in progress: two rings pulse outwards from the pin. */
 .ck-radar { animation: ck-radar 1400ms cubic-bezier(0, 0, 0.2, 1) infinite; }
 @keyframes ck-radar { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.1); opacity: 0; } }
@@ -91,6 +83,7 @@ export const CHECKIN_CSS = `
   }
   .ck-wide .ck-split > * { grid-column: 1; margin-inline: 1.25rem; min-width: 0; }
   .ck-wide .ck-split > .ck-seg-end { grid-column: 2; grid-row: 1 / span 6; }
+  .ck-wide .ck-home > * { margin-inline: 1.25rem; }
 }
 /* Half-folded flat (tabletop): keep everything in the bottom half, nearest the thumb. */
 @media (vertical-viewport-segments: 2) {
@@ -123,13 +116,12 @@ export const CHECKIN_CSS = `
 
 @media (prefers-reduced-motion: reduce) {
   .ck-notify, .ck-bell, .ck-hand { animation: none !important; }
-  .checkin-sheet, .ck-screen, .ck-stagger > *, .ck-pop, .ck-halo, .ck-ring, .ck-pin, .ck-scan, .ck-corners, .ck-sweep, .ck-live::after, .ck-shimmer, .ck-radar, .ck-sonar, .ck-target::after, .ck-nudge {
+  .checkin-sheet, .ck-screen, .ck-stagger > *, .ck-pop, .ck-halo, .ck-ring, .ck-pin, .ck-scan, .ck-corners, .ck-sweep, .ck-live::after, .ck-radar, .ck-sonar, .ck-target::after, .ck-nudge {
     animation: none !important;
   }
   .ck-check-ring, .ck-check-tick { animation: none !important; stroke-dashoffset: 0; }
   .ck-ring-2, .ck-ring-3, .ck-halo { opacity: 0; }
   .ck-ring { opacity: 0.35; }
   .ck-countdown { transition: none; }
-  .ck-shimmer { background: none; color: #3f3f3f; }
 }
 `

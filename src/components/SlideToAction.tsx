@@ -201,7 +201,7 @@ export function SlideToAction({ mode, onComplete, onArm, onDisarm, disabled = fa
         {/* Fill trails the thumb. */}
         <div
           aria-hidden="true"
-          className={`absolute rounded-full ${inMode ? 'bg-success-accessible' : 'bg-ink'}`}
+          className={`absolute rounded-full ${inMode ? (phase === 'done' ? 'bg-success-accessible' : 'bg-primary-500') : 'bg-ink'}`}
           style={{ ...fill, top: PAD, bottom: PAD, transition, opacity: Math.min(1, 0.25 + progress) }}
         />
 
@@ -211,19 +211,26 @@ export function SlideToAction({ mode, onComplete, onArm, onDisarm, disabled = fa
           className={`pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-[0.9375rem] font-semibold ${inMode ? 'pl-12' : 'pr-12'}`}
           style={{ opacity: phase === 'done' ? 0 : Math.max(0, 1 - progress / 0.4) }}
         >
-          <span className="ck-shimmer text-body">{text}</span>
+          <span className="text-body">{text}</span>
         </div>
 
         {/* Thumb */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full bg-canvas shadow-[0_1px_2px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.18)]"
-          style={{ width: THUMB, height: THUMB, left: thumbLeft, transition }}
+          className={[
+            'pointer-events-none absolute top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full transition-colors duration-300',
+            inMode
+              ? phase === 'done'
+                ? 'bg-success-accessible text-white shadow-[0_4px_12px_-2px_rgba(0,138,5,0.45)]'
+                : 'bg-accent-accessible text-white shadow-[0_4px_12px_-2px_rgba(213,11,64,0.45)]'
+              : 'bg-canvas text-ink shadow-[0_1px_2px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.18)]',
+          ].join(' ')}
+          style={{ width: THUMB, height: THUMB, left: thumbLeft, transition: transition === 'none' ? undefined : transition }}
         >
           {phase === 'done' ? (
-            <Check className={`size-6 ${inMode ? 'text-success-accessible' : 'text-ink'}`} strokeWidth={2.75} />
+            <Check className="size-6" strokeWidth={2.75} />
           ) : (
-            <Arrow className={`size-6 ${inMode ? 'text-success-accessible' : 'text-ink'}`} strokeWidth={2.5} />
+            <Arrow className="size-6" strokeWidth={2.5} />
           )}
         </div>
       </div>

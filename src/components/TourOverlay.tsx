@@ -44,6 +44,25 @@ function placeTooltip(rect: Rect, cardWidth: number, cardHeight: number) {
 
   const spaceBelow = vh - (rect.top + rect.height)
   const spaceAbove = rect.top
+  const need = cardWidth + margin + SPOTLIGHT_PADDING
+
+  // A tall target leaves no room above or below: sit beside it if the
+  // viewport is wide enough, rather than covering part of it.
+  if (spaceBelow < cardHeight + margin && spaceAbove < cardHeight + margin) {
+    const spaceLeft = rect.left
+    const spaceRight = vw - (rect.left + rect.width)
+    if (Math.max(spaceLeft, spaceRight) >= need + margin) {
+      const left =
+        spaceRight >= spaceLeft
+          ? rect.left + rect.width + SPOTLIGHT_PADDING + margin
+          : rect.left - SPOTLIGHT_PADDING - margin - cardWidth
+      const visibleTop = Math.max(rect.top, 0)
+      const visibleBottom = Math.min(rect.top + rect.height, vh)
+      const top = (visibleTop + visibleBottom) / 2 - cardHeight / 2
+      return { top: Math.max(margin, Math.min(top, vh - cardHeight - margin)), left }
+    }
+  }
+
   const placeBelow = spaceBelow >= cardHeight + margin || spaceBelow >= spaceAbove
 
   const top = placeBelow

@@ -1,16 +1,17 @@
 // Bump this when step content changes meaningfully, so admins who've already
 // seen the tour are re-prompted for the new material.
-export const TOUR_VERSION = 3
+export const TOUR_VERSION = 4
 
 export type TourStep = {
   id: string
   path: '/admin' | '/admin/roster' | '/admin/sessions' | '/admin/staff' | '/admin/audit'
-  /** CSS selectors to try in order; the first visible match is highlighted. Null renders a centered card with no spotlight. */
+  /**
+   * CSS selectors to try in order; the first visible match is highlighted. Null renders a centered card with no spotlight.
+   * Steps only ever point at things: every step advances with Next, never by making the admin press a page control.
+   */
   target: string[] | null
   title: string
   body: string
-  /** If true, the target itself must be clicked to advance — Next is replaced with a hint, and the spotlighted element stays genuinely clickable through the overlay. */
-  requireClick?: boolean
 }
 
 export const TOUR_STEPS: TourStep[] = [
@@ -57,12 +58,11 @@ export const TOUR_STEPS: TourStep[] = [
     body: 'The Roster page is where you upload the daily rota, register locums and ad-hoc staff, and manage everyone scheduled for the day. Click Next to head there.',
   },
   {
-    id: 'qr-generate',
+    id: 'qr-code',
     path: '/admin/roster',
-    target: ['[data-tour="qr-generate-button"]'],
+    target: ['[data-tour="qr-code"]'],
     title: 'The check-in QR code',
     body: "This is how staff check in — just a phone camera, no app store. It's one permanent code: print it once. Replace it only if a photo of it is being shared.",
-    requireClick: true,
   },
   {
     id: 'qr-print',
@@ -74,7 +74,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'rota-upload',
     path: '/admin/roster',
-    target: ['[data-tour="rota-upload"]'],
+    target: ['[data-tour="rota-upload"]', '#rota-staff'],
     title: 'Upload the daily rota',
     body: "Drop in the Excel/CSV rota and InOut reads names, roles and shift times. Names that exactly match one staff profile are linked automatically; anything unclear is listed for you to link.",
   },

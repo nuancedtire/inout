@@ -17,7 +17,7 @@ function markTourSeen() {
   try {
     window.localStorage.setItem(STORAGE_KEY, '1')
   } catch {
-    // localStorage unavailable (private browsing etc.) — tour will just auto-start again next time
+    // localStorage unavailable (private browsing etc.) — nothing to record; hasSeenTour() then skips the auto-start
   }
 }
 
@@ -73,15 +73,13 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const next = useCallback(() => {
-    setStepIndex((i) => {
-      if (i + 1 >= TOUR_STEPS.length) {
-        markTourSeen()
-        setActive(false)
-        return i
-      }
-      return i + 1
-    })
-  }, [])
+    if (stepIndex + 1 >= TOUR_STEPS.length) {
+      markTourSeen()
+      setActive(false)
+      return
+    }
+    setStepIndex(stepIndex + 1)
+  }, [stepIndex])
 
   const back = useCallback(() => {
     setStepIndex((i) => Math.max(0, i - 1))

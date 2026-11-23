@@ -66,7 +66,7 @@ See [the full ADR](docs/adr/0006-self-upgrading-cron.md). The historical design 
 
 ### ADR-007: Browser-tracked admin tour
 
-`src/lib/tour/` and `TourOverlay` provide a continuous 16-step tour across the four admin routes. It starts once per browser and is replayable from the desktop sidebar/mobile help control. Seen state uses `inout-admin-tour-seen-v{N}`; `TOUR_VERSION` is currently 2. Shared PIN authentication has no per-admin account, so progress is browser-local.
+`src/lib/tour/` and `TourOverlay` provide a continuous 20-step tour across the five admin routes. It starts once per browser and is replayable from the desktop sidebar/mobile help control. Seen state uses `inout-admin-tour-seen-v{N}`; `TOUR_VERSION` is currently 4. Steps only point at things: every step advances with Next and none requires pressing a page control (the old click-to-continue QR step dead-ended on the Replace code button and was removed). The overlay keeps looking for a step's anchor after falling back to a centered card, and follows the anchor once it stops moving. Shared PIN authentication has no per-admin account, so progress is browser-local.
 
 ### ADR-008: Reproducible pnpm toolchain and package-provided skills
 

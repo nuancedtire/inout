@@ -1,19 +1,30 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { X, ArrowLeft, ArrowRight, MousePointerClick } from 'lucide-react'
+import { X, ArrowLeft, ArrowRight } from 'lucide-react'
 import { useTour } from '#/lib/tour/TourContext'
 import { Button } from './Button'
 import { SPRING_PANEL } from '#/lib/ease'
 
 const SPOTLIGHT_PADDING = 8
 const MAX_RESOLVE_ATTEMPTS = 90 // ~1.5s at 60fps
+const SETTLE_FRAMES = 4 // a moved target must hold still this long before the spotlight follows
+const BACKDROP = 'rgba(20,20,20,0.6)'
 
 type Rect = { top: number; left: number; width: number; height: number }
 
 function rectFromEl(el: HTMLElement): Rect {
   const r = el.getBoundingClientRect()
   return { top: r.top, left: r.left, width: r.width, height: r.height }
+}
+
+function sameRect(a: Rect, b: Rect) {
+  return (
+    Math.abs(a.top - b.top) < 0.5 &&
+    Math.abs(a.left - b.left) < 0.5 &&
+    Math.abs(a.width - b.width) < 0.5 &&
+    Math.abs(a.height - b.height) < 0.5
+  )
 }
 
 function resolveTarget(selectors: string[] | null): HTMLElement | null {
@@ -53,7 +64,13 @@ export function TourOverlay() {
   const cardRef = useRef<HTMLDivElement>(null)
   const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null)
 
-  // Resolve + track the current step's target element
+  // Resolve + track the current step's target element. One frame loop runs
+  // for the whole step: it finds the target (which may only appear once the
+  // page's data has loaded), scrolls it into view once, and then re-commits
+  // the spotlight whenever the target has moved and come to rest again —
+  // after the smooth scroll, a late layout shift, a resize or the admin
+  // scrolling the page. Only settled positions are committed, so the
+  // spotlight never chases a scroll frame by frame.
   useLayoutEffect(() => {
     if (!active || !step) {
       setRect(null)
@@ -68,33 +85,45 @@ export function TourOverlay() {
 
     setResolved(false)
     let cancelled = false
-    let attempts = 0
-    let scrolled = false
+    let frames = 0
+    let tracked: HTMLElement | null = null
+    let last: Rect | null = null
+    let stableFrames = 0
     let raf = 0
 
     const tick = () => {
       if (cancelled) return
+      frames += 1
       const el = resolveTarget(step.target)
       if (el) {
-        // Show immediately at the best-known position, then correct once the
-        // scroll settles — avoids a blank gap while scrolling into view.
-        setRect(rectFromEl(el))
-        setResolved(true)
-        if (!scrolled) {
-          scrolled = true
+        const r = rectFromEl(el)
+        if (tracked !== el) {
+          // Show immediately at the best-known position, then correct once
+          // the scroll settles — avoids a blank gap while scrolling into view.
+          tracked = el
+          last = r
+          stableFrames = 0
+          setRect(r)
+          setResolved(true)
           el.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' })
-          window.setTimeout(() => {
-            if (!cancelled) setRect(rectFromEl(el))
-          }, reduceMotion ? 0 : 350)
+        } else if (last && sameRect(last, r)) {
+          stableFrames += 1
+          if (stableFrames === SETTLE_FRAMES) setRect((prev) => (prev && sameRect(prev, r) ? prev : r))
+        } else {
+          last = r
+          stableFrames = 0
         }
-        return
-      }
-      attempts += 1
-      if (attempts >= MAX_RESOLVE_ATTEMPTS) {
-        // Couldn't find it (e.g. slow data load) — fall back to a centered card rather than getting stuck
+      } else if (tracked) {
+        // The target went away (e.g. the page fell back to a skeleton).
+        tracked = null
+        last = null
+        setRect(null)
+      } else if (frames === MAX_RESOLVE_ATTEMPTS) {
+        // Not there yet (e.g. slow data load) — show a centered card rather
+        // than getting stuck. The loop keeps looking, so the spotlight still
+        // appears if the target turns up later.
         setRect(null)
         setResolved(true)
-        return
       }
       raf = requestAnimationFrame(tick)
     }
@@ -105,32 +134,6 @@ export function TourOverlay() {
       cancelAnimationFrame(raf)
     }
   }, [active, step, reduceMotion])
-
-  // For requireClick steps, advance as soon as the real target is clicked —
-  // the target stays genuinely reachable through the overlay (see the mask
-  // render below), so this fires alongside the page's own click handler.
-  useEffect(() => {
-    if (!active || !step?.requireClick || !resolved) return
-    const el = resolveTarget(step.target)
-    if (!el) return
-    const onTargetClick = () => next()
-    el.addEventListener('click', onTargetClick)
-    return () => el.removeEventListener('click', onTargetClick)
-  }, [active, step, resolved, next])
-
-  // Recompute on resize while a target is active. Scroll isn't tracked here:
-  // the backdrop blocks background interaction, and our own scrollIntoView
-  // call (above) already fires scroll events — listening for those too would
-  // fight itself, chasing a moving target on every intermediate scroll frame.
-  useEffect(() => {
-    if (!active || !step?.target) return
-    const onResize = () => {
-      const el = resolveTarget(step.target)
-      if (el) setRect(rectFromEl(el))
-    }
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [active, step])
 
   // Position the tooltip card once we know its size. Computed in plain
   // pixels (not CSS transform) because Motion's own transform animation on
@@ -170,7 +173,10 @@ export function TourOverlay() {
         if (focusable.length === 0) return
         const first = focusable[0]
         const last = focusable[focusable.length - 1]
-        if (e.shiftKey && document.activeElement === first) {
+        if (!card.contains(document.activeElement) || document.activeElement === card) {
+          e.preventDefault()
+          ;(e.shiftKey ? last : first).focus()
+        } else if (e.shiftKey && document.activeElement === first) {
           e.preventDefault()
           last.focus()
         } else if (!e.shiftKey && document.activeElement === last) {
@@ -183,54 +189,23 @@ export function TourOverlay() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [active, resolved, step, skip])
 
-  if (!active || !step || !resolved) return null
+  if (!active || !step) return null
+
+  // Still looking for the target (usually one frame; longer right after a
+  // page change): keep the page dimmed and blocked rather than flashing it.
+  if (!resolved) {
+    return createPortal(
+      <div className="fixed inset-0 z-[200]" role="presentation" style={{ background: BACKDROP }} onClick={(e) => e.stopPropagation()} />,
+      document.body,
+    )
+  }
 
   const isLast = stepIndex === totalSteps - 1
-  const clickThrough = !!step.requireClick && !!rect
-  const maskColor = 'rgba(20,20,20,0.6)'
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[200]"
-      onClick={(e) => e.stopPropagation()}
-      role="presentation"
-      style={{ pointerEvents: clickThrough ? 'none' : 'auto' }}
-    >
+    <div className="fixed inset-0 z-[200]" onClick={(e) => e.stopPropagation()} role="presentation">
       {/* Backdrop + spotlight cutout */}
-      {clickThrough && rect ? (
-        // requireClick steps: 4 masking strips leave a genuine gap over the
-        // target so the real click reaches the real element underneath,
-        // instead of the usual single click-blocking overlay. The wrapper
-        // above is pointer-events:none (inherited by these too, since
-        // pointer-events inherits) so each strip must opt back into 'auto'.
-        <>
-          {(() => {
-            const holeTop = rect.top - SPOTLIGHT_PADDING
-            const holeLeft = rect.left - SPOTLIGHT_PADDING
-            const holeRight = rect.left + rect.width + SPOTLIGHT_PADDING
-            const holeBottom = rect.top + rect.height + SPOTLIGHT_PADDING
-            return (
-              <>
-                <div className="fixed" style={{ top: 0, left: 0, width: '100%', height: Math.max(0, holeTop), background: maskColor, pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
-                <div className="fixed" style={{ top: holeBottom, left: 0, width: '100%', height: `calc(100vh - ${holeBottom}px)`, background: maskColor, pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
-                <div className="fixed" style={{ top: holeTop, left: 0, width: Math.max(0, holeLeft), height: holeBottom - holeTop, background: maskColor, pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
-                <div className="fixed" style={{ top: holeTop, left: holeRight, width: `calc(100vw - ${holeRight}px)`, height: holeBottom - holeTop, background: maskColor, pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
-              </>
-            )
-          })()}
-          <motion.div
-            className={`fixed rounded-card ring-2 ring-primary-500 pointer-events-none ${reduceMotion ? '' : 'animate-pulse'}`}
-            initial={false}
-            animate={{
-              top: rect.top - SPOTLIGHT_PADDING,
-              left: rect.left - SPOTLIGHT_PADDING,
-              width: rect.width + SPOTLIGHT_PADDING * 2,
-              height: rect.height + SPOTLIGHT_PADDING * 2,
-            }}
-            transition={reduceMotion ? { duration: 0 } : SPRING_PANEL}
-          />
-        </>
-      ) : rect ? (
+      {rect ? (
         <motion.div
           className="fixed rounded-card ring-2 ring-primary-500"
           initial={false}
@@ -241,10 +216,10 @@ export function TourOverlay() {
             height: rect.height + SPOTLIGHT_PADDING * 2,
           }}
           transition={reduceMotion ? { duration: 0 } : SPRING_PANEL}
-          style={{ boxShadow: '0 0 0 9999px rgba(20,20,20,0.6)' }}
+          style={{ boxShadow: `0 0 0 9999px ${BACKDROP}` }}
         />
       ) : (
-        <div className="fixed inset-0 bg-[rgba(20,20,20,0.6)]" />
+        <div className="fixed inset-0" style={{ background: BACKDROP }} />
       )}
 
       {/* Tooltip / centered card */}
@@ -268,7 +243,6 @@ export function TourOverlay() {
             left: cardPos?.left ?? -9999,
             visibility: cardPos ? 'visible' : 'hidden',
             transition: reduceMotion ? undefined : 'top 300ms ease, left 300ms ease',
-            pointerEvents: 'auto',
           }}
         >
           <div className="flex items-start justify-between gap-3 mb-3">
@@ -314,17 +288,10 @@ export function TourOverlay() {
               >
                 Skip
               </button>
-              {step.requireClick ? (
-                <span className="flex items-center gap-1.5 px-2 text-sm font-semibold text-accent-accessible">
-                  <MousePointerClick className="size-4" aria-hidden="true" />
-                  Click above to continue
-                </span>
-              ) : (
-                <Button size="sm" onClick={next}>
-                  {isLast ? 'Finish' : 'Next'}
-                  {!isLast && <ArrowRight className="size-4" aria-hidden="true" />}
-                </Button>
-              )}
+              <Button size="sm" onClick={next}>
+                {isLast ? 'Finish' : 'Next'}
+                {!isLast && <ArrowRight className="size-4" aria-hidden="true" />}
+              </Button>
             </div>
           </div>
         </motion.div>

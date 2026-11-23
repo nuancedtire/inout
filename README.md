@@ -106,7 +106,7 @@ Auto-checkout is an **admin-triggered action**, not a background scheduler. It c
 
 Test the cron locally: with `pnpm run dev`, open `http://localhost:5173/cdn-cgi/handler/scheduled?cron=*/5+*+*+*+*`; with the built Worker, run `pnpm exec wrangler dev --local --test-scheduled` and request the same path on port 8787. The Worker logs a JSON `checkout_reminders` summary.
 
-Dashboard data loads on navigation/date changes; there is no live polling. Reload or navigate to refresh after another device makes changes. The first admin login offers a 16-step tour; replay it from the sidebar or mobile help button.
+Dashboard data loads on navigation/date changes; there is no live polling. Reload or navigate to refresh after another device makes changes. The first admin login offers a 20-step tour; replay it from the sidebar or mobile help button.
 
 ## Rota formats
 

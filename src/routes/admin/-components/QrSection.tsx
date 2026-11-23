@@ -73,7 +73,7 @@ export function QrSection({
           </div>
         )}
         {error ? <p role="alert" className="text-sm text-danger-700">{error}</p> : null}
-        <Button onClick={askReplace} variant="secondary" disabled={!code} data-tour="qr-generate-button">
+        <Button onClick={askReplace} variant="secondary" disabled={!code}>
           <RefreshCw className="size-4" aria-hidden="true" />
           Replace code
         </Button>

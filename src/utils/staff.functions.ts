@@ -21,6 +21,7 @@ import {
   setStaffActive,
   type RotaLinkResult,
   type StaffListRow,
+  type UnlinkedEntry,
 } from '#/db/staff'
 import { requireAdmin } from './auth'
 import { logAudit } from './audit'
@@ -35,7 +36,7 @@ import {
   validateSetStaffActive,
 } from './validation'
 
-export type { EnrolmentRow, StaffListRow, RotaLinkResult }
+export type { EnrolmentRow, StaffListRow, RotaLinkResult, UnlinkedEntry }
 
 export type SiteSettingsView = {
   latitude: number | null
@@ -86,17 +87,24 @@ export const adminSetStaffActive = createServerFn({ method: 'POST' })
 
 export const adminLinkRosterEntry = createServerFn({ method: 'POST' })
   .validator(validateLinkRosterEntry)
-  .handler(async ({ data }): Promise<{ ok: true }> => {
+  .handler(async ({ data }): Promise<{ ok: true; aliasSaved: boolean; alsoLinked: number }> => {
     await requireAdmin({ token: data.authToken })
-    await linkRosterEntry(await getDb(), data.entryId, data.staffId)
-    await logAudit(data.staffId === null ? 'roster_entry_unlinked' : 'roster_entry_linked', { entryId: data.entryId, staffId: data.staffId }, 'admin')
-    return { ok: true }
+    const result = await linkRosterEntry(await getDb(), data.entryId, data.staffId)
+    await logAudit(
+      data.staffId === null ? 'roster_entry_unlinked' : 'roster_entry_linked',
+      { entryId: data.entryId, staffId: data.staffId, ...(result.aliasSaved ? { aliasSaved: true, alsoLinked: result.alsoLinked } : {}) },
+      'admin',
+    )
+    return { ok: true, ...result }
   })
 
-/** Roster entries on a date that are not linked to a staff record, with the reason. */
+/**
+ * Roster entries on a date that are not linked to a staff record, with the reason and any
+ * suggested profiles. Entries that now match exactly one profile are linked first.
+ */
 export const adminListUnlinkedEntries = createServerFn({ method: 'POST' })
   .validator(validateAdminDate)
-  .handler(async ({ data }): Promise<{ unlinked: RotaLinkResult['unlinked'] }> => {
+  .handler(async ({ data }): Promise<{ unlinked: UnlinkedEntry[] }> => {
     await requireAdmin({ token: data.authToken })
     return { unlinked: await listUnlinkedEntries(await getDb(), data.date) }
   })

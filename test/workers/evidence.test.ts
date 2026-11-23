@@ -2,8 +2,8 @@ import { env } from 'cloudflare:workers'
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '#/db/client'
-import { auditLog, rosterEntries, rotas, sessions, siteSettings, staff } from '#/db/schema'
-import { todayDate } from '#/utils/dateTime'
+import { auditLog, rosterEntries, rotas, sessions, siteSettings, staff, staffAliases } from '#/db/schema'
+import { addDays, todayDate } from '#/utils/dateTime'
 import { buildAttendanceCsv } from '#/utils/exportCsv'
 import type { LocationReading } from '#/utils/location'
 import { normalizeName } from '#/utils/staffNames'
@@ -348,6 +348,71 @@ describe('stable staff records and rota linking', () => {
     const list = await adminListStaff({ data: { authToken } })
     expect(list.staff.find((s) => s.id === bob.id)).toMatchObject({ active: false, credentials: { pending: 0, approved: 0 } })
     expect(list.staff.find((s) => s.id === alice.id)).toMatchObject({ active: true, lastSeenAt: null })
+  })
+
+  it('ignores titles on upload, suggests look-alikes and remembers hand-made links as aliases', async () => {
+    const db = await getDb()
+    const mk = (name: string, role: string | null = null) => ({ name, normalizedName: normalizeName(name), role })
+    const [john, sarah] = await db.insert(staff).values([mk('John Smith', 'Consultant'), mk('Sarah Johnson'), mk('Priya Patel')]).returning()
+    const { uploadRota } = await import('#/utils/rotas.functions')
+    const { adminLinkRosterEntry, adminListUnlinkedEntries } = await import('#/utils/staff.functions')
+    const authToken = await adminToken()
+    const upload = (date: string, csv: string) =>
+      uploadRota({ data: { authToken, date, fileBase64: btoa(`Name,Role,Shift\n${csv}`), fileName: 'rota.csv' } })
+
+    const first = await upload(todayDate(), 'Dr John Smith,Consultant,0800-1600\nJohnson S,Reg,0800-1600\n\"Patel, Priya (locum)\",SHO,0800-1600\nNew Person,SHO,0800-1600\n')
+    expect(first.linked).toBe(2)
+    expect(first.unlinked.map(({ name, reason, candidates }) => [name, reason, candidates.map((c) => c.name)])).toEqual([
+      ['Johnson S', 'suggested', ['Sarah Johnson']],
+      ['New Person', 'no_match', []],
+    ])
+
+    // Confirming the suggestion remembers the spelling for this profile.
+    const suggestion = first.unlinked.find((u) => u.name === 'Johnson S')!
+    const linked = await adminLinkRosterEntry({ data: { authToken, entryId: suggestion.entryId, staffId: sarah.id } })
+    expect(linked).toMatchObject({ aliasSaved: true })
+    expect(await db.select({ staffId: staffAliases.staffId, nameKey: staffAliases.nameKey }).from(staffAliases)).toEqual([
+      { staffId: sarah.id, nameKey: 'johnson s' },
+    ])
+
+    // Tomorrow's upload links the remembered spelling and the titled name with no prompts.
+    const tomorrow = await upload(addDays(todayDate(), 1), 'Johnson S,Reg,0800-1600\nDR JOHN SMITH,Consultant,0800-1600\n')
+    expect(tomorrow).toMatchObject({ linked: 2, unlinked: [] })
+
+    // Two spellings resolving to one profile on the same rota are ambiguous, never a crash.
+    const twice = await upload(addDays(todayDate(), 2), 'Johnson S,Reg,0800-1200\nSarah Johnson,Reg,1300-1800\n')
+    expect(twice.linked).toBe(0)
+    expect(twice.unlinked.map((u) => [u.name, u.reason, u.candidates.map((c) => c.id)])).toEqual([
+      ['Johnson S', 'ambiguous', [sarah.id]],
+      ['Sarah Johnson', 'ambiguous', [sarah.id]],
+    ])
+
+    // Undoing a hand-made link forgets the alias it relied on.
+    await adminLinkRosterEntry({ data: { authToken, entryId: suggestion.entryId, staffId: null } })
+    expect(await db.select().from(staffAliases)).toEqual([])
+    const { unlinked } = await adminListUnlinkedEntries({ data: { authToken, date: todayDate() } })
+    expect(unlinked.find((u) => u.name === 'Johnson S')).toMatchObject({ reason: 'suggested' })
+    expect(john.id).toBeGreaterThan(0)
+  })
+
+  it('a profile created at enrolment links that person on rotas already uploaded', async () => {
+    const db = await getDb()
+    const { rota } = await seedTodayRota()
+    const [later] = await db.insert(rotas).values({ date: addDays(todayDate(), 3), token: 'LLLLLLLLLLLL' }).returning()
+    const [past] = await db.insert(rotas).values({ date: '2020-01-01', token: 'PPPPPPPPPPPP' }).returning()
+    const [rotaRow] = await db.insert(rosterEntries).values([
+      { rotaId: rota.id, name: 'Dr Lee Example' },
+      { rotaId: later.id, name: 'Lee Example (bank)' },
+      { rotaId: past.id, name: 'Lee Example' },
+    ]).returning()
+    // A locum enters a plain name; their titled rota row today is adopted rather than duplicated.
+    const { finished } = await enrol({ name: 'Lee Example', role: 'Locum' })
+    const rows = await db.select({ rotaId: rosterEntries.rotaId, staffId: rosterEntries.staffId }).from(rosterEntries)
+    expect(rows).toHaveLength(3)
+    expect(rows.find((r) => r.rotaId === rota.id)?.staffId).toBe(finished.staff.id)
+    expect(rows.find((r) => r.rotaId === later.id)?.staffId).toBe(finished.staff.id)
+    expect(rows.find((r) => r.rotaId === past.id)?.staffId).toBeNull()
+    expect(rotaRow.id).toBeGreaterThan(0)
   })
 
   it('enrolment from a rota entry reuses the matching staff record across days', async () => {

@@ -151,9 +151,11 @@ export const uploadRota = createServerFn({ method: 'POST' })
     // Upsert rota (keeps deterministic token)
     const rota = await ensureRotaForDate(db, data.date)
 
-    // Link to stable staff records only on an exact, unambiguous normalised-name match among
-    // active staff. Links are written with the entries in the same atomic batch.
-    const { staffIds, reasons } = await planRotaLinks(db, parsed.map((entry) => entry.name))
+    // Link to stable staff records only when the name (titles and "(locum)"-style notes ignored)
+    // or a remembered alias matches exactly one active profile. Similar names are only suggested.
+    // Links are written with the entries in the same atomic batch.
+    const plan = await planRotaLinks(db, parsed.map((entry) => entry.name))
+    const { staffIds } = plan
     const rows = parsed.map((entry, i) => ({
       rotaId: rota.id,
       name: entry.name,
@@ -165,7 +167,7 @@ export const uploadRota = createServerFn({ method: 'POST' })
     }))
 
     await replaceRotaEntries(db, rota.id, rows)
-    const links = await summariseRotaLinks(db, rota.id, reasons)
+    const links = await summariseRotaLinks(db, rota.id, plan)
 
     await logAudit('rota_uploaded', { date: data.date, staffCount: parsed.length, linked: links.linked, unlinked: links.unlinked.length }, 'admin')
 

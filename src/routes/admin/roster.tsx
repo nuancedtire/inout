@@ -69,6 +69,7 @@ function AdminRoster() {
         count: result.count,
         linked: result.linked,
         unlinked: result.unlinked.length,
+        toCheck: result.unlinked.filter((u) => u.reason !== 'no_match').length,
         unparseableShifts: result.unparseableShifts,
         date: viewDate,
       })
@@ -183,14 +184,30 @@ function AdminRoster() {
   const handleLink = async (entryId: number, staffId: number) => {
     setLinkingId(entryId)
     try {
-      await adminLinkRosterEntry({ data: { entryId, staffId, authToken } })
-      const who = staff.find((s) => s.id === staffId)
-      ok(`Linked to ${who?.name ?? 'the staff profile'}.`)
+      const result = await adminLinkRosterEntry({ data: { entryId, staffId, authToken } })
+      const who = staff.find((s) => s.id === staffId)?.name ?? 'the staff profile'
+      const others = result.alsoLinked ? ` ${result.alsoLinked} more ${result.alsoLinked === 1 ? 'entry' : 'entries'} on upcoming rotas linked too.` : ''
+      ok(result.aliasSaved ? `Linked to ${who}. InOut will remember this spelling.${others}` : `Linked to ${who}.`)
       await refresh()
     } catch (e) {
       fail(e, 'Could not link this name.')
     } finally {
       setLinkingId(null)
+    }
+  }
+
+  const handleConfirmAll = async (links: { entryId: number; staffId: number }[]) => {
+    let done = 0
+    try {
+      for (const link of links) {
+        await adminLinkRosterEntry({ data: { ...link, authToken } })
+        done++
+      }
+      ok(`Linked ${done} ${done === 1 ? 'name' : 'names'}. InOut will remember these spellings.`)
+    } catch (e) {
+      fail(e, `Linked ${done} of ${links.length}. One could not be linked.`)
+    } finally {
+      await refresh()
     }
   }
 
@@ -231,7 +248,7 @@ function AdminRoster() {
         <QrSection onLoad={loadQr} onReplace={replaceQr} />
       </div>
 
-      <LinkStaffPanel key={viewDate} unlinked={unlinked} staff={staff} onLink={handleLink} linkingId={linkingId} />
+      <LinkStaffPanel key={viewDate} unlinked={unlinked} staff={staff} onLink={handleLink} onConfirmAll={handleConfirmAll} linkingId={linkingId} />
 
       <RosterSection
         entries={data.entries}

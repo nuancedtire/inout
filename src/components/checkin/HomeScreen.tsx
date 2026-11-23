@@ -1,14 +1,15 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { DropdownMenu } from 'radix-ui'
 import { Link } from '@tanstack/react-router'
-import { BellRing, ChevronDown, ChevronRight, History, LogOut, MapPin, UserRoundX, UserRound } from 'lucide-react'
+import { BellRing, ChevronDown, ChevronRight, History, LogOut, MapPin, UserRoundX } from 'lucide-react'
 import { SlideToAction } from '#/components/SlideToAction'
 import { formatTime } from '#/utils/dateTime'
 import { unlockCopy, type Platform } from '#/lib/platform'
-import { firstName, formatElapsed, greeting } from './copy'
+import { capitalise, firstName, formatElapsed } from './copy'
+import { londonMinutes, shiftStatus, type ShiftTone } from './shiftStatus'
 import { UnlockIcon } from './Illustrations'
 import { InstallCard } from './InstallCard'
-import { Avatar, Notice, ScreenTitle } from './ui'
+import { Avatar, Notice } from './ui'
 
 export type HomeStatus = { checkedIn: boolean; checkInAt: string | null } | null
 
@@ -109,8 +110,67 @@ function useNow(intervalMs: number) {
   return now
 }
 
+/** Today's roster entry times; `null` = not on today's rota; `undefined` = not known yet. */
+export type HomeShift = { start: string | null; end: string | null } | null | undefined
+
+const PILL: Record<ShiftTone, string> = {
+  neutral: 'bg-canvas text-ink ring-1 ring-inset ring-hairline',
+  success: 'bg-success-50 text-success-800',
+  warning: 'bg-warning-100 text-warning-800',
+}
+
+/**
+ * The top of Home: today's date, the shift times as the main line, and how the shift relates to
+ * now. The heading takes focus when Home appears (as `ScreenTitle` does elsewhere).
+ */
+function ShiftHeader({ shift, inNow, now }: { shift: HomeShift; inNow: boolean; now: number }) {
+  const ref = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    ref.current?.focus({ preventScroll: true })
+  }, [])
+  const date = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }).format(now)
+  const st = shift ? shiftStatus({ start: shift.start, end: shift.end, checkedIn: inNow, nowMinutes: londonMinutes(now) }) : null
+  const heading = 'text-[1.875rem] font-semibold leading-tight tracking-[-0.035em] text-ink tabular-nums outline-none min-[380px]:text-[2rem]'
+
+  return (
+    <div className="min-w-0">
+      <p className="text-sm font-medium text-muted">
+        {date}{st?.times ? <span aria-hidden="true"> · your shift</span> : null}
+      </p>
+      <div className="mt-0.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        {/* One heading element throughout, so the focus it takes on arrival survives loading. */}
+        <h1 ref={ref} tabIndex={-1} className={`${heading} ${st?.times ? 'whitespace-nowrap' : ''}`}>
+          {shift === undefined ? (
+            <>
+              <span className="sr-only">Today</span>
+              <span aria-hidden="true" className="inline-block h-8 w-44 animate-pulse rounded-inner bg-surface-strong align-middle motion-reduce:animate-none" />
+            </>
+          ) : st?.times ? (
+            <>
+              <span className="sr-only">Your shift: </span>
+              {st.times.replace('–', '\u2009–\u2009')}
+            </>
+          ) : shift === null ? 'Not on today’s rota' : 'On today’s rota'}
+        </h1>
+        {st?.label ? (
+          <span className={`inline-flex h-7 shrink-0 items-center rounded-full px-3 text-[0.8125rem] font-semibold tabular-nums ${PILL[st.tone]}`}>
+            {st.label}
+          </span>
+        ) : null}
+      </div>
+      {shift === null ? (
+        <p className="mt-1 text-[0.9375rem] text-muted">{inNow ? 'Added for today.' : 'Checking in adds you for today.'}</p>
+      ) : null}
+      {st?.progress != null ? (
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-neutral-200" aria-hidden="true">
+          <div className="h-full rounded-full bg-success-accessible transition-[width] duration-700" style={{ width: `${Math.round(st.progress * 100)}%` }} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function HomeScreen({
-  name,
   status,
   shift,
   platform,
@@ -125,9 +185,8 @@ export function HomeScreen({
   reminder,
   installReminders = false,
 }: {
-  name: string
   status: HomeStatus
-  shift: string | null
+  shift: HomeShift
   platform: Platform
   locationCheck: boolean
   /** false in "without Face ID" mode. */
@@ -136,8 +195,8 @@ export function HomeScreen({
   onArm: () => void
   onDisarm: () => void
   onSlide: (mode: 'in' | 'out') => void
-  /** Live "are you in the department?" panel, shown above the status card. */
-  location?: ReactNode
+  /** Live "are you in the department?" map and result, at the top of the main card. */
+  location?: (opts: { compact: boolean }) => ReactNode
   footer?: ReactNode
   /** Shift-end reminder card (opt-in, blocked help or confirmation). */
   reminder?: ReactNode
@@ -148,49 +207,39 @@ export function HomeScreen({
   const unlock = unlockCopy(platform)
   const inNow = !!status?.checkedIn
   const mode = inNow ? 'out' : 'in'
-  const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Europe/London' }).format(now))
+  const loc = location?.({ compact: inNow })
 
-  const split = !!location
   return (
-    <div className={`ck-screen flex flex-1 flex-col pt-3 ${split ? 'ck-split gap-x-8 min-[640px]:grid min-[640px]:grid-cols-2 min-[640px]:content-start min-[640px]:items-start' : ''}`}>
-      <div className={split ? 'min-[640px]:col-span-2' : ''}>
-        <ScreenTitle sub={shift ? `Your shift today · ${shift}` : new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }).format(now)}>
-          {greeting(hour)}, {firstName(name)}
-        </ScreenTitle>
-        {notice ? <div className="mt-5">{notice}</div> : null}
-      </div>
+    <div className="ck-screen ck-home flex flex-1 flex-col pt-2">
+      <ShiftHeader shift={shift} inNow={inNow} now={now} />
+      {notice ? <div className="mt-5">{notice}</div> : null}
 
-      {location ? <div className="mt-5 min-[640px]:mt-6">{location}</div> : null}
-
-      <div className="ck-seg-end flex flex-col">
-      <section aria-labelledby="ck-status" className="mt-6 rounded-card bg-canvas p-5 shadow-card">
-        {status === null ? (
-          <div className="animate-pulse" aria-hidden="true">
-            <div className="h-6 w-28 rounded-full bg-surface-strong" />
-            <div className="mt-4 h-10 w-44 rounded-inner bg-surface-strong" />
-            <div className="mt-6 h-16 rounded-full bg-surface-strong" />
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-between gap-3">
-              <span
-                className={`inline-flex h-7 items-center gap-2 rounded-full px-3 text-sm font-semibold ${inNow ? 'bg-success-50 text-success-800' : 'bg-surface-strong text-body'}`}
-              >
-                <span className={`size-2 rounded-full ${inNow ? 'ck-live bg-success-accessible text-success-accessible' : 'bg-neutral-500'}`} aria-hidden="true" />
-                {inNow ? 'On shift' : 'Not checked in'}
-              </span>
-              {inNow && status.checkInAt ? (
-                <span className="text-sm font-medium tabular-nums text-muted">since {formatTime(status.checkInAt)}</span>
-              ) : null}
+      <section
+        aria-labelledby="ck-status"
+        className={`ck-main mt-5 overflow-hidden rounded-card bg-canvas shadow-card ${loc && !inNow ? 'min-[640px]:grid min-[640px]:grid-cols-2' : ''}`}
+      >
+        {loc ? <div className="min-w-0 min-[640px]:border-r min-[640px]:border-hairline-soft">{loc}</div> : null}
+        <div className="flex min-w-0 flex-col justify-center p-5 min-[640px]:p-6">
+          {status === null ? (
+            <div className="animate-pulse motion-reduce:animate-none" aria-hidden="true">
+              <div className="h-5 w-32 rounded-full bg-surface-strong" />
+              <div className="mt-4 h-16 rounded-full bg-surface-strong" />
             </div>
-            <h2 id="ck-status" className="mt-4 text-[2.5rem] font-semibold leading-none tracking-[-0.035em] text-ink tabular-nums">
-              {inNow && status.checkInAt ? formatElapsed(status.checkInAt, now) : 'You’re out'}
-            </h2>
-            <p className="mt-2 text-[0.9375rem] text-muted">
-              {inNow ? 'You’re checked in. Slide when you leave.' : 'Slide when you arrive to start your shift.'}
-            </p>
-
-            <div className="mt-6">
+          ) : (
+            <>
+              {inNow && status.checkInAt ? (
+                <div className="mb-5">
+                  <p className="flex items-center gap-2 text-sm font-medium text-muted">
+                    <span className="ck-live size-2 rounded-full bg-success-accessible text-success-accessible" aria-hidden="true" />
+                    On shift since {formatTime(status.checkInAt)}
+                  </p>
+                  <h2 id="ck-status" className="mt-1.5 text-[2.75rem] font-semibold leading-none tracking-[-0.045em] text-ink tabular-nums">
+                    <span className="sr-only">On shift for </span>{formatElapsed(status.checkInAt, now)}
+                  </h2>
+                </div>
+              ) : (
+                <h2 id="ck-status" className="sr-only">{inNow ? 'On shift' : 'Not checked in'}</h2>
+              )}
               <SlideToAction
                 key={mode}
                 mode={mode}
@@ -199,36 +248,28 @@ export function HomeScreen({
                 onComplete={() => onSlide(mode)}
                 actionLabel={inNow ? `Check out${viaFaceId ? ` with ${unlock.name}` : ''}` : `Check in${viaFaceId ? ` with ${unlock.name}` : ''}`}
               />
-            </div>
-            <p className="mt-3 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-center text-[0.8125rem] text-muted">
-              {viaFaceId ? (
-                <>
-                  <UnlockIcon platform={platform} className="size-3.5" />
-                  Confirms with {unlock.name}
-                  {locationCheck ? <><span aria-hidden="true">·</span><MapPin className="size-3.5" aria-hidden="true" />checks location</> : null}
-                </>
-              ) : (
-                <>
-                  <UserRound className="size-3.5" aria-hidden="true" />
-                  Without {unlock.name}
-                  {locationCheck ? <><span aria-hidden="true">·</span><MapPin className="size-3.5" aria-hidden="true" />checks location</> : null}
-                </>
-              )}
-            </p>
-          </>
-        )}
+              {/* Without Face ID, the notice below says so; the line only mentions location. */}
+              {viaFaceId || locationCheck ? (
+                <p className="mt-3 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-center text-[0.8125rem] text-muted">
+                  {viaFaceId ? <><UnlockIcon platform={platform} className="size-3.5" />{capitalise(unlock.name)}</> : null}
+                  {viaFaceId && locationCheck ? <span aria-hidden="true">·</span> : null}
+                  {locationCheck ? <><MapPin className="size-3.5" aria-hidden="true" />location check</> : null}
+                </p>
+              ) : null}
+            </>
+          )}
+        </div>
       </section>
 
-      <div className="mt-4 flex flex-col gap-4 pb-2">
+      <div className="mt-4 flex flex-col gap-4 pb-2 min-[640px]:grid min-[640px]:grid-cols-2 min-[640px]:items-start">
         {!viaFaceId ? (
-          <Notice tone="warning" title={`Checking in without ${unlock.name}`}>
-            These check-ins are marked for the coordinator to look at. Set up {unlock.name} to skip that.
+          <Notice tone="warning" title={`Without ${unlock.name}`}>
+            These are marked for the coordinator. Set up {unlock.name} to skip that.
           </Notice>
         ) : null}
         {reminder}
         <InstallCard reminders={installReminders} />
         {footer}
-      </div>
       </div>
     </div>
   )

@@ -55,8 +55,8 @@ export function InstallCard({ autoOpen = false, reminders = false }: {
           </h2>
           <p className="text-sm leading-snug text-muted text-pretty">
             {reminders
-              ? 'iPhone only sends check-out reminders to the Home Screen app. Next shift, just open it and slide.'
-              : 'Next shift, just open it and slide — no scanning.'}
+              ? 'iPhone only sends reminders to the Home Screen app.'
+              : 'Next shift, open it and slide. No scanning.'}
           </p>
         </div>
       </div>

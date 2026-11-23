@@ -977,6 +977,11 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
     const id = fallbackMode ? fallbackEntry?.id : status?.rosterEntryId
     return id ? entries.find((e) => e.id === id) ?? null : null
   }, [entries, fallbackEntry, fallbackMode, status?.rosterEntryId])
+  // Face ID mode takes the times from the status: the entry may be missing from `entries` (added by
+  // checking in after the page loaded, or a night shift on yesterday's rota).
+  const myShift = !fallbackMode && status?.rosterEntryId
+    ? { start: status.shiftStart, end: status.shiftEnd }
+    : myEntry ? { start: myEntry.shiftStart, end: myEntry.shiftEnd } : null
   const dateLabel = rota
     ? new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${rota.date}T12:00:00Z`))
     : ''
@@ -1218,7 +1223,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
           onDone={() => setView({ name: 'home' })}
           // Right after setting up the phone, the Home Screen steps come first; reminders are offered on Home.
           reminder={rs.via === 'passkey' && rs.result?.action === 'check_in' && !rs.showInstall
-            ? <ReminderCard reminders={reminders} platform={platform} shiftEnd={myEntry?.shiftEnd?.slice(0, 5) ?? null} />
+            ? <ReminderCard reminders={reminders} platform={platform} shiftEnd={myShift?.end?.slice(0, 5) ?? null} />
             : null}
           installReminders={rs.via === 'passkey' && rs.result?.action === 'check_in' && reminders.needsInstall}
         />
@@ -1257,12 +1262,11 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
       body = (
         <HomeScreen
           status={homeStatus}
-          shift={myEntry
-            ? { start: myEntry.shiftStart, end: myEntry.shiftEnd }
-            : homeStatus === null
+          shift={myShift
+            ?? (homeStatus === null
               ? undefined
               // Face ID mode: the status says whether this person is on today's rota.
-              : !fallbackMode && status?.rosterEntryId === null ? null : { start: null, end: null }}
+              : !fallbackMode && status?.rosterEntryId === null ? null : { start: null, end: null })}
           platform={platform}
           locationCheck={locationCheck}
           viaFaceId={!fallbackMode}
@@ -1298,7 +1302,7 @@ export function CheckInFlow({ data, urlToken }: { data: RosterData; urlToken: st
             if (fallbackMode) runFallbackAction(action)
             else runPasskeyAction(action)
           }}
-          reminder={!fallbackMode ? <ReminderCard reminders={reminders} platform={platform} shiftEnd={myEntry?.shiftEnd?.slice(0, 5) ?? null} /> : null}
+          reminder={!fallbackMode ? <ReminderCard reminders={reminders} platform={platform} shiftEnd={myShift?.end?.slice(0, 5) ?? null} /> : null}
           installReminders={!fallbackMode && reminders.needsInstall}
         />
       )

@@ -150,7 +150,7 @@ function ShiftHeader({ shift, inNow, now }: { shift: HomeShift; inNow: boolean; 
               <span className="sr-only">Your shift: </span>
               {st.times.replace('–', '\u2009–\u2009')}
             </>
-          ) : shift === null ? 'Not on today’s rota' : 'On today’s rota'}
+          ) : shift === null ? 'Not on today’s rota' : 'No set times'}
         </h1>
         {st?.label ? (
           <span className={`inline-flex h-7 shrink-0 items-center rounded-full px-3 text-[0.8125rem] font-semibold tabular-nums ${PILL[st.tone]}`}>
@@ -160,6 +160,8 @@ function ShiftHeader({ shift, inNow, now }: { shift: HomeShift; inNow: boolean; 
       </div>
       {shift === null ? (
         <p className="mt-1 text-[0.9375rem] text-muted">{inNow ? 'Added for today.' : 'Checking in adds you for today.'}</p>
+      ) : shift && !st?.times ? (
+        <p className="mt-1 text-[0.9375rem] text-muted">You’re on today’s rota.</p>
       ) : null}
       {st?.progress != null ? (
         <div className="mt-3 h-1 overflow-hidden rounded-full bg-neutral-200" aria-hidden="true">

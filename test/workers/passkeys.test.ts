@@ -20,7 +20,7 @@ async function setStatus(credentialId: string, status: 'approved' | 'rejected' |
 describe('passkey enrolment (SimpleWebAuthn v14 under workerd)', () => {
   it('creates a pending credential linked to a stable staff record and today\'s entry', async () => {
     const { db, rota } = await seedTodayRota()
-    const [entry] = await db.insert(rosterEntries).values({ rotaId: rota.id, name: 'Alice Example', role: 'Nurse' }).returning()
+    const [entry] = await db.insert(rosterEntries).values({ rotaId: rota.id, name: 'Alice Example', role: 'Nurse', shiftStart: '08:00', shiftEnd: '20:30' }).returning()
 
     const { begun, finished, authenticator } = await enrol({ rosterEntryId: entry.id })
 
@@ -36,7 +36,8 @@ describe('passkey enrolment (SimpleWebAuthn v14 under workerd)', () => {
     expect(isoBase64URL.toUTF8String(begun.optionsJSON.user.id)).toBe(`inout-staff-${begun.staff.id}`)
 
     expect(finished).toMatchObject({ staff: { name: 'Alice Example', role: 'Nurse' }, credential: { id: authenticator.credentialId, status: 'pending' } })
-    expect(finished.status).toMatchObject({ checkedIn: false, rosterEntryId: entry.id })
+    // Home takes the shift times from the status, not from the page's list of today's entries.
+    expect(finished.status).toMatchObject({ checkedIn: false, rosterEntryId: entry.id, shiftStart: '08:00', shiftEnd: '20:30' })
     expect(finished.session).toBeUndefined()
     const [cred] = await db.select().from(staffCredentials)
     expect(cred).toMatchObject({ status: 'pending', staffId: begun.staff.id, counter: 0, label: 'iPhone', deviceType: 'multiDevice', backedUp: true })

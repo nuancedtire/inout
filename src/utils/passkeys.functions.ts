@@ -64,13 +64,19 @@ type Db = DrizzleD1Database<typeof schema>
 export type { StaffSummary, CreationOptionsJSON, RequestOptionsJSON }
 export type { CredentialStatus }
 
-/** `rosterEntryId` is null when the staff member has no entry on today's rota yet. */
+/**
+ * `rosterEntryId` is null when the staff member has no entry on today's rota yet. `shiftStart` and
+ * `shiftEnd` come from that entry (which may be yesterday's for a night shift), so Home shows the
+ * shift even when the entry is not in the page's list of today's entries.
+ */
 export type StaffStatus = {
   checkedIn: boolean
   sessionId: number | null
   checkInAt: string | null
   hasUndoableAction: boolean
   rosterEntryId: number | null
+  shiftStart: string | null
+  shiftEnd: string | null
 }
 
 /** Evidence for the action just recorded (this end only, not the whole session). */
@@ -101,10 +107,18 @@ async function requireTodayRota(db: Db, token: string) {
 async function statusForStaff(db: Db, rotaId: number, staffId: number): Promise<StaffStatus> {
   // A night shift that began on yesterday's rota is still "in" after midnight.
   const entry = await findRecentEntryForStaff(db, staffId, { openOnly: true })
-    ?? await db.select({ id: rosterEntries.id }).from(rosterEntries)
+    ?? await db.select({ id: rosterEntries.id, shiftStart: rosterEntries.shiftStart, shiftEnd: rosterEntries.shiftEnd })
+      .from(rosterEntries)
       .where(and(eq(rosterEntries.rotaId, rotaId), eq(rosterEntries.staffId, staffId))).get()
-  if (!entry) return { checkedIn: false, sessionId: null, checkInAt: null, hasUndoableAction: false, rosterEntryId: null }
-  return { ...(await getEntryStatus(db, entry.id)), rosterEntryId: entry.id }
+  if (!entry) {
+    return { checkedIn: false, sessionId: null, checkInAt: null, hasUndoableAction: false, rosterEntryId: null, shiftStart: null, shiftEnd: null }
+  }
+  return {
+    ...(await getEntryStatus(db, entry.id)),
+    rosterEntryId: entry.id,
+    shiftStart: entry.shiftStart ?? null,
+    shiftEnd: entry.shiftEnd ?? null,
+  }
 }
 
 function actionResult(outcome: AttendanceOutcome, identity: Identity, location: LocationOutcome): ActionResult {

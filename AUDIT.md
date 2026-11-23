@@ -6,6 +6,7 @@
 - **One card:** the location map, its result and the slider share one card. The map chip carries the result, a short note appears only when there is something to do, and "check again" sits on the map. On shift, an in-the-department result folds to one line. Notes say "check out" once someone is checked in.
 - **Slider:** red brand handle, steady label (the shimmer that hid letters is gone).
 - **Map:** staff maps show grey tiles so only the area and the person's dot carry colour, without Leaflet's credit (OpenStreetMap's stays). Tiles still come from `tile.openstreetmap.org`; moving staff maps to a self-hosted Protomaps extract (OSM tile policy) remains a follow-up.
+- **Shift times from the status:** `getStaffStatus` (and the enrol/action results) now carry the entry's `shiftStart`/`shiftEnd`. Home previously looked the entry up in the page's list of today's entries, so it showed "On today's rota" without times when the entry was missing from that list (a night shift on yesterday's rota, or an entry added after the page loaded). An entry with no times reads "No set times".
 - **Fixed:** `AreaMap` looped ("Maximum update depth exceeded") whenever a staff position was off the map, because the default `readings` array was new on every render. `LocationStatus` now restarts its automatic check after a remount.
 - Verified in the browser at 390×844, 375×667, 344×882 (folded), 884×1104 (unfolded), 820×1180 and 844×390 across checking, inside, outside, blocked, approximate, no area, not on rota, without Face ID, on shift and overrun states.
 
